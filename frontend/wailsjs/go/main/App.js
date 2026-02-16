@@ -6,16 +6,16 @@ export function ConnectDB(arg1) {
   return window['go']['main']['App']['ConnectDB'](arg1);
 }
 
-export function DisconnectDB() {
-  return window['go']['main']['App']['DisconnectDB']();
+export function DisconnectDB(arg1) {
+  return window['go']['main']['App']['DisconnectDB'](arg1);
 }
 
-export function ExecuteQuery(arg1) {
-  return window['go']['main']['App']['ExecuteQuery'](arg1);
+export function ExecuteQuery(arg1, arg2) {
+  return window['go']['main']['App']['ExecuteQuery'](arg1, arg2);
 }
 
-export function GetTables() {
-  return window['go']['main']['App']['GetTables']();
+export function GetTables(arg1) {
+  return window['go']['main']['App']['GetTables'](arg1);
 }
 
 export function Greet(arg1) {

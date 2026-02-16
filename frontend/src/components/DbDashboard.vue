@@ -66,9 +66,14 @@
     </div>
 </template>
 
+
 <script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { GetTables, ExecuteQuery, DisconnectDB } from '../../wailsjs/go/main/App';
+
+const props = defineProps<{
+    connectionId: string;
+}>();
 
 const emit = defineEmits(['disconnect']);
 
@@ -85,7 +90,7 @@ const columns = computed(() => {
 
 const loadTables = async () => {
     try {
-        tables.value = await GetTables();
+        tables.value = await GetTables(props.connectionId);
     } catch (e) {
         console.error("Failed to load tables", e);
     }
@@ -102,7 +107,7 @@ const runQuery = async () => {
     queryExecuted.value = false;
 
     try {
-        const res = await ExecuteQuery(query.value);
+        const res = await ExecuteQuery(props.connectionId, query.value);
         if (res.error) {
             error.value = res.error;
         } else {
@@ -116,16 +121,27 @@ const runQuery = async () => {
 
 const disconnect = async () => {
     try {
-        await DisconnectDB();
-        emit('disconnect');
+        await DisconnectDB(props.connectionId);
+        emit('disconnect', props.connectionId);
     } catch (e) {
         console.error("Failed to disconnect", e);
         // Still emit disconnect to change UI
-        emit('disconnect');
+        emit('disconnect', props.connectionId);
     }
 };
 
 onMounted(() => {
-    loadTables();
+    if (props.connectionId) {
+        loadTables();
+    }
+});
+
+watch(() => props.connectionId, (newId) => {
+    if (newId) {
+        loadTables();
+        results.value = [];
+        query.value = '';
+        queryExecuted.value = false;
+    }
 });
 </script>

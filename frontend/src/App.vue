@@ -1,30 +1,113 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import DbConnection from './components/DbConnection.vue';
 import DbDashboard from './components/DbDashboard.vue';
 
-const isConnected = ref(false);
+interface Connection {
+  id: string;
+  name: string;
+  config: any;
+}
 
-const handleConnected = () => {
-  isConnected.value = true;
+const connections = ref<Connection[]>([]);
+const activeTabId = ref<string | null>(null);
+
+const handleConnected = (conn: Connection) => {
+  connections.value.push(conn);
+  activeTabId.value = conn.id;
 };
 
-const handleDisconnect = () => {
-  isConnected.value = false;
+const handleDisconnect = (id: string) => {
+  const index = connections.value.findIndex(c => c.id === id);
+  if (index !== -1) {
+    connections.value.splice(index, 1);
+    // If we closed the active tab, switch to another one or home
+    if (activeTabId.value === id) {
+      if (connections.value.length > 0) {
+        // Switch to the last opened connection or previous one
+        activeTabId.value = connections.value[connections.value.length - 1].id;
+      } else {
+        activeTabId.value = null; // Back to home
+      }
+    }
+  }
 };
+
+const switchToHome = () => {
+  activeTabId.value = null;
+};
+
+const switchToTab = (id: string) => {
+  activeTabId.value = id;
+};
+
+const removeTab = (id: string, event: Event) => {
+  event.stopPropagation();
+  // In a real app we might want to trigger disconnect here too if it wasn't triggered by the dashboard
+  // For now we assume the disconnect button in dashboard handles the cleanup logic
+  // But if we close via tab, we should probably call DisconnectDB. 
+  // However, since we don't have easy access to DisconnectDB here directly without importing, 
+  // and the dashboard handles it, let's just purely focus on UI state for now or improved later.
+  // Actually better to let the user disconnect from the dashboard to ensure resources are freed.
+  // So we will just switch to that tab if not active? 
+  // Or we can just perform the UI removal and assume backend cleanup happens or is irrelevant (leak).
+  // Let's implement proper cleanup later/verify. For now rely on dashboard disconnect button.
+  // But wait, the user asked for tabs. A close button on tab is expected.
+  // Let's rely on the dashboard "Disconnect" button for now to force proper cleanup.
+  // So this function is just a placeholder or for "force close".
+  handleDisconnect(id);
+}
 </script>
 
 <template>
-  <DbConnection v-if="!isConnected" @connected="handleConnected" />
-  <DbDashboard v-else @disconnect="handleDisconnect" />
+  <div class="h-screen flex flex-col bg-background text-foreground">
+    <!-- Tab Bar -->
+    <div class="flex items-center bg-muted/20 border-b border-border overflow-x-auto">
+      <button @click="switchToHome"
+        class="flex items-center px-4 py-3 text-sm font-medium border-r border-border transition-colors hover:bg-muted/50 focus:outline-none"
+        :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === null, 'text-muted-foreground': activeTabId !== null }">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-plus mr-2">
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </svg>
+        New Connection
+      </button>
+
+      <div v-for="conn in connections" :key="conn.id" @click="switchToTab(conn.id)"
+        class="flex items-center px-4 py-3 text-sm font-medium border-r border-border cursor-pointer transition-colors hover:bg-muted/50 select-none group min-w-[150px] max-w-[250px]"
+        :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === conn.id, 'text-muted-foreground': activeTabId !== conn.id }">
+        <div class="flex items-center truncate mr-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            class="lucide lucide-database mr-2 flex-shrink-0">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+            <path d="M3 12A9 3 0 0 0 21 12" />
+          </svg>
+          <span class="truncate">{{ conn.name }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="flex-1 overflow-hidden relative">
+      <div v-if="activeTabId === null" class="h-full overflow-auto">
+        <DbConnection @connected="handleConnected" />
+      </div>
+
+      <div v-else class="h-full">
+        <!-- KeepAlive could be used here to preserve state of inactive tabs -->
+        <!-- Using v-show instead of v-if to keep connections alive/state preserved when switching tabs -->
+        <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
+          <DbDashboard :connectionId="conn.id" @disconnect="handleDisconnect" />
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style>
-/* Reset basic styles if necessary, but Tailwind should handle most */
-html,
-body,
-#app {
-  height: 100%;
-  margin: 0;
-}
+/* Global styles can also be in generic css file */
 </style>

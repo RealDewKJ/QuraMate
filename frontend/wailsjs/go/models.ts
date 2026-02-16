@@ -1,5 +1,19 @@
 export namespace main {
 	
+	export class ConnectResult {
+	    id: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.error = source["error"];
+	    }
+	}
 	export class DBConfig {
 	    type: string;
 	    host: string;

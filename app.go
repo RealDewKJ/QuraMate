@@ -3,18 +3,22 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
+
+	"github.com/google/uuid"
 )
 
 // App struct
 type App struct {
 	ctx context.Context
-	db  *Database
+	dbs map[string]*Database
+	mu  sync.Mutex
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		db: NewDatabase(),
+		dbs: make(map[string]*Database),
 	}
 }
 
@@ -29,24 +33,53 @@ func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
-func (a *App) ConnectDB(config DBConfig) string {
-	err := a.db.Connect(config)
-	if err != nil {
-		return fmt.Sprintf("Error: %s", err.Error())
-	}
-	return "Success"
+// ConnectResult struct to return both ID and success status
+type ConnectResult struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
 }
 
-func (a *App) DisconnectDB() string {
-	err := a.db.Disconnect()
+func (a *App) ConnectDB(config DBConfig) ConnectResult {
+	newDB := NewDatabase()
+	err := newDB.Connect(config)
 	if err != nil {
-		return fmt.Sprintf("Error: %s", err.Error())
+		return ConnectResult{Error: fmt.Sprintf("Error: %s", err.Error())}
 	}
-	return "Success"
+
+	id := uuid.New().String()
+
+	a.mu.Lock()
+	a.dbs[id] = newDB
+	a.mu.Unlock()
+
+	return ConnectResult{ID: id}
 }
 
-func (a *App) GetTables() []string {
-	tables, err := a.db.GetTables()
+func (a *App) DisconnectDB(connectionID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if db, ok := a.dbs[connectionID]; ok {
+		err := db.Disconnect()
+		delete(a.dbs, connectionID)
+		if err != nil {
+			return fmt.Sprintf("Error: %s", err.Error())
+		}
+		return "Success"
+	}
+	return "Connection not found"
+}
+
+func (a *App) GetTables(connectionID string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	tables, err := db.GetTables()
 	if err != nil {
 		return []string{}
 	}
@@ -59,8 +92,16 @@ type QueryResult struct {
 	Error string                   `json:"error"`
 }
 
-func (a *App) ExecuteQuery(query string) QueryResult {
-	data, err := a.db.ExecuteQuery(query)
+func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return QueryResult{Error: "Connection not found"}
+	}
+
+	data, err := db.ExecuteQuery(query)
 	if err != nil {
 		return QueryResult{Error: err.Error()}
 	}
