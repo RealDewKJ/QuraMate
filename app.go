@@ -80,6 +80,17 @@ func (a *App) DisconnectDB(connectionID string) string {
 	return "Connection not found"
 }
 
+func (a *App) SetReadOnly(connectionID string, readOnly bool) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if db, ok := a.dbs[connectionID]; ok {
+		db.SetReadOnly(readOnly)
+		return "Success"
+	}
+	return "Connection not found"
+}
+
 func (a *App) GetTables(connectionID string) []string {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]
@@ -149,4 +160,29 @@ func (a *App) UpdateRecord(connectionID string, tableName string, updates map[st
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
 	return "Success"
+}
+
+// ForeignKey struct to hold FK details
+type ForeignKey struct {
+	Table      string `json:"table"`
+	Column     string `json:"column"`
+	RefTable   string `json:"refTable"`
+	RefColumn  string `json:"refColumn"`
+	Constraint string `json:"constraint"`
+}
+
+func (a *App) GetForeignKeys(connectionID string, tableName string) []ForeignKey {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []ForeignKey{}
+	}
+
+	fks, err := db.GetForeignKeys(tableName)
+	if err != nil {
+		return []ForeignKey{}
+	}
+	return fks
 }

@@ -240,7 +240,7 @@
 
             <!-- Query Area -->
             <div v-if="activeTab" class="flex flex-col h-full overflow-hidden">
-                <div class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
+                <div v-if="!activeTab.isERView" class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
                     <div class="relative w-full h-64">
                         <SqlEditor v-model="activeTab.query" :tables="tables" />
 
@@ -281,6 +281,18 @@
                     </div>
 
                     <div class="flex items-center gap-2">
+                        <div v-if="isReadOnly"
+                            class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-500 text-xs rounded border border-yellow-200 dark:border-yellow-900/50 mr-2 flex items-center gap-1 select-none cursor-help"
+                            title="Database is in Read-Only mode. Modifications are disabled.">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-lock">
+                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                            Read Only
+                        </div>
+
                         <button @click="beautifyQuery" :disabled="activeTab.isLoading || !activeTab.query"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
                             title="Format SQL (Shift + Alt + F)">
@@ -307,7 +319,7 @@
                 </div>
 
                 <!-- Results Area -->
-                <div class="flex-1 overflow-auto bg-muted/10 p-4">
+                <div v-if="!activeTab.isERView" class="flex-1 overflow-auto bg-muted/10 p-4">
                     <!-- Error State -->
                     <div v-if="activeTab.error"
                         class="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
@@ -442,6 +454,13 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ER Diagram View -->
+                <div v-if="activeTab.isERView" class="flex-1 overflow-hidden bg-background">
+                    <ERDiagram :tableName="activeTab.tableName || ''" :columns="activeTab.results"
+                        :relationships="activeTab.relationships || []" :tablesData="activeTab.tablesData || {}"
+                        :isDark="true" />
+                </div>
             </div>
 
             <div v-else
@@ -495,6 +514,19 @@
                     <circle cx="11" cy="11" r="2" />
                 </svg>
                 View Design
+            </button>
+            <button @click="handleViewERDiagram"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-network">
+                    <rect x="16" y="16" width="6" height="6" rx="1" />
+                    <rect x="2" y="16" width="6" height="6" rx="1" />
+                    <rect x="9" y="2" width="6" height="6" rx="1" />
+                    <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
+                    <path d="M12 12V8" />
+                </svg>
+                View ER Diagram
             </button>
         </div>
 
@@ -561,14 +593,16 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord } from '../../wailsjs/go/main/App';
+import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
 import SqlEditor from './SqlEditor.vue';
+import ERDiagram from './ERDiagram.vue';
 
 const props = defineProps<{
     connectionId: string;
     dbType: string;
+    isReadOnly?: boolean;
 }>();
 
 const emit = defineEmits(['disconnect']);
@@ -596,6 +630,9 @@ interface QueryTab {
     executionTime?: number;
     editingCell?: CellEdit | null;
     isDesignView?: boolean;
+    isERView?: boolean;
+    relationships?: any[];
+    tablesData?: Record<string, { name: string, type: string }[]>;
 }
 
 const tableSearch = ref('');
@@ -874,6 +911,110 @@ const handleViewDesign = () => {
     }
 };
 
+const openERDiagramTab = async (tableName: string) => {
+    const existingTab = tabs.value.find(t => t.name === `ER: ${tableName}`);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const newId = generateId();
+    tabCounter.value++;
+
+    // Create tab
+    const newTab: QueryTab = {
+        id: newId,
+        name: `ER: ${tableName}`,
+        tableName: tableName,
+        query: '',
+        results: [],
+        columns: [],
+        primaryKeys: [],
+        filters: {},
+        sortColumn: undefined,
+        sortDirection: null,
+        error: '',
+        isLoading: true,
+        queryExecuted: true,
+        isERView: true,
+        relationships: []
+    };
+
+    tabs.value.push(newTab);
+    activeTabId.value = newId;
+
+    try {
+        // 1. Get Foreign Keys First (Bidirectional)
+        const fks = await GetForeignKeys(props.connectionId, tableName);
+        newTab.relationships = fks;
+
+        // 2. Identify all tables involved (Main table + any referenced/referencing tables)
+        const relatedTables = new Set<string>();
+        relatedTables.add(tableName);
+        fks.forEach((fk: any) => {
+            relatedTables.add(fk.table);
+            relatedTables.add(fk.refTable);
+            // fk.table is the child (Referencing), fk.refTable is the parent (Referenced)
+        });
+
+        // 3. Fetch Schema for EACH table
+        const tablesData: Record<string, { name: string, type: string }[]> = {};
+        const type = (props.dbType || '').toLowerCase();
+
+        // Helper to get query for a table
+        const getSchemaQuery = (tbl: string) => {
+            if (type.includes('mssql') || type.includes('sqlserver')) {
+                return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl}'`;
+            } else if (type.includes('postgres')) {
+                return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tbl}'`;
+            } else if (type.includes('mysql') || type.includes('maria')) {
+                return `DESCRIBE ${tbl}`;
+            } else if (type.includes('sqlite')) {
+                return `PRAGMA table_info(${tbl})`;
+            } else {
+                return `SELECT * FROM ${tbl} LIMIT 1`;
+            }
+        };
+
+        // Execute queries in parallel
+        const promises = Array.from(relatedTables).map(async (tbl) => {
+            const query = getSchemaQuery(tbl);
+            try {
+                const res = await ExecuteQuery(props.connectionId, query);
+                if (!res.error && res.data) {
+                    tablesData[tbl] = res.data.map((col: any) => {
+                        const name = col.COLUMN_NAME || col.column_name || col.Field || col.name || col.Name || 'unknown';
+                        const type = col.DATA_TYPE || col.data_type || col.Type || col.type || 'string';
+                        return { name, type };
+                    });
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch schema for ${tbl}`, e);
+            }
+        });
+
+        await Promise.all(promises);
+        newTab.tablesData = tablesData;
+
+        // Keep main table columns in results for legacy/other uses if needed
+        if (tablesData[tableName]) {
+            newTab.results = tablesData[tableName] as any;
+        }
+
+    } catch (e: any) {
+        newTab.error = e.toString();
+    } finally {
+        newTab.isLoading = false;
+    }
+};
+
+const handleViewERDiagram = () => {
+    if (contextMenuTargetTable.value) {
+        openERDiagramTab(contextMenuTargetTable.value);
+        closeContextMenu();
+    }
+};
+
 const runQuery = async () => {
     if (!activeTab.value) return;
 
@@ -944,6 +1085,7 @@ const disconnect = async () => {
 
 // Editing Logic
 const isEditable = (col: string) => {
+    if (props.isReadOnly) return false;
     if (!activeTab.value || !activeTab.value.tableName || activeTab.value.primaryKeys.length === 0) return false;
     if (activeTab.value.isDesignView) return false; // Disable editing in design view
     // Don't edit PKs for now to simplify

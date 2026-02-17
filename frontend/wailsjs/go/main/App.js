@@ -14,6 +14,10 @@ export function ExecuteQuery(arg1, arg2) {
   return window['go']['main']['App']['ExecuteQuery'](arg1, arg2);
 }
 
+export function GetForeignKeys(arg1, arg2) {
+  return window['go']['main']['App']['GetForeignKeys'](arg1, arg2);
+}
+
 export function GetPrimaryKeys(arg1, arg2) {
   return window['go']['main']['App']['GetPrimaryKeys'](arg1, arg2);
 }
@@ -24,6 +28,10 @@ export function GetTables(arg1) {
 
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function SetReadOnly(arg1, arg2) {
+  return window['go']['main']['App']['SetReadOnly'](arg1, arg2);
 }
 
 export function TestConnection(arg1) {

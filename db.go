@@ -17,11 +17,13 @@ type DBConfig struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
+	ReadOnly bool   `json:"readOnly"`
 }
 
 type Database struct {
-	conn *sql.DB
-	Type string
+	conn     *sql.DB
+	Type     string
+	ReadOnly bool
 }
 
 func NewDatabase() *Database {
@@ -65,6 +67,7 @@ func (d *Database) Connect(config DBConfig) error {
 
 	d.conn = conn
 	d.Type = config.Type
+	d.ReadOnly = config.ReadOnly
 	return nil
 }
 
@@ -75,6 +78,10 @@ func (d *Database) Disconnect() error {
 		return err
 	}
 	return nil
+}
+
+func (d *Database) SetReadOnly(readOnly bool) {
+	d.ReadOnly = readOnly
 }
 
 func (d *Database) GetTables() ([]string, error) {
@@ -244,6 +251,10 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 		return fmt.Errorf("no database connection")
 	}
 
+	if d.ReadOnly {
+		return fmt.Errorf("database is in read-only mode")
+	}
+
 	if len(updates) == 0 {
 		return nil
 	}
@@ -301,4 +312,109 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 
 	_, err := d.conn.Exec(query, args...)
 	return err
+}
+
+func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres":
+		query = fmt.Sprintf(`
+			SELECT
+				tc.table_name, kcu.column_name,
+				ccu.table_name AS foreign_table_name,
+				ccu.column_name AS foreign_column_name,
+				tc.constraint_name
+			FROM
+				information_schema.table_constraints AS tc
+				JOIN information_schema.key_column_usage AS kcu
+				  ON tc.constraint_name = kcu.constraint_name
+				  AND tc.table_schema = kcu.table_schema
+				JOIN information_schema.constraint_column_usage AS ccu
+				  ON ccu.constraint_name = tc.constraint_name
+				  AND ccu.table_schema = tc.table_schema
+			WHERE tc.constraint_type = 'FOREIGN KEY' 
+            AND (tc.table_name = '%s' OR ccu.table_name = '%s');`, tableName, tableName)
+	case "mysql":
+		query = fmt.Sprintf(`
+			SELECT
+				TABLE_NAME, COLUMN_NAME,
+				REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME,
+				CONSTRAINT_NAME
+			FROM
+				INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+			WHERE
+				REFERENCED_TABLE_SCHEMA = DATABASE()
+				AND (TABLE_NAME = '%s' OR REFERENCED_TABLE_NAME = '%s');`, tableName, tableName)
+	case "mssql":
+		query = fmt.Sprintf(`
+			SELECT
+				tp.name AS TableName,
+				cp.name AS ColumnName,
+				tr.name AS ReferencedTableName,
+				cr.name AS ReferencedColumnName,
+				fk.name AS ConstraintName
+			FROM
+				sys.foreign_keys AS fk
+				INNER JOIN sys.tables AS tp ON fk.parent_object_id = tp.object_id
+				INNER JOIN sys.tables AS tr ON fk.referenced_object_id = tr.object_id
+				INNER JOIN sys.foreign_key_columns AS fkc ON fkc.constraint_object_id = fk.object_id
+				INNER JOIN sys.columns AS cp ON fkc.parent_column_id = cp.column_id AND fkc.parent_object_id = cp.object_id
+				INNER JOIN sys.columns AS cr ON fkc.referenced_column_id = cr.column_id AND fkc.referenced_object_id = cr.object_id
+			WHERE
+				tp.name = '%s' OR tr.name = '%s';`, tableName, tableName)
+	case "sqlite":
+		query = fmt.Sprintf("PRAGMA foreign_key_list(%s)", tableName)
+		// SQLite returns id, seq, table, from, to, on_update, on_delete, match
+		// We'll handle this separately as the columns are different
+		return d.getSqliteForeignKeys(tableName)
+	default:
+		return nil, fmt.Errorf("unsupported database type for getting foreign keys")
+	}
+
+	rows, err := d.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var fks []ForeignKey
+	for rows.Next() {
+		var fk ForeignKey
+		if err := rows.Scan(&fk.Table, &fk.Column, &fk.RefTable, &fk.RefColumn, &fk.Constraint); err != nil {
+			return nil, err
+		}
+		fks = append(fks, fk)
+	}
+	return fks, nil
+}
+
+func (d *Database) getSqliteForeignKeys(tableName string) ([]ForeignKey, error) {
+	query := fmt.Sprintf("PRAGMA foreign_key_list(%s)", tableName)
+	rows, err := d.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var fks []ForeignKey
+	for rows.Next() {
+		var id, seq int
+		var table, from, to, on_update, on_delete, match string
+		// id, seq, table, from, to, on_update, on_delete, match
+		if err := rows.Scan(&id, &seq, &table, &from, &to, &on_update, &on_delete, &match); err != nil {
+			return nil, err
+		}
+		fks = append(fks, ForeignKey{
+			Table:      tableName,
+			Column:     from,
+			RefTable:   table,
+			RefColumn:  to,
+			Constraint: fmt.Sprintf("FK_%s_%d", tableName, id),
+		})
+	}
+	return fks, nil
 }

@@ -113,6 +113,14 @@
                         </div>
                     </div>
 
+                    <div class="flex items-center space-x-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <input type="checkbox" id="readOnly" v-model="config.readOnly"
+                            class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="readOnly"
+                            class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Read
+                            Only Mode</label>
+                    </div>
+
                     <div class="flex gap-2 mt-6">
                         <button @click="connect" :class="{ 'opacity-50 cursor-not-allowed': isLoading }"
                             :disabled="isLoading"
@@ -273,13 +281,13 @@
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue';
-import { ConnectDB, TestConnection } from '../../wailsjs/go/main/App';
+import { ConnectDB, TestConnection, SetReadOnly } from '../../wailsjs/go/main/App';
 
 const props = defineProps<{
     activeConnections: any[]
 }>();
 
-const emit = defineEmits(['connected', 'connection-exists']);
+const emit = defineEmits(['connected', 'connection-exists', 'connection-updated']);
 
 const config = reactive({
     name: '',
@@ -288,7 +296,8 @@ const config = reactive({
     port: 5432,
     user: 'postgres',
     password: '',
-    database: 'postgres'
+    database: 'postgres',
+    readOnly: false
 });
 
 const error = ref('');
@@ -314,21 +323,75 @@ watch(() => config.type, (newType) => {
     else if (newType === 'mssql') config.port = 1433;
 });
 
+const isConfigEqual = (c1: any, c2: any) => {
+    const type1 = (c1.type || '').toLowerCase();
+    const type2 = (c2.type || '').toLowerCase();
+
+    const host1 = (c1.host || '').toLowerCase();
+    const host2 = (c2.host || '').toLowerCase();
+
+    const port1 = parseInt(String(c1.port), 10);
+    const port2 = parseInt(String(c2.port), 10);
+
+    const user1 = c1.user || '';
+    const user2 = c2.user || '';
+
+    const db1 = c1.database || '';
+    const db2 = c2.database || '';
+
+    // ReadOnly is explicitly excluded from this comparison for the purpose of finding an existing connection
+    // where only the readOnly status might change.
+
+    const name1 = c1.name || '';
+    const name2 = c2.name || '';
+
+    // Port is irrelevant for SQLite
+    if (type1 === 'sqlite') {
+        return type1 === type2 &&
+            db1 === db2 && // For sqlite, database is the filepath
+            name1 === name2;
+    }
+
+    return type1 === type2 &&
+        host1 === host2 &&
+        port1 === port2 &&
+        user1 === user2 &&
+        db1 === db2 &&
+        name1 === name2;
+};
+
 const connect = async () => {
     error.value = '';
     testSuccess.value = '';
     isLoading.value = true;
 
     // Check for existing connection
-    const existing = props.activeConnections.find(c =>
-        c.config.type === config.type &&
-        c.config.host === config.host &&
-        c.config.port === config.port &&
-        c.config.user === config.user &&
-        c.config.database === config.database
-    );
+    const existing = props.activeConnections.find(c => isConfigEqual(c.config, config));
 
     if (existing) {
+        // Check if ReadOnly status has changed
+        const existingReadOnly = !!existing.config.readOnly;
+        const newReadOnly = !!config.readOnly;
+
+        if (existingReadOnly !== newReadOnly) {
+            try {
+                // Update backend
+                await SetReadOnly(existing.id, newReadOnly);
+
+                // Update frontend state
+                emit('connection-updated', {
+                    id: existing.id,
+                    config: { ...existing.config, readOnly: newReadOnly }
+                });
+
+                // Update local storage if this was a saved connection? 
+                // Logic for saved connections update is separate, but we want the ACTIVE session to update.
+            } catch (e: any) {
+                console.error("Failed to update ReadOnly status:", e);
+                // We could show error, but we'll try to switch anyway
+            }
+        }
+
         emit('connection-exists', existing.id);
         isLoading.value = false;
         return;
@@ -372,19 +435,20 @@ const testConnection = async () => {
 };
 
 const saveConnection = (newConfig: any) => {
-    const exists = savedConnections.value.some(c =>
-        c.type === newConfig.type &&
-        c.host === newConfig.host &&
-        c.port === newConfig.port &&
-        c.user === newConfig.user &&
-        c.database === newConfig.database &&
-        c.name === newConfig.name
-    );
+    const existsIndex = savedConnections.value.findIndex(c => isConfigEqual(c, newConfig));
 
-    if (!exists) {
+    if (existsIndex === -1) {
         savedConnections.value.push(newConfig);
-        localStorage.setItem('savedConnections', JSON.stringify(savedConnections.value));
+    } else {
+        // Optional: Update the existing one (e.g. to move to top or update timestamp if we had one)
+        // For now, just ensure we don't duplicate. 
+        // We could also remove and push to end to show it as "most recently used" if the list is MRU.
+        // Let's do that - move to end (bottom of list seems to be default order).
+        // Actually, let's keep it simple. If it exists, do nothing or update details?
+        // Since we compare EVERYTHING, it's identical.
+        // So just do nothing.
     }
+    localStorage.setItem('savedConnections', JSON.stringify(savedConnections.value));
 };
 
 const removeConnection = (index: number) => {

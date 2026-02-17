@@ -62,6 +62,14 @@ const removeTab = (id: string, event: Event) => {
 const handleConnectionExists = (id: string) => {
   switchToTab(id);
 };
+
+const handleConnectionUpdate = (update: { id: string, config: any }) => {
+  const conn = connections.value.find(c => c.id === update.id);
+  if (conn) {
+    conn.config = { ...update.config };
+    // Force reactivity if needed, but above should work
+  }
+};
 </script>
 
 <template>
@@ -100,11 +108,12 @@ const handleConnectionExists = (id: string) => {
     <div class="flex-1 overflow-hidden relative">
       <div v-show="activeTabId === null" class="h-full overflow-auto">
         <DbConnection :activeConnections="connections" @connected="handleConnected"
-          @connection-exists="handleConnectionExists" />
+          @connection-exists="handleConnectionExists" @connection-updated="handleConnectionUpdate" />
       </div>
 
       <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
-        <DbDashboard :connectionId="conn.id" :dbType="conn.config.type" @disconnect="handleDisconnect" />
+        <DbDashboard :connectionId="conn.id" :dbType="conn.config.type" :isReadOnly="conn.config.readOnly"
+          @disconnect="handleDisconnect" />
       </div>
     </div>
   </div>

@@ -8,11 +8,15 @@ export function DisconnectDB(arg1:string):Promise<string>;
 
 export function ExecuteQuery(arg1:string,arg2:string):Promise<main.QueryResult>;
 
+export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;
+
 export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function GetTables(arg1:string):Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 
 export function TestConnection(arg1:main.DBConfig):Promise<string>;
 

@@ -21,6 +21,7 @@ export namespace main {
 	    user: string;
 	    password: string;
 	    database: string;
+	    readOnly: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DBConfig(source);
@@ -34,6 +35,27 @@ export namespace main {
 	        this.user = source["user"];
 	        this.password = source["password"];
 	        this.database = source["database"];
+	        this.readOnly = source["readOnly"];
+	    }
+	}
+	export class ForeignKey {
+	    table: string;
+	    column: string;
+	    refTable: string;
+	    refColumn: string;
+	    constraint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ForeignKey(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.table = source["table"];
+	        this.column = source["column"];
+	        this.refTable = source["refTable"];
+	        this.refColumn = source["refColumn"];
+	        this.constraint = source["constraint"];
 	    }
 	}
 	export class QueryResult {
