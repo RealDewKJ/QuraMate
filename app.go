@@ -55,6 +55,16 @@ func (a *App) ConnectDB(config DBConfig) ConnectResult {
 	return ConnectResult{ID: id}
 }
 
+func (a *App) TestConnection(config DBConfig) string {
+	newDB := NewDatabase()
+	err := newDB.Connect(config)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	newDB.Disconnect()
+	return "Success"
+}
+
 func (a *App) DisconnectDB(connectionID string) string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -65,6 +75,17 @@ func (a *App) DisconnectDB(connectionID string) string {
 		if err != nil {
 			return fmt.Sprintf("Error: %s", err.Error())
 		}
+		return "Success"
+	}
+	return "Connection not found"
+}
+
+func (a *App) SetReadOnly(connectionID string, readOnly bool) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if db, ok := a.dbs[connectionID]; ok {
+		db.SetReadOnly(readOnly)
 		return "Success"
 	}
 	return "Connection not found"
@@ -88,8 +109,9 @@ func (a *App) GetTables(connectionID string) []string {
 
 // Result struct to return both data and error message if any
 type QueryResult struct {
-	Data  []map[string]interface{} `json:"data"`
-	Error string                   `json:"error"`
+	Data    []map[string]interface{} `json:"data"`
+	Columns []string                 `json:"columns"`
+	Error   string                   `json:"error"`
 }
 
 func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
@@ -101,9 +123,66 @@ func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
 		return QueryResult{Error: "Connection not found"}
 	}
 
-	data, err := db.ExecuteQuery(query)
+	data, columns, err := db.ExecuteQuery(query)
 	if err != nil {
 		return QueryResult{Error: err.Error()}
 	}
-	return QueryResult{Data: data}
+	return QueryResult{Data: data, Columns: columns}
+}
+
+func (a *App) GetPrimaryKeys(connectionID string, tableName string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	pks, err := db.GetPrimaryKeys(tableName)
+	if err != nil {
+		return []string{}
+	}
+	return pks
+}
+
+func (a *App) UpdateRecord(connectionID string, tableName string, updates map[string]interface{}, conditions map[string]interface{}) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	err := db.UpdateRecord(tableName, updates, conditions)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+// ForeignKey struct to hold FK details
+type ForeignKey struct {
+	Table      string `json:"table"`
+	Column     string `json:"column"`
+	RefTable   string `json:"refTable"`
+	RefColumn  string `json:"refColumn"`
+	Constraint string `json:"constraint"`
+}
+
+func (a *App) GetForeignKeys(connectionID string, tableName string) []ForeignKey {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []ForeignKey{}
+	}
+
+	fks, err := db.GetForeignKeys(tableName)
+	if err != nil {
+		return []ForeignKey{}
+	}
+	return fks
 }

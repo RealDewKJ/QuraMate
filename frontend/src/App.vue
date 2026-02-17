@@ -56,7 +56,20 @@ const removeTab = (id: string, event: Event) => {
   // Let's rely on the dashboard "Disconnect" button for now to force proper cleanup.
   // So this function is just a placeholder or for "force close".
   handleDisconnect(id);
+  handleDisconnect(id);
 }
+
+const handleConnectionExists = (id: string) => {
+  switchToTab(id);
+};
+
+const handleConnectionUpdate = (update: { id: string, config: any }) => {
+  const conn = connections.value.find(c => c.id === update.id);
+  if (conn) {
+    conn.config = { ...update.config };
+    // Force reactivity if needed, but above should work
+  }
+};
 </script>
 
 <template>
@@ -93,16 +106,14 @@ const removeTab = (id: string, event: Event) => {
 
     <!-- Content Area -->
     <div class="flex-1 overflow-hidden relative">
-      <div v-if="activeTabId === null" class="h-full overflow-auto">
-        <DbConnection @connected="handleConnected" />
+      <div v-show="activeTabId === null" class="h-full overflow-auto">
+        <DbConnection :activeConnections="connections" @connected="handleConnected"
+          @connection-exists="handleConnectionExists" @connection-updated="handleConnectionUpdate" />
       </div>
 
-      <div v-else class="h-full">
-        <!-- KeepAlive could be used here to preserve state of inactive tabs -->
-        <!-- Using v-show instead of v-if to keep connections alive/state preserved when switching tabs -->
-        <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
-          <DbDashboard :connectionId="conn.id" @disconnect="handleDisconnect" />
-        </div>
+      <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
+        <DbDashboard :connectionId="conn.id" :dbType="conn.config.type" :isReadOnly="conn.config.readOnly"
+          @disconnect="handleDisconnect" />
       </div>
     </div>
   </div>
