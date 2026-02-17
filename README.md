@@ -1,19 +1,28 @@
-# README
+# VaultDB
 
-## About
+VaultDB is a modern, cross-platform database client. It is easy to connect to your databases, manage tables, view data, write SQL, and run queries.
 
-This is the official Wails Vue-TS template.
+## Feedback
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+This repository is used to collect VaultDB bugs and feedback. If you encounter any bugs or have any suggestions or new feature requests, please open an issue.
 
-## Live Development
+## Supported Databases
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+- MySQL
+- PostgreSQL
+- SQL Server (MSSQL)
+- SQLite
 
-## Building
+## Supported Platform
 
-To build a redistributable, production mode package, use `wails build`.
+- Windows
+- macOS
+- Linux
+
+## Download
+
+- [Releases](https://github.com/yourusername/vaultdb/releases)
+
+## Contact Us
+
+If you have any other questions or need further assistance, please open an issue on this repository.

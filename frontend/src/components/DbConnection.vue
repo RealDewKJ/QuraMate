@@ -130,6 +130,22 @@
                             </span>
                             {{ isLoading ? 'Connecting...' : 'Connect' }}
                         </button>
+                        <button @click="testConnection" :class="{ 'opacity-50 cursor-not-allowed': isTesting }"
+                            :disabled="isLoading || isTesting"
+                            class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                            <span v-if="isTesting" class="mr-2">
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4">
+                                    </circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                            </span>
+                            {{ isTesting ? 'Testing...' : 'Test Connection' }}
+                        </button>
                         <button @click="showSavedModal = true"
                             class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
@@ -151,6 +167,17 @@
                             <line x1="12" x2="12.01" y1="16" y2="16" />
                         </svg>
                         {{ error }}
+                    </div>
+
+                    <div v-if="testSuccess"
+                        class="bg-green-500/15 text-green-600 text-sm p-3 rounded-md flex items-center gap-2 animate-in fade-in zoom-in duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-check-circle">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        {{ testSuccess }}
                     </div>
                 </div>
             </div>
@@ -246,9 +273,13 @@
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue';
-import { ConnectDB } from '../../wailsjs/go/main/App';
+import { ConnectDB, TestConnection } from '../../wailsjs/go/main/App';
 
-const emit = defineEmits(['connected']);
+const props = defineProps<{
+    activeConnections: any[]
+}>();
+
+const emit = defineEmits(['connected', 'connection-exists']);
 
 const config = reactive({
     name: '',
@@ -261,7 +292,9 @@ const config = reactive({
 });
 
 const error = ref('');
+const testSuccess = ref('');
 const isLoading = ref(false);
+const isTesting = ref(false);
 const isDark = ref(false);
 const showSavedModal = ref(false);
 const savedConnections = ref<any[]>([]);
@@ -283,7 +316,24 @@ watch(() => config.type, (newType) => {
 
 const connect = async () => {
     error.value = '';
+    testSuccess.value = '';
     isLoading.value = true;
+
+    // Check for existing connection
+    const existing = props.activeConnections.find(c =>
+        c.config.type === config.type &&
+        c.config.host === config.host &&
+        c.config.port === config.port &&
+        c.config.user === config.user &&
+        c.config.database === config.database
+    );
+
+    if (existing) {
+        emit('connection-exists', existing.id);
+        isLoading.value = false;
+        return;
+    }
+
     try {
         const result = await ConnectDB(config);
         if (result.id) {
@@ -300,6 +350,24 @@ const connect = async () => {
         error.value = e.toString();
     } finally {
         isLoading.value = false;
+    }
+};
+
+const testConnection = async () => {
+    error.value = '';
+    testSuccess.value = '';
+    isTesting.value = true;
+    try {
+        const result = await TestConnection(JSON.parse(JSON.stringify(config)));
+        if (result === 'Success') {
+            testSuccess.value = 'Connection successful!';
+        } else {
+            error.value = result;
+        }
+    } catch (e: any) {
+        error.value = e.toString();
+    } finally {
+        isTesting.value = false;
     }
 };
 

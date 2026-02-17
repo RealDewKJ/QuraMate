@@ -56,7 +56,12 @@ const removeTab = (id: string, event: Event) => {
   // Let's rely on the dashboard "Disconnect" button for now to force proper cleanup.
   // So this function is just a placeholder or for "force close".
   handleDisconnect(id);
+  handleDisconnect(id);
 }
+
+const handleConnectionExists = (id: string) => {
+  switchToTab(id);
+};
 </script>
 
 <template>
@@ -94,7 +99,8 @@ const removeTab = (id: string, event: Event) => {
     <!-- Content Area -->
     <div class="flex-1 overflow-hidden relative">
       <div v-show="activeTabId === null" class="h-full overflow-auto">
-        <DbConnection @connected="handleConnected" />
+        <DbConnection :activeConnections="connections" @connected="handleConnected"
+          @connection-exists="handleConnectionExists" />
       </div>
 
       <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">

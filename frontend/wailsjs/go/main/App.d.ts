@@ -8,6 +8,12 @@ export function DisconnectDB(arg1:string):Promise<string>;
 
 export function ExecuteQuery(arg1:string,arg2:string):Promise<main.QueryResult>;
 
+export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
+
 export function GetTables(arg1:string):Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function TestConnection(arg1:main.DBConfig):Promise<string>;
+
+export function UpdateRecord(arg1:string,arg2:string,arg3:Record<string, any>,arg4:Record<string, any>):Promise<string>;

@@ -55,6 +55,16 @@ func (a *App) ConnectDB(config DBConfig) ConnectResult {
 	return ConnectResult{ID: id}
 }
 
+func (a *App) TestConnection(config DBConfig) string {
+	newDB := NewDatabase()
+	err := newDB.Connect(config)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	newDB.Disconnect()
+	return "Success"
+}
+
 func (a *App) DisconnectDB(connectionID string) string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -107,4 +117,36 @@ func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
 		return QueryResult{Error: err.Error()}
 	}
 	return QueryResult{Data: data, Columns: columns}
+}
+
+func (a *App) GetPrimaryKeys(connectionID string, tableName string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	pks, err := db.GetPrimaryKeys(tableName)
+	if err != nil {
+		return []string{}
+	}
+	return pks
+}
+
+func (a *App) UpdateRecord(connectionID string, tableName string, updates map[string]interface{}, conditions map[string]interface{}) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	err := db.UpdateRecord(tableName, updates, conditions)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
 }

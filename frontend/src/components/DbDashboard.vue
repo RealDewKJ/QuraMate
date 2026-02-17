@@ -325,13 +325,47 @@
                     <div v-else-if="activeTab.results && activeTab.results.length > 0"
                         class="border border-border rounded-lg shadow-sm bg-card flex flex-col h-full max-h-full overflow-hidden">
                         <div class="flex-1 overflow-auto" v-bind="containerProps">
-                            <table class="w-full text-sm text-left">
+                            <table class="w-full text-sm text-left relative">
                                 <thead
                                     class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
                                     <tr>
                                         <th v-for="col in getColumns(activeTab)" :key="col" scope="col"
-                                            class="px-4 py-3 whitespace-nowrap border-b border-border">
-                                            {{ col }}
+                                            class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
+                                            @click="toggleSort(col)">
+                                            <div class="flex flex-col gap-2">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span>{{ col }}</span>
+                                                    <div class="flex flex-col">
+                                                        <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'asc'"
+                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round" class="lucide lucide-chevron-up">
+                                                            <path d="m18 15-6-6-6 6" />
+                                                        </svg>
+                                                        <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'desc'"
+                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round" class="lucide lucide-chevron-down">
+                                                            <path d="m6 9 6 6 6-6" />
+                                                        </svg>
+                                                        <svg v-if="activeTab.sortColumn !== col"
+                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="lucide lucide-chevrons-up-down text-muted-foreground/30">
+                                                            <path d="m7 15 5 5 5-5" />
+                                                            <path d="m7 9 5-5 5 5" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <input v-if="activeTab.primaryKeys.length > 0 || true" type="text"
+                                                    v-model="activeTab.filters[col]" placeholder="Filter..."
+                                                    class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
+                                                    @click.stop />
+                                            </div>
                                         </th>
                                     </tr>
                                 </thead>
@@ -340,8 +374,23 @@
                                     <tr v-for="item in virtualList" :key="item.index"
                                         class="bg-card hover:bg-muted/50 transition-colors h-[37px]">
                                         <td v-for="col in getColumns(activeTab)" :key="col"
-                                            class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs">
-                                            {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                                            class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
+                                            :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
+                                            @dblclick="handleCellClick(item, col)">
+
+                                            <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
+                                                class="absolute inset-0 p-0.5">
+                                                <input :id="`edit-input-${item.index}-${col}`"
+                                                    v-model="activeTab.editingCell.value"
+                                                    class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
+                                                    @blur="saveCellEdit(item, col)"
+                                                    @keydown.enter="saveCellEdit(item, col)"
+                                                    @keydown.esc="activeTab.editingCell = null" />
+                                            </div>
+                                            <span v-else class="truncate block max-w-[300px]"
+                                                :title="String(item.data[col])">
+                                                {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                                            </span>
                                         </td>
                                     </tr>
                                     <tr :style="{ height: `${padBottom}px` }"></tr>
@@ -350,8 +399,9 @@
                         </div>
                         <div
                             class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
-                            <span>{{ activeTab.results.length }} rows returned</span>
-                            <span class="font-mono text-[10px] opacity-70">JSON Preview Available (TODO)</span>
+                            <span>{{ filteredResults.length }} rows returned ({{ activeTab.results.length }}
+                                total)</span>
+                            <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
                         </div>
                     </div>
 
@@ -447,12 +497,71 @@
                 View Design
             </button>
         </div>
+
+        <!-- Update Confirmation Modal -->
+        <div v-if="updateConfirmation && updateConfirmation.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground">Confirm Update</h3>
+                    <button @click="cancelUpdate" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <p class="text-sm text-muted-foreground">
+                    Are you sure you want to update data in table <span class="font-medium text-foreground">{{
+                        updateConfirmation.tableName }}</span>?
+                </p>
+
+                <div class="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-semibold text-muted-foreground uppercase">Column</span>
+                        <span class="font-mono text-foreground">{{ updateConfirmation.column }}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs font-semibold text-muted-foreground uppercase">Old Value</span>
+                            <div
+                                class="font-mono text-destructive text-xs max-h-48 overflow-y-auto whitespace-pre-wrap break-words border border-destructive/20 bg-destructive/5 p-2 rounded">
+                                {{ updateConfirmation.originalValue === null ? 'NULL' : updateConfirmation.originalValue
+                                }}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs font-semibold text-muted-foreground uppercase">New Value</span>
+                            <div
+                                class="font-mono text-green-600 dark:text-green-500 text-xs max-h-48 overflow-y-auto whitespace-pre-wrap break-words border border-green-500/20 bg-green-500/5 p-2 rounded">
+                                {{ updateConfirmation.newValue === null ? 'NULL' : updateConfirmation.newValue }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="cancelUpdate"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="confirmUpdate"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+                        Confirm Update
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB } from '../../wailsjs/go/main/App';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
 import SqlEditor from './SqlEditor.vue';
@@ -464,16 +573,29 @@ const props = defineProps<{
 
 const emit = defineEmits(['disconnect']);
 
+interface CellEdit {
+    rowId: any; // Using row index or joined PK values as ID
+    col: string;
+    value: any;
+}
+
 interface QueryTab {
     id: string;
     name: string;
+    tableName?: string; // Store table name if it's a simple SELECT
     query: string;
     results: any[];
     columns: string[];
+    primaryKeys: string[];
+    filters: Record<string, string>;
+    sortColumn?: string;
+    sortDirection: 'asc' | 'desc' | null;
     error: string;
     isLoading: boolean;
     queryExecuted: boolean;
     executionTime?: number;
+    editingCell?: CellEdit | null;
+    isDesignView?: boolean;
 }
 
 const tableSearch = ref('');
@@ -497,14 +619,63 @@ const showContextMenu = ref(false);
 const contextMenuPosition = ref({ x: 0, y: 0 });
 const contextMenuTargetTable = ref('');
 
+// Update Confirmation State
+const updateConfirmation = ref<{
+    isOpen: boolean;
+    tableName: string;
+    column: string;
+    originalValue: any;
+    newValue: any;
+    rowIndex: number;
+    item: any;
+} | null>(null);
+
 // Active Tab Helper
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
 
 // Virtual List Logic
-const currentResults = computed(() => activeTab.value?.results || []);
+const filteredResults = computed(() => {
+    if (!activeTab.value) return [];
+    let data = activeTab.value.results;
+    const filters = activeTab.value.filters;
+
+    // 1. Filter
+    if (filters && Object.keys(filters).length > 0) {
+        data = data.filter(row => {
+            for (const [col, filterText] of Object.entries(filters)) {
+                if (!filterText) continue;
+                const val = row[col];
+                const strVal = val === null ? 'NULL' : String(val).toLowerCase();
+                if (!strVal.includes(filterText.toLowerCase())) return false;
+            }
+            return true;
+        });
+    }
+
+    // 2. Sort
+    if (activeTab.value.sortColumn && activeTab.value.sortDirection) {
+        const col = activeTab.value.sortColumn;
+        const dir = activeTab.value.sortDirection;
+
+        data = [...data].sort((a, b) => {
+            const valA = a[col];
+            const valB = b[col];
+
+            if (valA === valB) return 0;
+            if (valA === null) return 1; // Nulls last
+            if (valB === null) return -1;
+
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    return data;
+});
 
 const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
-    currentResults,
+    filteredResults,
     {
         itemHeight: 37,
         overscan: 10,
@@ -520,7 +691,7 @@ const padTop = computed(() => {
 const padBottom = computed(() => {
     if (virtualList.value.length === 0) return 0;
     const lastItem = virtualList.value[virtualList.value.length - 1];
-    const total = currentResults.value.length;
+    const total = filteredResults.value.length;
     return (total - 1 - lastItem.index) * 37;
 });
 
@@ -550,11 +721,35 @@ const addTab = () => {
         query: '',
         results: [],
         columns: [],
+        primaryKeys: [],
+        filters: {},
+        sortColumn: undefined,
+        sortDirection: null,
         error: '',
         isLoading: false,
         queryExecuted: false
     });
     activeTabId.value = newId;
+};
+
+// ... existing code ...
+
+const toggleSort = (col: string) => {
+    if (!activeTab.value) return;
+
+    if (activeTab.value.sortColumn === col) {
+        if (activeTab.value.sortDirection === 'asc') {
+            activeTab.value.sortDirection = 'desc';
+        } else if (activeTab.value.sortDirection === 'desc') {
+            activeTab.value.sortDirection = null;
+            activeTab.value.sortColumn = undefined;
+        } else {
+            activeTab.value.sortDirection = 'asc';
+        }
+    } else {
+        activeTab.value.sortColumn = col;
+        activeTab.value.sortDirection = 'asc';
+    }
 };
 
 const closeTab = (id: string) => {
@@ -580,20 +775,29 @@ const loadTables = async () => {
     }
 };
 
-const selectTable = (tableName: string) => {
+const selectTable = async (tableName: string) => {
     if (!activeTab.value) {
         addTab();
     }
     if (activeTab.value) {
         const type = (props.dbType || '').toLowerCase();
-        // Check for 'mssql' or 'sqlserver'. 
-        // Note: 'sql' generic check might be risky if other DBs have 'sql' in name (like mysql, postgresql, sqlite).
-        // So we strictly check for mssql/sqlserver identifiers or if it strictly equals 'sql' (rare).
+        activeTab.value.tableName = tableName;
+        activeTab.value.name = tableName; // Update tab name to table name
+
         if (type.includes('mssql') || type.includes('sqlserver')) {
             activeTab.value.query = `SELECT TOP 100 * FROM ${tableName}`;
         } else {
             activeTab.value.query = `SELECT * FROM ${tableName} LIMIT 100`;
         }
+
+        // Fetch Primary Keys
+        try {
+            activeTab.value.primaryKeys = await GetPrimaryKeys(props.connectionId, tableName);
+        } catch (e) {
+            console.error("Failed to fetch primary keys", e);
+            activeTab.value.primaryKeys = [];
+        }
+
         runQuery();
     }
 };
@@ -601,7 +805,6 @@ const selectTable = (tableName: string) => {
 const openContextMenu = (event: MouseEvent, table: string) => {
     contextMenuTargetTable.value = table;
     const { clientX, clientY } = event;
-    // Adjust position to prevent menu from going off-screen (basic logic)
     contextMenuPosition.value = { x: clientX, y: clientY };
     showContextMenu.value = true;
 };
@@ -617,49 +820,56 @@ const handleSelectTop100 = () => {
     }
 };
 
+const openDesignTab = (tableName: string) => {
+    const type = (props.dbType || '').toLowerCase();
+    let query = '';
+
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        query = `SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
+    } else if (type.includes('postgres')) {
+        query = `SELECT column_name, data_type, is_nullable, character_maximum_length FROM information_schema.columns WHERE table_name = '${tableName}'`;
+    } else if (type.includes('mysql') || type.includes('maria')) {
+        query = `DESCRIBE ${tableName}`;
+    } else if (type.includes('sqlite')) {
+        query = `PRAGMA table_info(${tableName})`;
+    } else {
+        query = `-- Could not determine DB type for schema query\nSELECT * FROM ${tableName} LIMIT 1`;
+    }
+
+    // Check if design tab already exists
+    const existingTab = tabs.value.find(t => t.name === `Design: ${tableName}`);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const newId = generateId();
+    tabCounter.value++;
+    tabs.value.push({
+        id: newId,
+        name: `Design: ${tableName}`,
+        query: query,
+        results: [],
+        columns: [],
+        primaryKeys: [], // Design view is read-only usually
+        filters: {},
+        sortColumn: undefined,
+        sortDirection: null,
+        error: '',
+        isLoading: false,
+        queryExecuted: false,
+        isDesignView: true
+    });
+    activeTabId.value = newId;
+
+    setTimeout(() => {
+        runQuery();
+    }, 50);
+};
+
 const handleViewDesign = () => {
     if (contextMenuTargetTable.value) {
-        const tableName = contextMenuTargetTable.value;
-        const type = (props.dbType || '').toLowerCase();
-        let query = '';
-
-        if (type.includes('mssql') || type.includes('sqlserver')) {
-            query = `SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
-        } else if (type.includes('postgres')) {
-            query = `SELECT column_name, data_type, is_nullable, character_maximum_length FROM information_schema.columns WHERE table_name = '${tableName}'`;
-        } else if (type.includes('mysql') || type.includes('maria')) {
-            query = `DESCRIBE ${tableName}`;
-        } else if (type.includes('sqlite')) {
-            query = `PRAGMA table_info(${tableName})`;
-        } else {
-            query = `-- Could not determine DB type for schema query\nSELECT * FROM ${tableName} LIMIT 1`;
-        }
-
-        // Open new tab for design
-        const newId = generateId();
-        tabCounter.value++;
-        tabs.value.push({
-            id: newId,
-            name: `Design: ${tableName}`,
-            query: query,
-            results: [],
-            columns: [],
-            error: '',
-            isLoading: false,
-            queryExecuted: false
-        });
-        activeTabId.value = newId;
-
-        // Execute the design query immediately
-        // Wait for next tick/reactivity if needed, but since we pushed to tabs and set activeTabId, 
-        // the activeTab computed property should update.
-        // We can call runQuery() but runQuery relies on activeTab.
-        // Let's use a small timeout to ensure state is settled or just call it directly.
-        // runQuery accesses activeTab.value, which depends on activeTabId.
-        setTimeout(() => {
-            runQuery();
-        }, 50);
-
+        openDesignTab(contextMenuTargetTable.value);
         closeContextMenu();
     }
 };
@@ -670,9 +880,11 @@ const runQuery = async () => {
     activeTab.value.error = '';
     activeTab.value.results = [];
     activeTab.value.columns = [];
+    activeTab.value.filters = {}; // Reset filters on new query run
     activeTab.value.queryExecuted = false;
     activeTab.value.isLoading = true;
     activeTab.value.executionTime = undefined;
+    activeTab.value.editingCell = null;
 
     const startTime = performance.now();
 
@@ -717,8 +929,6 @@ const beautifyQuery = () => {
         });
     } catch (e) {
         console.error("Failed to format query", e);
-        // If formatting fails (e.g. syntax error), just keep the original query
-        // but maybe show a toast or small error indicator if we had one
     }
 };
 
@@ -732,12 +942,125 @@ const disconnect = async () => {
     }
 };
 
-// Listen for Ctrl+Enter to run query
+// Editing Logic
+const isEditable = (col: string) => {
+    if (!activeTab.value || !activeTab.value.tableName || activeTab.value.primaryKeys.length === 0) return false;
+    if (activeTab.value.isDesignView) return false; // Disable editing in design view
+    // Don't edit PKs for now to simplify
+    if (activeTab.value.primaryKeys.includes(col)) return false;
+    return true;
+};
+
+const getRowId = (row: any, index: number) => {
+    // Use index as fallback but strictly we need PKs for updates.
+    // If we are editing, we must have PKs.
+    return index;
+};
+
+const handleCellClick = (item: any, col: string) => {
+    if (!isEditable(col)) return;
+
+    activeTab.value!.editingCell = {
+        rowId: item.index,
+        col: col,
+        value: item.data[col]
+    };
+
+    nextTick(() => {
+        const input = document.getElementById(`edit-input-${item.index}-${col}`);
+        if (input) (input as HTMLInputElement).focus();
+    });
+};
+
+const saveCellEdit = async (item: any, col: string) => {
+    if (!activeTab.value || !activeTab.value.editingCell || !activeTab.value.tableName) return;
+
+    const newValue = activeTab.value.editingCell.value;
+    const originalValue = item.data[col];
+
+    if (newValue === originalValue) {
+        activeTab.value.editingCell = null;
+        return;
+    }
+
+    // Open Confirmation Modal
+    updateConfirmation.value = {
+        isOpen: true,
+        tableName: activeTab.value.tableName,
+        column: col,
+        originalValue: originalValue,
+        newValue: newValue,
+        rowIndex: item.index,
+        item: item
+    };
+};
+
+const confirmUpdate = async () => {
+    if (!updateConfirmation.value || !activeTab.value) return;
+
+    const { tableName, column, newValue, item } = updateConfirmation.value;
+    const col = column;
+
+    // Prepare conditions (PKs)
+    const conditions: Record<string, any> = {};
+    for (const pk of activeTab.value.primaryKeys) {
+        conditions[pk] = item.data[pk];
+    }
+
+    const updates: Record<string, any> = {};
+    updates[col] = newValue;
+
+    try {
+        const result = await UpdateRecord(props.connectionId, tableName, updates, conditions);
+        if (result === "Success") {
+            const currentTab = activeTab.value;
+            if (!currentTab) return;
+
+            // Update local state
+            item.data[col] = newValue;
+            // Also update the original source array
+            const realIndex = currentTab.results.findIndex(r => {
+                for (const pk of currentTab.primaryKeys) {
+                    if (r[pk] !== conditions[pk]) return false;
+                }
+                return true;
+            });
+            if (realIndex !== -1) {
+                currentTab.results[realIndex][col] = newValue;
+            }
+        } else {
+            console.error("Update failed:", result);
+            alert("Update failed: " + result);
+        }
+    } catch (e) {
+        console.error("Update error:", e);
+        alert("Update error: " + e);
+    } finally {
+        if (activeTab.value) {
+            activeTab.value.editingCell = null;
+        }
+        updateConfirmation.value = null; // Close modal
+    }
+};
+
+const cancelUpdate = () => {
+    if (activeTab.value) {
+        activeTab.value.editingCell = null;
+    }
+    updateConfirmation.value = null;
+};
+
+
 const handleKeydown = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         runQuery();
     }
-    // Shift + Alt + F to format
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (activeTab.value && activeTab.value.tableName) {
+            openDesignTab(activeTab.value.tableName);
+        }
+    }
     if (e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         beautifyQuery();
@@ -749,13 +1072,13 @@ onMounted(() => {
         loadTables();
         addTab();
     }
-    window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('keydown', handleKeydown, true);
     window.addEventListener('click', closeContextMenu);
 });
 
 import { onUnmounted } from 'vue';
 onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('keydown', handleKeydown, true);
     window.removeEventListener('click', closeContextMenu);
 });
 

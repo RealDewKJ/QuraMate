@@ -14,10 +14,22 @@ export function ExecuteQuery(arg1, arg2) {
   return window['go']['main']['App']['ExecuteQuery'](arg1, arg2);
 }
 
+export function GetPrimaryKeys(arg1, arg2) {
+  return window['go']['main']['App']['GetPrimaryKeys'](arg1, arg2);
+}
+
 export function GetTables(arg1) {
   return window['go']['main']['App']['GetTables'](arg1);
 }
 
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function TestConnection(arg1) {
+  return window['go']['main']['App']['TestConnection'](arg1);
+}
+
+export function UpdateRecord(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateRecord'](arg1, arg2, arg3, arg4);
 }
