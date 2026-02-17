@@ -113,20 +113,20 @@ func (d *Database) GetTables() ([]string, error) {
 	return tables, nil
 }
 
-func (d *Database) ExecuteQuery(query string) ([]map[string]interface{}, error) {
+func (d *Database) ExecuteQuery(query string) ([]map[string]interface{}, []string, error) {
 	if d.conn == nil {
-		return nil, fmt.Errorf("no database connection")
+		return nil, nil, fmt.Errorf("no database connection")
 	}
 
 	rows, err := d.conn.Query(query)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var results []map[string]interface{}
@@ -138,7 +138,7 @@ func (d *Database) ExecuteQuery(query string) ([]map[string]interface{}, error) 
 		}
 
 		if err := rows.Scan(values...); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Create a map for this row
@@ -155,5 +155,5 @@ func (d *Database) ExecuteQuery(query string) ([]map[string]interface{}, error) 
 		}
 		results = append(results, row)
 	}
-	return results, nil
+	return results, columns, nil
 }

@@ -93,16 +93,12 @@ const removeTab = (id: string, event: Event) => {
 
     <!-- Content Area -->
     <div class="flex-1 overflow-hidden relative">
-      <div v-if="activeTabId === null" class="h-full overflow-auto">
+      <div v-show="activeTabId === null" class="h-full overflow-auto">
         <DbConnection @connected="handleConnected" />
       </div>
 
-      <div v-else class="h-full">
-        <!-- KeepAlive could be used here to preserve state of inactive tabs -->
-        <!-- Using v-show instead of v-if to keep connections alive/state preserved when switching tabs -->
-        <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
-          <DbDashboard :connectionId="conn.id" @disconnect="handleDisconnect" />
-        </div>
+      <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
+        <DbDashboard :connectionId="conn.id" :dbType="conn.config.type" @disconnect="handleDisconnect" />
       </div>
     </div>
   </div>

@@ -88,8 +88,9 @@ func (a *App) GetTables(connectionID string) []string {
 
 // Result struct to return both data and error message if any
 type QueryResult struct {
-	Data  []map[string]interface{} `json:"data"`
-	Error string                   `json:"error"`
+	Data    []map[string]interface{} `json:"data"`
+	Columns []string                 `json:"columns"`
+	Error   string                   `json:"error"`
 }
 
 func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
@@ -101,9 +102,9 @@ func (a *App) ExecuteQuery(connectionID string, query string) QueryResult {
 		return QueryResult{Error: "Connection not found"}
 	}
 
-	data, err := db.ExecuteQuery(query)
+	data, columns, err := db.ExecuteQuery(query)
 	if err != nil {
 		return QueryResult{Error: err.Error()}
 	}
-	return QueryResult{Data: data}
+	return QueryResult{Data: data, Columns: columns}
 }

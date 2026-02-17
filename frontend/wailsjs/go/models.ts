@@ -38,6 +38,7 @@ export namespace main {
 	}
 	export class QueryResult {
 	    data: any[];
+	    columns: string[];
 	    error: string;
 	
 	    static createFrom(source: any = {}) {
@@ -47,6 +48,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.data = source["data"];
+	        this.columns = source["columns"];
 	        this.error = source["error"];
 	    }
 	}
