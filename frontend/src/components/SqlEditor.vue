@@ -35,6 +35,7 @@ const props = defineProps<{
     tables?: string[];
     readOnly?: boolean;
     theme?: string; // 'vs', 'vs-dark', 'hc-black'
+    getColumns?: (tableName: string) => Promise<string[]>;
 }>();
 
 const emit = defineEmits(['update:modelValue', 'change']);
@@ -162,6 +163,85 @@ const registerCompletionProvider = () => {
                         detail: 'Table',
                         sortText: '0_tables' // Higher priority
                     });
+                });
+            }
+
+            // Get the full text to facilitate looking ahead (e.g. for FROM clause after cursor)
+            const fullText = model.getValue();
+            const offset = model.getOffsetAt(position);
+
+            // Find the boundaries of the current statement (splitting by semicolon)
+            const lastSemicolonIndex = fullText.lastIndexOf(';', offset - 1);
+            const startOfStatement = lastSemicolonIndex !== -1 ? lastSemicolonIndex + 1 : 0;
+
+            let endOfStatement = fullText.indexOf(';', offset);
+            if (endOfStatement === -1) endOfStatement = fullText.length;
+
+            const statement = fullText.substring(startOfStatement, endOfStatement);
+            const relativeOffset = offset - startOfStatement;
+
+            // Find table in the current statement (support simple FROM logic)
+            // We use matchAll to be safe, but typically one FROM per statement (ignoring subqueries for now)
+            const fromMatch = statement.match(/FROM\s+([a-zA-Z0-9_\[\]]+)/i);
+            const table = fromMatch ? fromMatch[1] : null;
+
+            let suggestColumns = false;
+
+            if (table) {
+                const fromIndex = fromMatch!.index!;
+
+                // Context 1: After WHERE
+                const whereMatch = statement.match(/WHERE\s+/i);
+                if (whereMatch) {
+                    const whereIndex = whereMatch.index!;
+                    if (relativeOffset > whereIndex + whereMatch[0].length) {
+                        suggestColumns = true;
+                    }
+                }
+
+                // Context 2: Between SELECT and FROM (The "Field List" context)
+                // If cursor is before the FROM clause, and we have a SELECT
+                if (!suggestColumns && relativeOffset < fromIndex) {
+                    // Find the CLOSEST SELECT before the FROM
+                    // matching /SELECT/g might find multiple? usually one per statement level.
+                    // Let's search for SELECT backwards from FROM or forwards from start.
+                    const selectMatch = statement.match(/SELECT\b/i); // Match SELECT word boundary, don't consume spaces with \s+
+                    if (selectMatch) {
+                        // We just need to be after the "SELECT" keyword
+                        const selectEnd = selectMatch.index! + selectMatch[0].length;
+                        // Check if we are strictly after SELECT and strictly before FROM
+                        // Also ensure there's at least one space/separator logically, but for intellisense 'SELECT|' might still be keyword completion
+                        // We want column completion if we are clearly in the space after SELECT.
+                        if (relativeOffset >= selectEnd) {
+                            suggestColumns = true;
+                        }
+                    }
+                }
+
+                // Context 3: AND/OR clauses (which might be after WHERE, covered roughly by check 1 if we just check for generic "after where" or we can be specific)
+                // Actually my previous "isWhereContext" logic was checking if "WHERE" exists *before* cursor.
+                // In this new full-statement parser:
+                // If cursor is > WHERE index, we are good.
+                // If explicit AND/OR check is needed for complex cases:
+                // (Already covered by "relativeOffset > whereIndex")
+            }
+
+            if (table && props.getColumns && suggestColumns) {
+                // Clean table name (remove brackets if useful, but usually matches raw)
+                const cleanTable = table.replace(/[\[\]]/g, '');
+
+                return props.getColumns(cleanTable).then(columns => {
+                    columns.forEach(col => {
+                        suggestions.push({
+                            label: col,
+                            kind: monaco.languages.CompletionItemKind.Field,
+                            insertText: col,
+                            range: range,
+                            detail: `Column (${cleanTable})`,
+                            sortText: '0_columns' // High priority
+                        });
+                    });
+                    return { suggestions };
                 });
             }
 

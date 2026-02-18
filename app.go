@@ -160,6 +160,25 @@ func (a *App) ExecuteQuery(connectionID string, query string, queryID string) Qu
 	return QueryResult{ResultSets: resultSets}
 }
 
+func (a *App) ExecuteTransientQuery(connectionID string, query string) QueryResult {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return QueryResult{Error: "Connection not found"}
+	}
+
+	// Create a context (no cancel func stored for transient queries for now, they are short lived usually)
+	ctx := context.Background()
+
+	resultSets, err := db.ExecuteTransientQuery(ctx, query)
+	if err != nil {
+		return QueryResult{Error: err.Error()}
+	}
+	return QueryResult{ResultSets: resultSets}
+}
+
 func (a *App) CancelQuery(queryID string) string {
 	a.muQueries.Lock()
 	cancel, ok := a.queryCancelFuncs[queryID]
@@ -806,4 +825,20 @@ func (a *App) SelectImportFile() string {
 		return ""
 	}
 	return selection
+}
+
+func (a *App) ExplainQuery(connectionID string, query string) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	plan, err := db.ExplainQuery(context.Background(), query)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return plan
 }

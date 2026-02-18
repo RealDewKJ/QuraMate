@@ -12,6 +12,10 @@ export function ExecuteQuery(arg1:string,arg2:string,arg3:string):Promise<main.Q
 
 export function ExecuteQueryStream(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function ExecuteTransientQuery(arg1:string,arg2:string):Promise<main.QueryResult>;
+
+export function ExplainQuery(arg1:string,arg2:string):Promise<string>;
+
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;

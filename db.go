@@ -247,6 +247,83 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 	return resultSets, nil
 }
 
+// ExecuteTransientQuery executes a query using the connection pool (d.conn) instead of the persistent connection.
+// This allows it to run concurrently with other queries on the persistent connection, but it won't see
+// uncommitted transactions or session-local state from the persistent connection.
+func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]ResultSet, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
+	}
+
+	// Use d.conn directly
+	rows, err := d.conn.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resultSets []ResultSet
+
+	for {
+		// Check for cancellation
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		columns, err := rows.Columns()
+		if err != nil {
+			// Handle error or empty columns
+		}
+
+		var currentSet ResultSet
+		currentSet.Columns = columns
+
+		if len(columns) > 0 {
+			nCols := len(columns)
+			scanTargets := make([]interface{}, nCols)
+			scanPtrs := make([]*interface{}, nCols)
+			for i := 0; i < nCols; i++ {
+				scanPtrs[i] = new(interface{})
+				scanTargets[i] = scanPtrs[i]
+			}
+			currentSet.Rows = make([][]interface{}, 0, 256)
+
+			for rows.Next() {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+
+				if err := rows.Scan(scanTargets...); err != nil {
+					return nil, err
+				}
+
+				row := make([]interface{}, nCols)
+				for i := 0; i < nCols; i++ {
+					val := *scanPtrs[i]
+					if b, ok := val.([]byte); ok {
+						row[i] = string(b)
+					} else {
+						row[i] = val
+					}
+				}
+				currentSet.Rows = append(currentSet.Rows, row)
+			}
+		}
+
+		resultSets = append(resultSets, currentSet)
+
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return resultSets, nil
+}
+
 // StreamBatch represents a batch of rows sent during streaming
 type StreamBatch struct {
 	Columns      []string        `json:"columns"`
@@ -462,8 +539,20 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 	}
 
 	for col, val := range updates {
-		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, getPlaceholder()))
-		args = append(args, val)
+		// Check for DEFAULT value marker
+		isDefault := false
+		if m, ok := val.(map[string]interface{}); ok {
+			if _, hasKey := m["_vaultdb_sql_default"]; hasKey {
+				isDefault = true
+			}
+		}
+
+		if isDefault {
+			setClauses = append(setClauses, fmt.Sprintf("%s = DEFAULT", col))
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, getPlaceholder()))
+			args = append(args, val)
+		}
 	}
 
 	var whereClauses []string
@@ -688,4 +777,98 @@ func (d *Database) getSqliteForeignKeys(tableName string) ([]ForeignKey, error) 
 		})
 	}
 	return fks, nil
+}
+
+// ExplainQuery retrieves the execution plan for the given query
+func (d *Database) ExplainQuery(ctx context.Context, query string) (string, error) {
+	if d.persistentConn == nil {
+		return "", fmt.Errorf("no database connection")
+	}
+
+	var explainQuery string
+
+	switch d.Type {
+	case "postgres":
+		explainQuery = "EXPLAIN " + query
+	case "mysql":
+		explainQuery = "EXPLAIN " + query
+	case "sqlite":
+		explainQuery = "EXPLAIN QUERY PLAN " + query
+	case "mssql":
+		// MSSQL requires SET SHOWPLAN_TEXT to be the only statement in the batch.
+		// We must execute them separately on the persistent connection.
+		if _, err := d.persistentConn.ExecContext(ctx, "SET SHOWPLAN_TEXT ON"); err != nil {
+			return "", fmt.Errorf("failed to enable showplan: %w", err)
+		}
+
+		// Ensure we turn it off even if the query fails
+		defer func() {
+			d.persistentConn.ExecContext(context.Background(), "SET SHOWPLAN_TEXT OFF")
+		}()
+
+		explainQuery = query
+	default:
+		return "", fmt.Errorf("explain not supported for database type: %s", d.Type)
+	}
+
+	rows, err := d.persistentConn.QueryContext(ctx, explainQuery)
+
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	// Handle multiple result sets.
+	// For MSSQL with batching, the first result might be from SET (empty) or the actual plan.
+	// We need to iterate through result sets to find the one with rows.
+
+	var planBuilder strings.Builder
+
+	foundPlan := false
+	for {
+		columns, err := rows.Columns()
+		if err != nil {
+			// Could happen if it's just a command result
+		} else if len(columns) > 0 {
+			foundPlan = true
+			nCols := len(columns)
+			scanTargets := make([]interface{}, nCols)
+			scanPtrs := make([]*interface{}, nCols)
+			for i := 0; i < nCols; i++ {
+				scanPtrs[i] = new(interface{})
+				scanTargets[i] = scanPtrs[i]
+			}
+
+			// Add header if useful? Maybe not for simple text plan
+			// planBuilder.WriteString(strings.Join(columns, " | ") + "\n")
+			// planBuilder.WriteString(strings.Repeat("-", 20) + "\n")
+
+			for rows.Next() {
+				if err := rows.Scan(scanTargets...); err != nil {
+					return "", err
+				}
+
+				var rowStrs []string
+				for i := 0; i < nCols; i++ {
+					val := *scanPtrs[i]
+					if b, ok := val.([]byte); ok {
+						rowStrs = append(rowStrs, string(b))
+					} else {
+						rowStrs = append(rowStrs, fmt.Sprintf("%v", val))
+					}
+				}
+				planBuilder.WriteString(strings.Join(rowStrs, " | ") + "\n")
+			}
+		}
+
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+
+	if !foundPlan {
+		return "No execution plan returned.", nil
+	}
+
+	return planBuilder.String(), nil
 }

@@ -242,7 +242,8 @@
             <div v-if="activeTab" class="flex flex-col h-full overflow-hidden">
                 <div v-if="!activeTab.isERView" class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
                     <div class="relative w-full h-64">
-                        <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables" />
+                        <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables"
+                            :get-columns="fetchTableColumns" />
 
                         <!-- Char count overlay -->
                         <div class="absolute bottom-1 right-3 z-10 flex items-center gap-2 pointer-events-none">
@@ -262,7 +263,7 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                         stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
                                     </path>
                                 </svg>
                                 Executing...
@@ -286,7 +287,7 @@
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                                 stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
                                             </path>
                                         </svg>
                                     </div>
@@ -316,6 +317,22 @@
                             </svg>
                             Read Only
                         </div>
+
+                        <button @click="analyzeQuery" :disabled="activeTab.isLoading || !activeTab.query"
+                            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
+                            title="Analyze Query (Explain)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-microscope mr-2">
+                                <path d="M6 18h8" />
+                                <path d="M3 22h18" />
+                                <path d="M14 22a7 7 0 1 0 0-14h-1" />
+                                <path d="M9 14h2" />
+                                <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" />
+                                <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
+                            </svg>
+                            Analyze
+                        </button>
 
                         <button @click="beautifyQuery" :disabled="activeTab.isLoading || !activeTab.query"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
@@ -388,6 +405,25 @@
                                 Messages
                             </div>
                             <div v-if="activeTab.resultViewTab === 'messages'"
+                                class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
+                        </button>
+                        <button @click="activeTab.resultViewTab = 'analysis'" v-if="activeTab.explanation"
+                            class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
+                            :class="activeTab.resultViewTab === 'analysis' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+                            <div class="flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-microscope">
+                                    <path d="M6 18h8" />
+                                    <path d="M3 22h18" />
+                                    <path d="M14 22a7 7 0 1 0 0-14h-1" />
+                                    <path d="M9 14h2" />
+                                    <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" />
+                                    <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
+                                </svg>
+                                Analysis
+                            </div>
+                            <div v-if="activeTab.resultViewTab === 'analysis'"
                                 class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
                         </button>
                     </div>
@@ -477,7 +513,8 @@
                                                 <td v-for="col in activeTab.resultSets[0].columns" :key="col"
                                                     class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
                                                     :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
-                                                    @dblclick="handleCellClick(item, col)">
+                                                    @dblclick="handleCellClick(item, col)"
+                                                    @contextmenu.prevent="handleRowContextMenu($event, item.data, col)">
 
                                                     <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
                                                         class="absolute inset-0 p-0.5">
@@ -534,7 +571,8 @@
                                                 :class="selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? null : `sub-${rsIndex}-${rIndex}`">
                                                 <td v-for="col in resultSet.columns" :key="col"
-                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border">
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border"
+                                                    @contextmenu.prevent="handleRowContextMenu($event, row, col)">
                                                     <span class="truncate block max-w-[300px]"
                                                         :title="String(row[col])">
                                                         {{ row[col] === null ? 'NULL' : row[col] }}
@@ -629,6 +667,31 @@
                                     class="text-muted-foreground mt-3 pt-2 border-t border-border">
                                     Completion time: {{ activeTab.completionTime }}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Analysis Tab Content -->
+                    <div v-if="activeTab.resultViewTab === 'analysis' && activeTab.explanation"
+                        class="flex-1 overflow-auto p-4">
+                        <div
+                            class="border border-border rounded-lg shadow-sm bg-card overflow-hidden h-full flex flex-col">
+                            <div
+                                class="bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground uppercase border-b border-border flex justify-between items-center">
+                                <span>Query Execution Plan</span>
+                                <span v-if="activeTab.isExplaining" class="flex items-center gap-2 text-primary">
+                                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
+                                        </path>
+                                    </svg>
+                                    Analyzing...
+                                </span>
+                            </div>
+                            <div class="p-4 font-mono text-xs text-foreground overflow-auto whitespace-pre flex-1">
+                                {{ activeTab.explanation }}
                             </div>
                         </div>
                     </div>
@@ -734,6 +797,68 @@
             </button>
         </div>
 
+        <!-- Row Context Menu -->
+        <div v-if="showRowContextMenu"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            :style="{ top: `${rowContextMenuPosition.y}px`, left: `${rowContextMenuPosition.x}px` }">
+            <button @click="handleCopyRow"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-copy">
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+                Copy Row
+            </button>
+            <button @click="handleCopyCellValue"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-clipboard-copy">
+                    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                </svg>
+                Copy Cell Value
+            </button>
+            <div class="border-t border-border my-1"></div>
+            <div class="relative group">
+                <button
+                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-pencil">
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            <path d="m15 5 4 4" />
+                        </svg>
+                        Set Value
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-chevron-right">
+                        <path d="m9 18 6-6-6-6" />
+                    </svg>
+                </button>
+                <!-- Submenu -->
+                <div
+                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[120px] hidden group-hover:block">
+                    <button @click="handleSetNull"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        Set to NULL
+                    </button>
+                    <button @click="handleSetEmpty"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        Set to Empty
+                    </button>
+                    <button @click="handleSetDefault"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        Set to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Update Confirmation Modal -->
         <div v-if="updateConfirmation && updateConfirmation.isOpen"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -774,7 +899,7 @@
                             <span class="text-xs font-semibold text-muted-foreground uppercase">New Value</span>
                             <div
                                 class="font-mono text-green-600 dark:text-green-500 text-xs max-h-48 overflow-y-auto whitespace-pre-wrap break-words border border-green-500/20 bg-green-500/5 p-2 rounded">
-                                {{ updateConfirmation.newValue === null ? 'NULL' : updateConfirmation.newValue }}
+                                {{ formatValueForDisplay(updateConfirmation.newValue) }}
                             </div>
                         </div>
                     </div>
@@ -848,7 +973,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream } from '../../wailsjs/go/main/App';
+import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -890,6 +1015,8 @@ interface QueryTab {
     sortDirection: 'asc' | 'desc' | null;
     error: string;
     isLoading: boolean;
+    isExplaining?: boolean; // Added for explain functionality
+    explanation?: string; // Added for explain functionality
     queryExecuted: boolean;
     executionTime?: number;
     editingCell?: CellEdit | null;
@@ -898,7 +1025,7 @@ interface QueryTab {
     relationships?: any[];
     tablesData?: Record<string, { name: string, type: string }[]>;
     activeQueryIds: string[];
-    resultViewTab: 'data' | 'messages';
+    resultViewTab: 'data' | 'messages' | 'analysis'; // Updated to include 'analysis'
     completionTime?: string;
     totalRowCount?: number;
     isPartialStats?: boolean;
@@ -907,6 +1034,7 @@ interface QueryTab {
 
 const tableSearch = ref('');
 const tables = ref<string[]>([]);
+const tableSchemas = ref<Record<string, string[]>>({});
 const tabs = ref<QueryTab[]>([]);
 const activeTabId = ref<string | null>(null);
 const sqlEditorRef = ref<any>(null);
@@ -928,6 +1056,94 @@ const toggleFolder = (folder: string) => {
 const showContextMenu = ref(false);
 const contextMenuPosition = ref({ x: 0, y: 0 });
 const contextMenuTargetTable = ref('');
+
+// Row Context Menu State
+const showRowContextMenu = ref(false);
+const rowContextMenuPosition = ref({ x: 0, y: 0 });
+const contextMenuTargetRow = ref<any>(null);
+const contextMenuTargetColumn = ref('');
+
+const handleRowContextMenu = (event: MouseEvent, row: any, col: string) => {
+    contextMenuTargetRow.value = row;
+    contextMenuTargetColumn.value = col;
+    const { clientX, clientY } = event;
+    rowContextMenuPosition.value = { x: clientX, y: clientY };
+    showRowContextMenu.value = true;
+    showContextMenu.value = false; // Close sidebar menu
+};
+
+const closeRowContextMenu = () => {
+    showRowContextMenu.value = false;
+};
+
+const handleCopyRow = () => {
+    if (contextMenuTargetRow.value) {
+        // Copy as Tab Separated Values to map to common spreadsheet behavior
+        // Or JSON? Let's try TSV which is good for pasting into Excel/Editors
+        // But JSON is safer for objects. Let's do TSV for now.
+        const values = Object.values(contextMenuTargetRow.value).map(v => v === null ? 'NULL' : String(v)).join('\t');
+        navigator.clipboard.writeText(values);
+        closeRowContextMenu();
+    }
+};
+
+const handleCopyCellValue = () => {
+    if (contextMenuTargetRow.value && contextMenuTargetColumn.value) {
+        const val = contextMenuTargetRow.value[contextMenuTargetColumn.value];
+        const str = val === null ? 'NULL' : String(val);
+        navigator.clipboard.writeText(str);
+        closeRowContextMenu();
+    }
+};
+
+const handleSetNull = () => {
+    initiateQuickUpdate(null);
+};
+
+const handleSetEmpty = () => {
+    initiateQuickUpdate('');
+};
+
+const handleSetDefault = () => {
+    initiateQuickUpdate({ _vaultdb_sql_default: true });
+};
+
+const initiateQuickUpdate = (newValue: any) => {
+    if (!contextMenuTargetRow.value || !contextMenuTargetColumn.value || !activeTab.value || !activeTab.value.tableName) return;
+
+    closeRowContextMenu();
+
+    const col = contextMenuTargetColumn.value;
+    const item = {
+        data: contextMenuTargetRow.value,
+        index: activeTab.value.resultSets && activeTab.value.resultSets[0] ? activeTab.value.resultSets[0].rows.indexOf(contextMenuTargetRow.value) : -1
+    };
+    // The index above might be imprecise if using virtual list with filtering, but getRowId logic handles strict PKs during update
+
+    // Check if editable
+    if (!isEditable(col)) {
+        alert("This column cannot be edited (Primary Key or Read Only).");
+        return;
+    }
+
+    const originalValue = contextMenuTargetRow.value[col];
+
+    updateConfirmation.value = {
+        isOpen: true,
+        tableName: activeTab.value.tableName,
+        column: col,
+        originalValue: originalValue,
+        newValue: newValue,
+        rowIndex: item.index,
+        item: item // data reference
+    };
+};
+
+const formatValueForDisplay = (val: any) => {
+    if (val === null) return 'NULL';
+    if (typeof val === 'object' && val._vaultdb_sql_default) return '<DEFAULT>';
+    return String(val);
+};
 
 // Update Confirmation State
 const updateConfirmation = ref<{
@@ -1024,16 +1240,16 @@ const confirmImport = async () => {
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
 
 // Virtual List Logic - Adapted for the first result set for now, or we need multiple virtual lists
-// For simplicity in this iteration, let's make the virtual list only apply to the FIRST result set if it exists.
+// For simplicity in this iteration, let's make the virtual list only apply to the first result set if it exists.
 // Or we render multiple tables, but maybe only the first one is virtualized if it's huge?
-// Actually, `useVirtualList` takes a source array. 
+// Actually, `useVirtualList` takes a source array.
 // If we have multiple results, we might need a component for each result table.
-// For now, let's keep `filteredResults` mapped to `resultSets[0]` to handle the main case, 
+// For now, let's keep `filteredResults` mapped to `resultSets[0]` to handle the main case,
 // and if there are multiple, we might render them simply or focus on the first one.
 // Wait, the user wants "select 1; select 2" to show BOTH.
 // `useVirtualList` works on a single list.
 // If I change the UI to list multiple tables, I need multiple virtual lists or just standard tables for small results.
-// Let's stick to virtualizing the first result set for now to minimize risk, 
+// Let's stick to virtualizing the first result set for now to minimize risk,
 // and render subsequent result sets as standard tables (assuming they are smaller summaries or we accept performance hit for secondary results).
 // Better yet, let's try to map `activeTab.results` to `activeTab.resultSets[0].rows` dynamically.
 
@@ -1041,26 +1257,18 @@ const currentResultSetIndex = ref(0); // Track which result set is "active" for 
 // Or better: Render ALL result sets stack vertically.
 // But `useVirtualList` is global per component instance here.
 // I will create a `ResultSetTable` component? No, I should stick to single file edits.
-// Let's wrap the virtualization logic to target a specific computed property.
-
-const activeResultSet = computed(() => {
-    if (!activeTab.value || !activeTab.value.resultSets || activeTab.value.resultSets.length === 0) return null;
-    return activeTab.value.resultSets[0]; // Default to first for now, or we need to change UI significantly
-});
-
-// We need to support navigating result sets or showing all.
-// User request: "select update delete... then select", "select two tables show only one".
-// So they want to see ALL results.
-// If I have multiple selects, I should probably show them one after another.
-// Given the current structure using `useVirtualList` at the top level, it's hard to virtualize multiple lists easily without components.
-// I will change the UI to display TABS for result sets? No, vertical list is standard in SSMS.
 // Let's try: Main view uses virtualization. If multiple results, maybe we only virtualize the largest/first?
 // Or, we simplifiy and just say: The `virtualList` is backing the `filteredResults`.
 // `filteredResults` can be a computed that flattens headers? No.
 // Let's try to support just ONE virtual list for the "Primary" result (usually the last one or the one with most rows?).
 // Actually, standard behavior: Show "Grid 1", "Grid 2".
-// I will modify `filteredResults` to target `resultSets[0]` (backward compat) 
+// I will modify `filteredResults` to target `resultSets[0]` (backward compat)
 // AND add a section to show *other* result sets below, maybe without virtualization (limit 100?) or just standard rendering.
+
+const activeResultSet = computed(() => {
+    if (!activeTab.value || !activeTab.value.resultSets || activeTab.value.resultSets.length === 0) return null;
+    return activeTab.value.resultSets[0];
+});
 
 const filteredResults = computed(() => {
     if (!activeResultSet.value) return [];
@@ -1151,6 +1359,8 @@ const addTab = () => {
         sortDirection: null,
         error: '',
         isLoading: false,
+        isExplaining: false,
+        explanation: undefined,
         queryExecuted: false,
         activeQueryIds: [],
         resultViewTab: 'data',
@@ -1275,10 +1485,9 @@ const checkRowCount = async (tableName: string) => {
 
     try {
         const reqId = generateId();
-        // Use standard ExecuteQuery via App.go which wraps db.ExecuteQuery
-        // We use a separate ID so it doesn't conflict with main query cancellation if we want
-        // But if we want it cancellable, we should track it. For now, fire and forget or let it finish.
-        const res = await ExecuteQuery(props.connectionId, countQuery, reqId);
+        // Use ExecuteTransientQuery to avoid blocking/being blocked by the main persistent connection
+        // This allows row count to run in parallel with the main query streaming
+        const res = await ExecuteTransientQuery(props.connectionId, countQuery);
         if (res.error) {
             console.warn("Failed to get row count", res.error);
         } else if (res.resultSets && res.resultSets.length > 0 && res.resultSets[0].rows && res.resultSets[0].rows.length > 0) {
@@ -1298,10 +1507,12 @@ const openContextMenu = (event: MouseEvent, table: string) => {
     const { clientX, clientY } = event;
     contextMenuPosition.value = { x: clientX, y: clientY };
     showContextMenu.value = true;
+    showRowContextMenu.value = false; // Close row menu
 };
 
 const closeContextMenu = () => {
     showContextMenu.value = false;
+    showRowContextMenu.value = false;
 };
 
 const handleSelectTop100 = () => {
@@ -1484,6 +1695,60 @@ const handleViewERDiagram = () => {
     }
 };
 
+const fetchTableColumns = async (tableName: string): Promise<string[]> => {
+    if (tableSchemas.value[tableName]) {
+        return tableSchemas.value[tableName];
+    }
+
+    const type = (props.dbType || '').toLowerCase();
+    let query = '';
+
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
+    } else if (type.includes('postgres')) {
+        query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`;
+    } else if (type.includes('mysql') || type.includes('maria')) {
+        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
+    } else if (type.includes('sqlite')) {
+        // SQLite PRAGMA returns a result set we need to parse differently if we use generic ExecuteQuery
+        // But let's try standard schema table if available or just PRAGMA
+        query = `SELECT name FROM pragma_table_info('${tableName}')`;
+    } else {
+        return [];
+    }
+
+    try {
+        const reqId = generateId();
+        // unique ID for schema fetch to avoid collision
+        const res = await ExecuteQuery(props.connectionId, query, reqId);
+
+        if (!res.error && res.resultSets && res.resultSets.length > 0) {
+            const rs = res.resultSets[0];
+            const cols = rs.rows.map(row => {
+                // Row is array or map depending on driver?
+                // ExecuteQuery returns ResultSet which has Rows [][]interface{} and Columns []string
+                // Wait, existing code says:
+                // const mappedRows = batchRows.map((row: any[]) => ...
+
+                // However, ExecuteQuery (non-stream) return generic result.
+                // Let's check App.go ExecuteQuery return type. structure is QueryResult { ResultSets []ResultSet }
+                // ResultSet struct in Go is { Columns []string, Rows [][]interface{} }
+                // So row is []interface{}.
+                if (Array.isArray(row)) {
+                    return String(row[0]);
+                }
+                return String(row);
+            });
+            tableSchemas.value[tableName] = cols;
+            return cols;
+        }
+    } catch (e) {
+        console.warn(`Failed to fetch columns for ${tableName}`, e);
+    }
+    return [];
+};
+
+
 
 const runQuery = async () => {
 
@@ -1494,6 +1759,8 @@ const runQuery = async () => {
     activeTab.value.filters = {};
     activeTab.value.queryExecuted = false;
     activeTab.value.isLoading = true;
+    activeTab.value.isExplaining = false; // Reset explain state
+    activeTab.value.explanation = undefined; // Reset explanation
     activeTab.value.executionTime = undefined;
     activeTab.value.fetchTime = undefined;
     activeTab.value.editingCell = null;
@@ -1639,6 +1906,36 @@ const stopQuery = async () => {
         // The ExecuteQuery promise in runQuery/ER logic will handle the error (context canceled)
     } catch (e) {
         console.error("Error stopping query:", e);
+    }
+};
+
+const analyzeQuery = async () => {
+    if (!activeTab.value || !activeTab.value.query.trim()) return;
+
+    activeTab.value.isExplaining = true;
+    activeTab.value.error = ''; // Clear previous errors
+    activeTab.value.explanation = "Analyzing...";
+    activeTab.value.resultViewTab = 'analysis';
+    // Ensure the tab pane is visible even if queryExecuted is false
+    // We treat explanation as a type of execution result
+    activeTab.value.queryExecuted = true;
+
+    let queryToAnalyze = activeTab.value.query;
+    if (sqlEditorRef.value) {
+        const selection = sqlEditorRef.value.getSelection();
+        if (selection && selection.trim()) {
+            queryToAnalyze = selection;
+        }
+    }
+
+    try {
+        const plan = await ExplainQuery(props.connectionId, queryToAnalyze);
+        activeTab.value.explanation = plan;
+    } catch (err: any) {
+        activeTab.value.error = "Failed to analyze query: " + err.toString();
+        activeTab.value.explanation = undefined;
+    } finally {
+        activeTab.value.isExplaining = false;
     }
 };
 

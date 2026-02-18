@@ -22,6 +22,14 @@ export function ExecuteQueryStream(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteQueryStream'](arg1, arg2, arg3);
 }
 
+export function ExecuteTransientQuery(arg1, arg2) {
+  return window['go']['main']['App']['ExecuteTransientQuery'](arg1, arg2);
+}
+
+export function ExplainQuery(arg1, arg2) {
+  return window['go']['main']['App']['ExplainQuery'](arg1, arg2);
+}
+
 export function ExportTable(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTable'](arg1, arg2, arg3, arg4);
 }
