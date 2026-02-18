@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -21,9 +23,10 @@ type DBConfig struct {
 }
 
 type Database struct {
-	conn     *sql.DB
-	Type     string
-	ReadOnly bool
+	conn           *sql.DB
+	persistentConn *sql.Conn
+	Type           string
+	ReadOnly       bool
 }
 
 func NewDatabase() *Database {
@@ -60,24 +63,48 @@ func (d *Database) Connect(config DBConfig) error {
 		return err
 	}
 
+	// Ping to ensure connectivity
 	err = conn.Ping()
 	if err != nil {
 		return err
 	}
 
+	// Acquire a dedicated connection for this session
+	// This ensures that all queries executed by this Database instance share the same underlying connection,
+	// preserving transaction state and session-level settings.
+	persistentConn, err := conn.Conn(context.Background())
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("failed to acquire dedicated connection: %w", err)
+	}
+
 	d.conn = conn
+	d.persistentConn = persistentConn
 	d.Type = config.Type
 	d.ReadOnly = config.ReadOnly
 	return nil
 }
 
 func (d *Database) Disconnect() error {
-	if d.conn != nil {
-		err := d.conn.Close()
-		d.conn = nil
-		return err
+	var err error
+	if d.persistentConn != nil {
+		err = d.persistentConn.Close()
+		d.persistentConn = nil
 	}
-	return nil
+	if d.conn != nil {
+		if closeErr := d.conn.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+		d.conn = nil
+	}
+	return err
+}
+
+func (d *Database) BeginTransaction() (*sql.Tx, error) {
+	if d.persistentConn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+	return d.persistentConn.BeginTx(context.Background(), nil)
 }
 
 func (d *Database) SetReadOnly(readOnly bool) {
@@ -85,7 +112,7 @@ func (d *Database) SetReadOnly(readOnly bool) {
 }
 
 func (d *Database) GetTables() ([]string, error) {
-	if d.conn == nil {
+	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 
@@ -103,7 +130,7 @@ func (d *Database) GetTables() ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting tables")
 	}
 
-	rows, err := d.conn.Query(query)
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -120,53 +147,102 @@ func (d *Database) GetTables() ([]string, error) {
 	return tables, nil
 }
 
-func (d *Database) ExecuteQuery(query string) ([]map[string]interface{}, []string, error) {
-	if d.conn == nil {
-		return nil, nil, fmt.Errorf("no database connection")
+type ResultSet struct {
+	Columns []string                 `json:"columns"`
+	Rows    []map[string]interface{} `json:"rows"`
+	Message string                   `json:"message,omitempty"`
+}
+
+func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet, error) {
+	if d.persistentConn == nil {
+		return nil, fmt.Errorf("no database connection")
 	}
 
-	rows, err := d.conn.Query(query)
+	// Always use QueryContext to support multiple result sets (even for INSERT/UPDATE which might return results or just be part of a batch)
+	// We need to handle the case where the driver doesn't support multiple result sets gracefully if possible,
+	// but standard database/sql logic is to just use NextResultSet().
+
+	rows, err := d.persistentConn.QueryContext(ctx, query)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, nil, err
-	}
+	var resultSets []ResultSet
 
-	var results []map[string]interface{}
-	for rows.Next() {
-		// Create a slice of interface{} to hold the values
-		values := make([]interface{}, len(columns))
-		for i := range values {
-			values[i] = new(interface{})
+	for {
+		// Check for cancellation
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
 
-		if err := rows.Scan(values...); err != nil {
-			return nil, nil, err
+		columns, err := rows.Columns()
+		if err != nil {
+			// This might happen if it's a result set without columns (like an UPDATE result in some drivers?)
+			// primarily checking if we can proceed.
+			// Some drivers might verify columns availability.
+			// If no columns, maybe it's just a command result?
+			// But QueryContext usually expects rows.
+			// Let's defer to seeing if we can scan.
+			// Actually, if Columns() fails, we might just be at the end or it's not a select.
+			// However, in Go `database/sql`, Exec results are not easily retrieveable via Query.
+			// BUT, for SQL Server "WAITFOR...; SELECT..." and "UPDATE...; SELECT...", QueryContext IS the way to go to get the SELECT part.
+			// If the first part is NOT a select, rows.Columns() might be empty or error depending on driver.
 		}
 
-		// Create a map for this row
-		row := make(map[string]interface{})
-		for i, col := range columns {
-			val := *(values[i].(*interface{}))
+		var currentSet ResultSet
+		currentSet.Columns = columns
 
-			// Handle []byte (common for string/blob data in some drivers)
-			if b, ok := val.([]byte); ok {
-				row[col] = string(b)
-			} else {
-				row[col] = val
+		// If we have columns, let's scan rows
+		if len(columns) > 0 {
+			for rows.Next() {
+				// Check for cancellation during row processing
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+
+				values := make([]interface{}, len(columns))
+				for i := range values {
+					values[i] = new(interface{})
+				}
+
+				if err := rows.Scan(values...); err != nil {
+					return nil, err
+				}
+
+				row := make(map[string]interface{})
+				for i, col := range columns {
+					val := *(values[i].(*interface{}))
+					if b, ok := val.([]byte); ok {
+						row[col] = string(b)
+					} else {
+						row[col] = val
+					}
+				}
+				currentSet.Rows = append(currentSet.Rows, row)
 			}
 		}
-		results = append(results, row)
+
+		// Even if loop didn't run (no rows), we might have columns (empty result set).
+		// Or if no columns, maybe it was an exec.
+
+		resultSets = append(resultSets, currentSet)
+
+		if !rows.NextResultSet() {
+			break
+		}
 	}
-	return results, columns, nil
+
+	// Check for any error encountered during iteration
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return resultSets, nil
 }
 
 func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
-	if d.conn == nil {
+	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 
@@ -201,7 +277,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting primary keys")
 	}
 
-	rows, err := d.conn.Query(query)
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +296,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 
 func (d *Database) getSqlitePrimaryKeys(tableName string) ([]string, error) {
 	query := fmt.Sprintf("PRAGMA table_info(%s)", tableName)
-	rows, err := d.conn.Query(query)
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +323,7 @@ func (d *Database) getSqlitePrimaryKeys(tableName string) ([]string, error) {
 }
 
 func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}, conditions map[string]interface{}) error {
-	if d.conn == nil {
+	if d.persistentConn == nil {
 		return fmt.Errorf("no database connection")
 	}
 
@@ -275,9 +351,6 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 		}
 	}
 
-	// We iterate over the map. Since map iteration order is random,
-	// let's sort keys to be deterministic if needed,
-	// but for now standard random iteration is fine as long as query and args match.
 	for col, val := range updates {
 		setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, getPlaceholder()))
 		args = append(args, val)
@@ -310,12 +383,100 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 
 	query := fmt.Sprintf("UPDATE %s SET %s%s", tableName, setStr, whereStr)
 
-	_, err := d.conn.Exec(query, args...)
+	_, err := d.persistentConn.ExecContext(context.Background(), query, args...)
+	return err
+}
+
+func (d *Database) InsertRecord(tableName string, data map[string]interface{}) error {
+	if d.persistentConn == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	if d.ReadOnly {
+		return fmt.Errorf("database is in read-only mode")
+	}
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	var columns []string
+	var placeholders []string
+	var args []interface{}
+	var paramCount int
+
+	getPlaceholder := func() string {
+		paramCount++
+		switch d.Type {
+		case "postgres":
+			return fmt.Sprintf("$%d", paramCount)
+		case "mssql":
+			return fmt.Sprintf("@p%d", paramCount)
+		default:
+			return "?"
+		}
+	}
+
+	for col, val := range data {
+		columns = append(columns, col)
+		placeholders = append(placeholders, getPlaceholder())
+		args = append(args, val)
+	}
+
+	colsStr := strings.Join(columns, ", ")
+	valsStr := strings.Join(placeholders, ", ")
+
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, colsStr, valsStr)
+
+	_, err := d.persistentConn.ExecContext(context.Background(), query, args...)
+	return err
+}
+
+// InsertRecordTx is used within a transaction, so it uses the passed *sql.Tx
+// This does NOT use d.persistentConn directly, but the Tx itself is tied to it.
+func (d *Database) InsertRecordTx(tx *sql.Tx, tableName string, data map[string]interface{}) error {
+	if d.ReadOnly {
+		return fmt.Errorf("database is in read-only mode")
+	}
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	var columns []string
+	var placeholders []string
+	var args []interface{}
+	var paramCount int
+
+	getPlaceholder := func() string {
+		paramCount++
+		switch d.Type {
+		case "postgres":
+			return fmt.Sprintf("$%d", paramCount)
+		case "mssql":
+			return fmt.Sprintf("@p%d", paramCount)
+		default:
+			return "?"
+		}
+	}
+
+	for col, val := range data {
+		columns = append(columns, col)
+		placeholders = append(placeholders, getPlaceholder())
+		args = append(args, val)
+	}
+
+	colsStr := strings.Join(columns, ", ")
+	valsStr := strings.Join(placeholders, ", ")
+
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, colsStr, valsStr)
+
+	_, err := tx.Exec(query, args...)
 	return err
 }
 
 func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
-	if d.conn == nil {
+	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 
@@ -375,7 +536,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 		return nil, fmt.Errorf("unsupported database type for getting foreign keys")
 	}
 
-	rows, err := d.conn.Query(query)
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +555,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 
 func (d *Database) getSqliteForeignKeys(tableName string) ([]ForeignKey, error) {
 	query := fmt.Sprintf("PRAGMA foreign_key_list(%s)", tableName)
-	rows, err := d.conn.Query(query)
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}

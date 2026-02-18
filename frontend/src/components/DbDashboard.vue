@@ -242,7 +242,7 @@
             <div v-if="activeTab" class="flex flex-col h-full overflow-hidden">
                 <div v-if="!activeTab.isERView" class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
                     <div class="relative w-full h-64">
-                        <SqlEditor v-model="activeTab.query" :tables="tables" />
+                        <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables" />
 
                         <!-- Char count overlay -->
                         <div class="absolute bottom-1 right-3 z-10 flex items-center gap-2 pointer-events-none">
@@ -306,17 +306,28 @@
                             Beautify
                         </button>
 
-                        <button @click="runQuery" :disabled="activeTab.isLoading"
+                        <button v-if="activeTab.isLoading" @click="stopQuery"
+                            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-square mr-2 fill-current">
+                                <rect width="18" height="18" x="3" y="3" rx="2" />
+                            </svg>
+                            Stop
+                        </button>
+
+                        <button v-else @click="runQuery"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 shadow-sm">
-                            <svg v-if="!activeTab.isLoading" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play mr-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-play mr-2">
                                 <polygon points="5 3 19 12 5 21 5 3" />
                             </svg>
                             Run Query
                         </button>
                     </div>
                 </div>
+
 
                 <!-- Results Area -->
                 <div v-if="!activeTab.isERView" class="flex-1 overflow-auto bg-muted/10 p-4">
@@ -333,87 +344,149 @@
                         <div class="flex-1 text-sm font-medium break-all font-mono">{{ activeTab.error }}</div>
                     </div>
 
-                    <!-- Results Table -->
-                    <div v-else-if="activeTab.results && activeTab.results.length > 0"
-                        class="border border-border rounded-lg shadow-sm bg-card flex flex-col h-full max-h-full overflow-hidden">
-                        <div class="flex-1 overflow-auto" v-bind="containerProps">
-                            <table class="w-full text-sm text-left relative">
-                                <thead
-                                    class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
-                                    <tr>
-                                        <th v-for="col in getColumns(activeTab)" :key="col" scope="col"
-                                            class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
-                                            @click="toggleSort(col)">
-                                            <div class="flex flex-col gap-2">
-                                                <div class="flex items-center justify-between gap-2">
-                                                    <span>{{ col }}</span>
-                                                    <div class="flex flex-col">
-                                                        <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'asc'"
-                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                            stroke-width="2" stroke-linecap="round"
-                                                            stroke-linejoin="round" class="lucide lucide-chevron-up">
-                                                            <path d="m18 15-6-6-6 6" />
-                                                        </svg>
-                                                        <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'desc'"
-                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                            stroke-width="2" stroke-linecap="round"
-                                                            stroke-linejoin="round" class="lucide lucide-chevron-down">
-                                                            <path d="m6 9 6 6 6-6" />
-                                                        </svg>
-                                                        <svg v-if="activeTab.sortColumn !== col"
-                                                            xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                            stroke-width="2" stroke-linecap="round"
-                                                            stroke-linejoin="round"
-                                                            class="lucide lucide-chevrons-up-down text-muted-foreground/30">
-                                                            <path d="m7 15 5 5 5-5" />
-                                                            <path d="m7 9 5-5 5 5" />
-                                                        </svg>
-                                                    </div>
-                                                </div>
-                                                <input v-if="activeTab.primaryKeys.length > 0 || true" type="text"
-                                                    v-model="activeTab.filters[col]" placeholder="Filter..."
-                                                    class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
-                                                    @click.stop />
-                                            </div>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-border">
-                                    <tr :style="{ height: `${padTop}px` }"></tr>
-                                    <tr v-for="item in virtualList" :key="item.index"
-                                        class="bg-card hover:bg-muted/50 transition-colors h-[37px]">
-                                        <td v-for="col in getColumns(activeTab)" :key="col"
-                                            class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
-                                            :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
-                                            @dblclick="handleCellClick(item, col)">
+                    <!-- Results List (Multiple Sets) -->
+                    <div v-else-if="activeTab.resultSets && activeTab.resultSets.length > 0"
+                        class="flex flex-col gap-4 h-full">
 
-                                            <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
-                                                class="absolute inset-0 p-0.5">
-                                                <input :id="`edit-input-${item.index}-${col}`"
-                                                    v-model="activeTab.editingCell.value"
-                                                    class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
-                                                    @blur="saveCellEdit(item, col)"
-                                                    @keydown.enter="saveCellEdit(item, col)"
-                                                    @keydown.esc="activeTab.editingCell = null" />
-                                            </div>
-                                            <span v-else class="truncate block max-w-[300px]"
-                                                :title="String(item.data[col])">
-                                                {{ item.data[col] === null ? 'NULL' : item.data[col] }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <tr :style="{ height: `${padBottom}px` }"></tr>
-                                </tbody>
-                            </table>
+                        <!-- Primary Result Set (Virtual List) -->
+                        <div v-if="activeTab.resultSets[0]"
+                            class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+
+                            <!-- Header / Message -->
+                            <div v-if="activeTab.resultSets[0].message"
+                                class="bg-muted px-4 py-2 text-xs font-mono border-b border-border text-foreground">
+                                {{ activeTab.resultSets[0].message }}
+                            </div>
+
+                            <!-- Virtual Table Container -->
+                            <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
+                                <table
+                                    v-if="activeTab.resultSets[0].columns && activeTab.resultSets[0].columns.length > 0"
+                                    class="w-full text-sm text-left relative">
+                                    <thead
+                                        class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
+                                        <tr>
+                                            <th v-for="col in activeTab.resultSets[0].columns" :key="col" scope="col"
+                                                class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
+                                                @click="toggleSort(col)">
+                                                <div class="flex flex-col gap-2">
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <span>{{ col }}</span>
+                                                        <div class="flex flex-col">
+                                                            <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'asc'"
+                                                                xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                height="12" viewBox="0 0 24 24" fill="none"
+                                                                stroke="currentColor" stroke-width="2"
+                                                                stroke-linecap="round" stroke-linejoin="round"
+                                                                class="lucide lucide-chevron-up">
+                                                                <path d="m18 15-6-6-6 6" />
+                                                            </svg>
+                                                            <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'desc'"
+                                                                xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                height="12" viewBox="0 0 24 24" fill="none"
+                                                                stroke="currentColor" stroke-width="2"
+                                                                stroke-linecap="round" stroke-linejoin="round"
+                                                                class="lucide lucide-chevron-down">
+                                                                <path d="m6 9 6 6 6-6" />
+                                                            </svg>
+                                                            <svg v-if="activeTab.sortColumn !== col"
+                                                                xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                height="12" viewBox="0 0 24 24" fill="none"
+                                                                stroke="currentColor" stroke-width="2"
+                                                                stroke-linecap="round" stroke-linejoin="round"
+                                                                class="lucide lucide-chevrons-up-down text-muted-foreground/30">
+                                                                <path d="m7 15 5 5 5-5" />
+                                                                <path d="m7 9 5-5 5 5" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                    <input v-if="activeTab.primaryKeys.length > 0 || true" type="text"
+                                                        v-model="activeTab.filters[col]" placeholder="Filter..."
+                                                        class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
+                                                        @click.stop />
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border">
+                                        <tr :style="{ height: `${padTop}px` }"></tr>
+                                        <tr v-for="item in virtualList" :key="item.index"
+                                            class="bg-card hover:bg-muted/50 transition-colors h-[37px]">
+                                            <td v-for="col in activeTab.resultSets[0].columns" :key="col"
+                                                class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
+                                                :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
+                                                @dblclick="handleCellClick(item, col)">
+
+                                                <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
+                                                    class="absolute inset-0 p-0.5">
+                                                    <input :id="`edit-input-${item.index}-${col}`"
+                                                        v-model="activeTab.editingCell.value"
+                                                        class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
+                                                        @blur="saveCellEdit(item, col)"
+                                                        @keydown.enter="saveCellEdit(item, col)"
+                                                        @keydown.esc="activeTab.editingCell = null" />
+                                                </div>
+                                                <span v-else class="truncate block max-w-[300px]"
+                                                    :title="String(item.data[col])">
+                                                    {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr :style="{ height: `${padBottom}px` }"></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div
+                                class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
+                                <span>{{ filteredResults.length }} rows returned ({{ activeTab.resultSets[0].rows ?
+                                    activeTab.resultSets[0].rows.length : 0 }}
+                                    total)</span>
+                                <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
+                            </div>
                         </div>
-                        <div
-                            class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
-                            <span>{{ filteredResults.length }} rows returned ({{ activeTab.results.length }}
-                                total)</span>
-                            <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
+
+                        <!-- Subsequent Result Sets (Standard Tables) -->
+                        <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="rsIndex + 1"
+                            class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+
+                            <!-- Result Set Header / Message -->
+                            <div v-if="resultSet.message"
+                                class="bg-muted px-4 py-2 text-xs font-mono border-b border-border text-foreground">
+                                {{ resultSet.message }}
+                            </div>
+
+                            <!-- Standard Table for subsequent result sets -->
+                            <div v-if="resultSet.columns && resultSet.columns.length > 0"
+                                class="flex-1 overflow-auto bg-card">
+                                <table class="w-full text-sm text-left relative">
+                                    <thead
+                                        class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
+                                        <tr>
+                                            <th v-for="col in resultSet.columns" :key="col"
+                                                class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] select-none">
+                                                {{ col }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border">
+                                        <tr v-for="(row, rIndex) in resultSet.rows" :key="rIndex"
+                                            class="bg-card hover:bg-muted/50 transition-colors">
+                                            <td v-for="col in resultSet.columns" :key="col"
+                                                class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border">
+                                                <span class="truncate block max-w-[300px]" :title="String(row[col])">
+                                                    {{ row[col] === null ? 'NULL' : row[col] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div
+                                class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
+                                <span>{{ resultSet.rows ? resultSet.rows.length : 0 }} rows</span>
+                            </div>
                         </div>
                     </div>
 
@@ -457,10 +530,12 @@
 
                 <!-- ER Diagram View -->
                 <div v-if="activeTab.isERView" class="flex-1 overflow-hidden bg-background">
-                    <ERDiagram :tableName="activeTab.tableName || ''" :columns="activeTab.results"
+                    <ERDiagram :tableName="activeTab.tableName || ''"
+                        :columns="activeTab.tablesData && activeTab.tableName ? activeTab.tablesData[activeTab.tableName] : []"
                         :relationships="activeTab.relationships || []" :tablesData="activeTab.tablesData || {}"
                         :isDark="true" />
                 </div>
+
             </div>
 
             <div v-else
@@ -528,6 +603,29 @@
                 </svg>
                 View ER Diagram
             </button>
+            <div class="border-t border-border my-1"></div>
+            <button @click="handleExport"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-upload">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                Export Data
+            </button>
+            <button @click="handleImport"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-download">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                Import Data
+            </button>
         </div>
 
         <!-- Update Confirmation Modal -->
@@ -588,12 +686,63 @@
                 </div>
             </div>
         </div>
+
+
+        <!-- Import Options Modal -->
+        <div v-if="showImportOptions"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground">Import Options</h3>
+                    <button @click="showImportOptions = false" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="font-semibold text-muted-foreground">Target Table:</span>
+                        <span>{{ importOptions.tableName }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="font-semibold text-muted-foreground">File:</span>
+                        <span class="truncate" :title="importOptions.filePath">{{ importOptions.filePath }}</span>
+                    </div>
+
+                    <div v-if="props.dbType === 'mssql'" class="flex items-center space-x-2 pt-2">
+                        <input type="checkbox" id="identityInsert" v-model="importOptions.enableIdentityInsert"
+                            class="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary">
+                        <label for="identityInsert"
+                            class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            Enable Identity Insert (SET IDENTITY_INSERT ON)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4">
+                    <button @click="showImportOptions = false"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="confirmImport"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+                        Import
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys } from '../../wailsjs/go/main/App';
+import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
 import SqlEditor from './SqlEditor.vue';
@@ -613,13 +762,21 @@ interface CellEdit {
     value: any;
 }
 
+
+interface ResultSet {
+    columns: string[];
+    rows: any[];
+    message?: string;
+}
+
 interface QueryTab {
     id: string;
     name: string;
     tableName?: string; // Store table name if it's a simple SELECT
     query: string;
-    results: any[];
-    columns: string[];
+    // results: any[]; // Deprecated, use resultSets
+    // columns: string[]; // Deprecated, use resultSets
+    resultSets: ResultSet[];
     primaryKeys: string[];
     filters: Record<string, string>;
     sortColumn?: string;
@@ -633,12 +790,15 @@ interface QueryTab {
     isERView?: boolean;
     relationships?: any[];
     tablesData?: Record<string, { name: string, type: string }[]>;
+    activeQueryIds: string[];
 }
 
 const tableSearch = ref('');
 const tables = ref<string[]>([]);
 const tabs = ref<QueryTab[]>([]);
 const activeTabId = ref<string | null>(null);
+const sqlEditorRef = ref<any>(null);
+
 
 // Sidebar State
 const openFolders = ref(['Tables']);
@@ -667,16 +827,138 @@ const updateConfirmation = ref<{
     item: any;
 } | null>(null);
 
+const handleExport = async () => {
+    if (!contextMenuTargetTable.value) return;
+    const tableName = contextMenuTargetTable.value;
+
+    const result = await SelectExportFile(`${tableName}_export.json`);
+
+    if (result) {
+        let format = "json";
+        if (result.endsWith(".csv")) format = "csv";
+        else if (result.endsWith(".sql")) format = "sql";
+        else if (result.endsWith(".xlsx")) format = "excel";
+
+        try {
+            const resp = await ExportTable(props.connectionId, tableName, format, result);
+            if (resp !== "Success") {
+                alert(resp);
+            } else {
+                // Success
+            }
+        } catch (e) {
+            alert("Error exporting: " + e);
+        }
+    }
+    showContextMenu.value = false;
+};
+
+// Import Options State
+const showImportOptions = ref(false);
+const importOptions = ref({
+    filePath: '',
+    format: '',
+    tableName: '',
+    enableIdentityInsert: false
+});
+
+const handleImport = async () => {
+    if (!contextMenuTargetTable.value) return;
+    const tableName = contextMenuTargetTable.value;
+
+    const result = await SelectImportFile();
+
+    if (result) {
+        let format = "json";
+        if (result.endsWith(".csv")) format = "csv";
+        else if (result.endsWith(".sql")) format = "sql";
+        else if (result.endsWith(".xlsx")) format = "excel";
+
+        importOptions.value = {
+            filePath: result,
+            format: format,
+            tableName: tableName,
+            enableIdentityInsert: false
+        };
+        showImportOptions.value = true;
+    }
+    showContextMenu.value = false;
+};
+
+const confirmImport = async () => {
+    showImportOptions.value = false;
+    try {
+        const resp = await ImportTable(
+            props.connectionId,
+            importOptions.value.tableName,
+            importOptions.value.format,
+            importOptions.value.filePath,
+            importOptions.value.enableIdentityInsert
+        );
+        if (resp !== "Success") {
+            alert(resp);
+        } else {
+            alert("Import Successful!");
+            // Optionally refresh if the table is open or just notify
+        }
+    } catch (e) {
+        alert("Error importing: " + e);
+    }
+};
+
+
 // Active Tab Helper
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
 
-// Virtual List Logic
-const filteredResults = computed(() => {
-    if (!activeTab.value) return [];
-    let data = activeTab.value.results;
-    const filters = activeTab.value.filters;
+// Virtual List Logic - Adapted for the first result set for now, or we need multiple virtual lists
+// For simplicity in this iteration, let's make the virtual list only apply to the FIRST result set if it exists.
+// Or we render multiple tables, but maybe only the first one is virtualized if it's huge?
+// Actually, `useVirtualList` takes a source array. 
+// If we have multiple results, we might need a component for each result table.
+// For now, let's keep `filteredResults` mapped to `resultSets[0]` to handle the main case, 
+// and if there are multiple, we might render them simply or focus on the first one.
+// Wait, the user wants "select 1; select 2" to show BOTH.
+// `useVirtualList` works on a single list.
+// If I change the UI to list multiple tables, I need multiple virtual lists or just standard tables for small results.
+// Let's stick to virtualizing the first result set for now to minimize risk, 
+// and render subsequent result sets as standard tables (assuming they are smaller summaries or we accept performance hit for secondary results).
+// Better yet, let's try to map `activeTab.results` to `activeTab.resultSets[0].rows` dynamically.
 
-    // 1. Filter
+const currentResultSetIndex = ref(0); // Track which result set is "active" for the main view?
+// Or better: Render ALL result sets stack vertically.
+// But `useVirtualList` is global per component instance here.
+// I will create a `ResultSetTable` component? No, I should stick to single file edits.
+// Let's wrap the virtualization logic to target a specific computed property.
+
+const activeResultSet = computed(() => {
+    if (!activeTab.value || !activeTab.value.resultSets || activeTab.value.resultSets.length === 0) return null;
+    return activeTab.value.resultSets[0]; // Default to first for now, or we need to change UI significantly
+});
+
+// We need to support navigating result sets or showing all.
+// User request: "select update delete... then select", "select two tables show only one".
+// So they want to see ALL results.
+// If I have multiple selects, I should probably show them one after another.
+// Given the current structure using `useVirtualList` at the top level, it's hard to virtualize multiple lists easily without components.
+// I will change the UI to display TABS for result sets? No, vertical list is standard in SSMS.
+// Let's try: Main view uses virtualization. If multiple results, maybe we only virtualize the largest/first?
+// Or, we simplifiy and just say: The `virtualList` is backing the `filteredResults`.
+// `filteredResults` can be a computed that flattens headers? No.
+// Let's try to support just ONE virtual list for the "Primary" result (usually the last one or the one with most rows?).
+// Actually, standard behavior: Show "Grid 1", "Grid 2".
+// I will modify `filteredResults` to target `resultSets[0]` (backward compat) 
+// AND add a section to show *other* result sets below, maybe without virtualization (limit 100?) or just standard rendering.
+
+const filteredResults = computed(() => {
+    if (!activeResultSet.value) return [];
+    let data = activeResultSet.value.rows || [];
+
+    // Safety check for activeTab
+    const tab = activeTab.value;
+    if (!tab) return data;
+
+    const filters = tab.filters;
+
     if (filters && Object.keys(filters).length > 0) {
         data = data.filter(row => {
             for (const [col, filterText] of Object.entries(filters)) {
@@ -689,10 +971,10 @@ const filteredResults = computed(() => {
         });
     }
 
-    // 2. Sort
-    if (activeTab.value.sortColumn && activeTab.value.sortDirection) {
-        const col = activeTab.value.sortColumn;
-        const dir = activeTab.value.sortDirection;
+    // Sort logic
+    if (tab.sortColumn && tab.sortDirection) {
+        const col = tab.sortColumn;
+        const dir = tab.sortDirection;
 
         data = [...data].sort((a, b) => {
             const valA = a[col];
@@ -711,44 +993,37 @@ const filteredResults = computed(() => {
     return data;
 });
 
-const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
-    filteredResults,
-    {
-        itemHeight: 37,
-        overscan: 10,
-    }
-);
 
-// Start/End padding for table virtualization
+const { list: virtualList, containerProps, wrapperProps } = useVirtualList(filteredResults, {
+    itemHeight: 37,
+    overscan: 10,
+});
+
+
 const padTop = computed(() => {
     if (virtualList.value.length === 0) return 0;
-    return virtualList.value[0].index * 37;
+    const start = virtualList.value[0].index;
+    return start * 37; // itemHeight
 });
 
 const padBottom = computed(() => {
     if (virtualList.value.length === 0) return 0;
-    const lastItem = virtualList.value[virtualList.value.length - 1];
+    const end = virtualList.value[virtualList.value.length - 1].index;
     const total = filteredResults.value.length;
-    return (total - 1 - lastItem.index) * 37;
+    return (total - end - 1) * 37; // itemHeight
 });
 
-const filteredTables = computed(() => {
-    if (!tableSearch.value) return tables.value;
-    return tables.value.filter(t => t.toLowerCase().includes(tableSearch.value.toLowerCase()));
-});
 
+// ... (useVirtualList stays same) ...
+
+// ... (getColumns needs update) ...
 const getColumns = (tab: QueryTab) => {
-    if (tab.columns && tab.columns.length > 0) return tab.columns;
-    if (!tab.results || tab.results.length === 0) return [];
-    return Object.keys(tab.results[0]);
+    // This is used for the virtual table (first result set)
+    if (tab.resultSets && tab.resultSets.length > 0 && tab.resultSets[0].columns) return tab.resultSets[0].columns;
+    return [];
 };
 
-const generateId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
-
-const tabCounter = ref(0);
-
+// ... (addTab update) ...
 const addTab = () => {
     const newId = generateId();
     tabCounter.value++;
@@ -756,20 +1031,27 @@ const addTab = () => {
         id: newId,
         name: `Query ${tabCounter.value}`,
         query: '',
-        results: [],
-        columns: [],
+        resultSets: [],
         primaryKeys: [],
         filters: {},
         sortColumn: undefined,
         sortDirection: null,
         error: '',
         isLoading: false,
-        queryExecuted: false
+        queryExecuted: false,
+        activeQueryIds: []
     });
     activeTabId.value = newId;
 };
 
-// ... existing code ...
+// ...
+
+
+const generateId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
+
+const tabCounter = ref(0);
 
 const toggleSort = (col: string) => {
     if (!activeTab.value) return;
@@ -813,9 +1095,27 @@ const loadTables = async () => {
 };
 
 const selectTable = async (tableName: string) => {
-    if (!activeTab.value) {
+    // Check if table is already open in a tab
+    const existingTab = tabs.value.find(t => t.tableName === tableName);
+
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    // Check if current active tab is empty/pristine
+    const currentTab = activeTab.value;
+    const isPristine = currentTab &&
+        !currentTab.tableName &&
+        !currentTab.query &&
+        !currentTab.isDesignView &&
+        !currentTab.isERView &&
+        !currentTab.queryExecuted;
+
+    if (!isPristine) {
         addTab();
     }
+
     if (activeTab.value) {
         const type = (props.dbType || '').toLowerCase();
         activeTab.value.tableName = tableName;
@@ -886,8 +1186,7 @@ const openDesignTab = (tableName: string) => {
         id: newId,
         name: `Design: ${tableName}`,
         query: query,
-        results: [],
-        columns: [],
+        resultSets: [], // Design view uses resultSets now
         primaryKeys: [], // Design view is read-only usually
         filters: {},
         sortColumn: undefined,
@@ -895,7 +1194,8 @@ const openDesignTab = (tableName: string) => {
         error: '',
         isLoading: false,
         queryExecuted: false,
-        isDesignView: true
+        isDesignView: true,
+        activeQueryIds: []
     });
     activeTabId.value = newId;
 
@@ -927,8 +1227,7 @@ const openERDiagramTab = async (tableName: string) => {
         name: `ER: ${tableName}`,
         tableName: tableName,
         query: '',
-        results: [],
-        columns: [],
+        resultSets: [],
         primaryKeys: [],
         filters: {},
         sortColumn: undefined,
@@ -937,7 +1236,8 @@ const openERDiagramTab = async (tableName: string) => {
         isLoading: true,
         queryExecuted: true,
         isERView: true,
-        relationships: []
+        relationships: [],
+        activeQueryIds: []
     };
 
     tabs.value.push(newTab);
@@ -979,10 +1279,14 @@ const openERDiagramTab = async (tableName: string) => {
         // Execute queries in parallel
         const promises = Array.from(relatedTables).map(async (tbl) => {
             const query = getSchemaQuery(tbl);
+            const reqId = generateId();
+            newTab.activeQueryIds.push(reqId);
             try {
-                const res = await ExecuteQuery(props.connectionId, query);
-                if (!res.error && res.data) {
-                    tablesData[tbl] = res.data.map((col: any) => {
+                const res = await ExecuteQuery(props.connectionId, query, reqId);
+                // Need to handle resultSets here too
+                if (!res.error && res.resultSets && res.resultSets.length > 0) {
+                    const rows = res.resultSets[0].rows;
+                    tablesData[tbl] = rows.map((col: any) => {
                         const name = col.COLUMN_NAME || col.column_name || col.Field || col.name || col.Name || 'unknown';
                         const type = col.DATA_TYPE || col.data_type || col.Type || col.type || 'string';
                         return { name, type };
@@ -990,6 +1294,8 @@ const openERDiagramTab = async (tableName: string) => {
                 }
             } catch (e) {
                 console.warn(`Failed to fetch schema for ${tbl}`, e);
+            } finally {
+                newTab.activeQueryIds = newTab.activeQueryIds.filter(id => id !== reqId);
             }
         });
 
@@ -997,8 +1303,11 @@ const openERDiagramTab = async (tableName: string) => {
         newTab.tablesData = tablesData;
 
         // Keep main table columns in results for legacy/other uses if needed
+        // IF we want to show it in grid? ER view handles its own rendering.
+        // But for consistency:
         if (tablesData[tableName]) {
-            newTab.results = tablesData[tableName] as any;
+            // We'd need to mock a result set if we want to populate resultSets
+            // But ER view reads tablesData.
         }
 
     } catch (e: any) {
@@ -1015,30 +1324,46 @@ const handleViewERDiagram = () => {
     }
 };
 
+
 const runQuery = async () => {
+
     if (!activeTab.value) return;
 
     activeTab.value.error = '';
-    activeTab.value.results = [];
-    activeTab.value.columns = [];
-    activeTab.value.filters = {}; // Reset filters on new query run
+    activeTab.value.resultSets = [];
+    activeTab.value.filters = {};
     activeTab.value.queryExecuted = false;
     activeTab.value.isLoading = true;
     activeTab.value.executionTime = undefined;
     activeTab.value.editingCell = null;
 
     const startTime = performance.now();
+    const reqId = generateId();
+    activeTab.value.activeQueryIds.push(reqId);
 
     try {
-        const res = await ExecuteQuery(props.connectionId, activeTab.value.query);
+        let queryToRun = activeTab.value.query;
+
+        if (sqlEditorRef.value) {
+            const selection = sqlEditorRef.value.getSelection();
+            if (selection && selection.trim()) {
+                queryToRun = selection;
+            }
+        }
+
+        const res = await ExecuteQuery(props.connectionId, queryToRun, reqId);
         const endTime = performance.now();
         activeTab.value.executionTime = Math.round(endTime - startTime);
 
         if (res.error) {
             activeTab.value.error = res.error;
         } else {
-            activeTab.value.results = res.data || [];
-            activeTab.value.columns = res.columns || [];
+            // Map the backend ResultSets to frontend structure
+            if (res.resultSets) {
+                activeTab.value.resultSets = res.resultSets;
+            } else {
+                activeTab.value.resultSets = [];
+            }
         }
         activeTab.value.queryExecuted = true;
     } catch (e: any) {
@@ -1047,6 +1372,20 @@ const runQuery = async () => {
         activeTab.value.executionTime = Math.round(endTime - startTime);
     } finally {
         activeTab.value.isLoading = false;
+        activeTab.value.activeQueryIds = activeTab.value.activeQueryIds.filter(id => id !== reqId);
+    }
+};
+
+const stopQuery = async () => {
+    if (!activeTab.value) return;
+    const tab = activeTab.value;
+
+    try {
+        const ids = [...tab.activeQueryIds];
+        await Promise.all(ids.map(id => CancelQuery(id)));
+        // The ExecuteQuery promise in runQuery/ER logic will handle the error (context canceled)
+    } catch (e) {
+        console.error("Error stopping query:", e);
     }
 };
 
@@ -1137,6 +1476,14 @@ const saveCellEdit = async (item: any, col: string) => {
     };
 };
 
+
+const filteredTables = computed(() => {
+    if (!tableSearch.value) return tables.value;
+    return tables.value.filter(t => t.toLowerCase().includes(tableSearch.value.toLowerCase()));
+});
+
+// ...
+
 const confirmUpdate = async () => {
     if (!updateConfirmation.value || !activeTab.value) return;
 
@@ -1161,14 +1508,23 @@ const confirmUpdate = async () => {
             // Update local state
             item.data[col] = newValue;
             // Also update the original source array
-            const realIndex = currentTab.results.findIndex(r => {
-                for (const pk of currentTab.primaryKeys) {
-                    if (r[pk] !== conditions[pk]) return false;
+            // We assume editing is only on the first result set for now (Virtual List)
+            if (activeResultSet.value) {
+                const realIndex = activeResultSet.value.rows.findIndex(r => {
+                    for (const pk of currentTab.primaryKeys) {
+                        // Optimization: if we have index, check that first
+                        // But virtual list 'item' has 'index' which is the index in the filtered/sorted source?
+                        // Actually `item` in virtual list usually holds `index` which is index in `filteredResults`.
+                        // But `filteredResults` is derived from `activeResultSet.rows`.
+                        // If sorted/filtered, index might not match source index.
+                        // So we rely on PKs.
+                        if (r[pk] !== conditions[pk]) return false;
+                    }
+                    return true;
+                });
+                if (realIndex !== -1) {
+                    activeResultSet.value.rows[realIndex][col] = newValue;
                 }
-                return true;
-            });
-            if (realIndex !== -1) {
-                currentTab.results[realIndex][col] = newValue;
             }
         } else {
             console.error("Update failed:", result);

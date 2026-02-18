@@ -170,6 +170,20 @@ const registerCompletionProvider = () => {
     });
 };
 
+const getSelection = () => {
+    if (editor) {
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+            return editor.getModel()?.getValueInRange(selection) || '';
+        }
+    }
+    return '';
+};
+
+defineExpose({
+    getSelection
+});
+
 onBeforeUnmount(() => {
     if (themeObserver) {
         themeObserver.disconnect();
