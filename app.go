@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -171,6 +172,220 @@ func (a *App) CancelQuery(queryID string) string {
 	return "Query not found or already completed"
 }
 
+// ExecuteQueryStream starts query execution in a goroutine and streams results
+// via Wails events. Returns immediately with "" (no error) or an error string.
+func (a *App) ExecuteQueryStream(connectionID string, query string, queryID string) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	a.muQueries.Lock()
+	a.queryCancelFuncs[queryID] = cancel
+	a.muQueries.Unlock()
+
+	go func() {
+		defer func() {
+			a.muQueries.Lock()
+			delete(a.queryCancelFuncs, queryID)
+			a.muQueries.Unlock()
+			cancel()
+		}()
+
+		const SafeBufferLimit = 10000
+		startTime := time.Now()
+
+		if db.persistentConn == nil {
+			runtime.EventsEmit(a.ctx, "query:error:"+queryID, "No database connection")
+			return
+		}
+
+		rows, err := db.persistentConn.QueryContext(ctx, query)
+		if err != nil {
+			errMsg := err.Error()
+			if err == context.Canceled {
+				errMsg = "Query cancelled by user"
+			}
+			runtime.EventsEmit(a.ctx, "query:error:"+queryID, errMsg)
+			return
+		}
+
+		// Execution Time: Time to get the rows object (query executed)
+		executionDuration := time.Since(startTime).Milliseconds()
+		runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
+			"phase": "execution",
+			"time":  executionDuration,
+		})
+
+		defer rows.Close()
+
+		resultSetIdx := 0
+
+		for {
+			if err := ctx.Err(); err != nil {
+				return
+			}
+
+			columns, _ := rows.Columns()
+
+			if len(columns) > 0 {
+				nCols := len(columns)
+				scanTargets := make([]interface{}, nCols)
+				scanPtrs := make([]*interface{}, nCols)
+				for i := 0; i < nCols; i++ {
+					scanPtrs[i] = new(interface{})
+					scanTargets[i] = scanPtrs[i]
+				}
+
+				buffer := make([][]interface{}, 0, SafeBufferLimit)
+				isStreaming := false
+				batchSize := 500
+
+				for rows.Next() {
+					if err := ctx.Err(); err != nil {
+						return
+					}
+
+					if err := rows.Scan(scanTargets...); err != nil {
+						runtime.EventsEmit(a.ctx, "query:error:"+queryID, err.Error())
+						return
+					}
+
+					row := make([]interface{}, nCols)
+					for i := 0; i < nCols; i++ {
+						val := *scanPtrs[i]
+						if b, ok := val.([]byte); ok {
+							row[i] = string(b)
+						} else {
+							row[i] = val
+						}
+					}
+
+					if !isStreaming {
+						buffer = append(buffer, row)
+						if len(buffer) >= SafeBufferLimit {
+							isStreaming = true
+
+							// Fetch time so far
+							fetchDuration := time.Since(startTime).Milliseconds() - executionDuration
+							runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
+								"rows":      SafeBufferLimit,
+								"time":      executionDuration, // Keep original exec time
+								"fetchTime": fetchDuration,
+								"partial":   true,
+								"phase":     "fetch",
+							})
+
+							for i := 0; i < len(buffer); i += batchSize {
+								end := i + batchSize
+								if end > len(buffer) {
+									end = len(buffer)
+								}
+								runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+									Columns:      columns,
+									Rows:         buffer[i:end],
+									ResultSetIdx: resultSetIdx,
+									BatchIndex:   i / batchSize,
+								})
+							}
+							buffer = nil
+						}
+					} else {
+						if buffer == nil {
+							buffer = make([][]interface{}, 0, batchSize)
+						}
+						buffer = append(buffer, row)
+
+						if len(buffer) >= batchSize {
+							runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+								Columns:      columns,
+								Rows:         buffer,
+								ResultSetIdx: resultSetIdx,
+								BatchIndex:   -1,
+							})
+							buffer = nil
+						}
+					}
+				}
+
+				// Loop finished
+				totalDuration := time.Since(startTime).Milliseconds()
+				fetchDuration := totalDuration - executionDuration
+
+				if !isStreaming {
+					runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
+						"rows":      len(buffer),
+						"time":      executionDuration,
+						"fetchTime": fetchDuration,
+						"partial":   false,
+						"phase":     "fetch",
+					})
+
+					for i := 0; i < len(buffer); i += batchSize {
+						end := i + batchSize
+						if end > len(buffer) {
+							end = len(buffer)
+						}
+						runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+							Columns:      columns,
+							Rows:         buffer[i:end],
+							ResultSetIdx: resultSetIdx,
+							BatchIndex:   i / batchSize,
+						})
+					}
+				} else {
+					if len(buffer) > 0 {
+						runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+							Columns:      columns,
+							Rows:         buffer,
+							ResultSetIdx: resultSetIdx,
+							BatchIndex:   -1,
+						})
+					}
+					runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
+						"rows":      -1,
+						"time":      executionDuration,
+						"fetchTime": fetchDuration,
+						"partial":   false,
+						"phase":     "fetch",
+					})
+				}
+			} else {
+				duration := time.Since(startTime).Milliseconds()
+				runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
+					"rows":    0,
+					"time":    duration,
+					"partial": false,
+				})
+				runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+					Columns:      nil,
+					Rows:         nil,
+					ResultSetIdx: resultSetIdx,
+					BatchIndex:   0,
+				})
+			}
+
+			resultSetIdx++
+			if !rows.NextResultSet() {
+				break
+			}
+		}
+
+		if err = rows.Err(); err != nil {
+			runtime.EventsEmit(a.ctx, "query:error:"+queryID, err.Error())
+		} else {
+			runtime.EventsEmit(a.ctx, "query:done:"+queryID)
+		}
+	}()
+
+	return ""
+}
+
 func (a *App) GetPrimaryKeys(connectionID string, tableName string) []string {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]
@@ -253,7 +468,7 @@ func (a *App) ExportTable(connectionID string, tableName string, format string, 
 	var exportErr error
 	switch strings.ToLower(format) {
 	case "json":
-		exportErr = a.exportToJSON(data, filePath)
+		exportErr = a.exportToJSON(data, columns, filePath)
 	case "csv":
 		exportErr = a.exportToCSV(data, columns, filePath)
 	case "sql":
@@ -271,19 +486,31 @@ func (a *App) ExportTable(connectionID string, tableName string, format string, 
 	return "Success"
 }
 
-func (a *App) exportToJSON(data []map[string]interface{}, filePath string) error {
+func (a *App) exportToJSON(data [][]interface{}, columns []string, filePath string) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
+	// Convert to map format for JSON output (user-facing file)
+	mapData := make([]map[string]interface{}, len(data))
+	for i, row := range data {
+		m := make(map[string]interface{}, len(columns))
+		for j, col := range columns {
+			if j < len(row) {
+				m[col] = row[j]
+			}
+		}
+		mapData[i] = m
+	}
+
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(data)
+	return encoder.Encode(mapData)
 }
 
-func (a *App) exportToCSV(data []map[string]interface{}, columns []string, filePath string) error {
+func (a *App) exportToCSV(data [][]interface{}, columns []string, filePath string) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -300,13 +527,10 @@ func (a *App) exportToCSV(data []map[string]interface{}, columns []string, fileP
 
 	// Write data
 	for _, row := range data {
-		var record []string
-		for _, col := range columns {
-			val := row[col]
-			if val == nil {
-				record = append(record, "")
-			} else {
-				record = append(record, fmt.Sprintf("%v", val))
+		record := make([]string, len(columns))
+		for i := range columns {
+			if i < len(row) && row[i] != nil {
+				record[i] = fmt.Sprintf("%v", row[i])
 			}
 		}
 		if err := writer.Write(record); err != nil {
@@ -316,7 +540,7 @@ func (a *App) exportToCSV(data []map[string]interface{}, columns []string, fileP
 	return nil
 }
 
-func (a *App) exportToSQL(tableName string, data []map[string]interface{}, columns []string, filePath string) error {
+func (a *App) exportToSQL(tableName string, data [][]interface{}, columns []string, filePath string) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -326,8 +550,11 @@ func (a *App) exportToSQL(tableName string, data []map[string]interface{}, colum
 	for _, row := range data {
 		var cols []string
 		var vals []string
-		for _, col := range columns {
-			val := row[col]
+		for i, col := range columns {
+			var val interface{}
+			if i < len(row) {
+				val = row[i]
+			}
 			if val != nil {
 				cols = append(cols, col)
 				strVal := fmt.Sprintf("%v", val)
@@ -344,7 +571,7 @@ func (a *App) exportToSQL(tableName string, data []map[string]interface{}, colum
 	return nil
 }
 
-func (a *App) exportToExcel(tableName string, data []map[string]interface{}, columns []string, filePath string) error {
+func (a *App) exportToExcel(tableName string, data [][]interface{}, columns []string, filePath string) error {
 	f := excelize.NewFile()
 	sheetName := "Sheet1"
 	index, err := f.NewSheet(sheetName)
@@ -361,8 +588,11 @@ func (a *App) exportToExcel(tableName string, data []map[string]interface{}, col
 
 	// Write data
 	for i, row := range data {
-		for j, col := range columns {
-			val := row[col]
+		for j := range columns {
+			var val interface{}
+			if j < len(row) {
+				val = row[j]
+			}
 			cell, _ := excelize.CoordinatesToCellName(j+1, i+2)
 			f.SetCellValue(sheetName, cell, val)
 		}

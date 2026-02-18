@@ -255,26 +255,50 @@
 
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div v-if="activeTab.isLoading" class="flex items-center gap-2 text-primary">
+                            <div v-if="activeTab.isLoading && !activeTab.executionTime"
+                                class="flex items-center gap-2 text-primary">
                                 <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none"
                                     viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                         stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                                     </path>
                                 </svg>
                                 Executing...
                             </div>
-                            <div v-else-if="activeTab.executionTime !== undefined" class="flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="lucide lucide-timer">
-                                    <line x1="10" x2="14" y1="2" y2="2" />
-                                    <line x1="12" x2="15" y1="14" y2="11" />
-                                    <circle cx="12" cy="14" r="8" />
-                                </svg>
-                                <span>{{ activeTab.executionTime }}ms</span>
+                            <div v-else-if="activeTab.executionTime !== undefined" class="flex items-center gap-1.5 ">
+                                <span class="flex items-center gap-1" title="Execution Time (Database)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-database">
+                                        <ellipse cx="12" cy="5" rx="9" ry="3" />
+                                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                                    </svg>
+                                    <span>Exec: {{ activeTab.executionTime }}ms</span>
+                                </span>
+                                <span class="text-border mx-1">|</span>
+                                <span class="flex items-center gap-1" title="Fetch/Transfer Time">
+                                    <div v-if="activeTab.isLoading" class="flex items-center gap-1">
+                                        <svg class="animate-spin h-3 w-3 text-primary"
+                                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-down">
+                                        <line x1="12" x2="12" y1="5" y2="19" />
+                                        <polyline points="19 12 12 19 5 12" />
+                                    </svg>
+                                    <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
+                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                </span>
                             </div>
                         </div>
 
@@ -330,200 +354,282 @@
 
 
                 <!-- Results Area -->
-                <div v-if="!activeTab.isERView" class="flex-1 overflow-auto bg-muted/10 p-4">
-                    <!-- Error State -->
-                    <div v-if="activeTab.error"
-                        class="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-alert-triangle mt-0.5">
-                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                            <path d="M12 9v4" />
-                            <path d="M12 17h.01" />
-                        </svg>
-                        <div class="flex-1 text-sm font-medium break-all font-mono">{{ activeTab.error }}</div>
+                <div v-if="!activeTab.isERView" class="flex-1 overflow-hidden bg-muted/10 flex flex-col">
+
+                    <!-- Data/Messages Sub-Tabs -->
+                    <div v-if="activeTab.queryExecuted || activeTab.error"
+                        class="flex items-center border-b border-border bg-muted/20 px-2 pt-1 gap-0.5 shrink-0">
+                        <button @click="activeTab.resultViewTab = 'data'"
+                            class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
+                            :class="activeTab.resultViewTab === 'data' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+                            <div class="flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-table-2">
+                                    <path
+                                        d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+                                </svg>
+                                Results
+                            </div>
+                            <div v-if="activeTab.resultViewTab === 'data'"
+                                class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
+                        </button>
+                        <button @click="activeTab.resultViewTab = 'messages'"
+                            class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
+                            :class="activeTab.resultViewTab === 'messages' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+                            <div class="flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-message-square-text">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                    <path d="M13 8H7" />
+                                    <path d="M17 12H7" />
+                                </svg>
+                                Messages
+                            </div>
+                            <div v-if="activeTab.resultViewTab === 'messages'"
+                                class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
+                        </button>
                     </div>
 
-                    <!-- Results List (Multiple Sets) -->
-                    <div v-else-if="activeTab.resultSets && activeTab.resultSets.length > 0"
-                        class="flex flex-col gap-4 h-full">
-
-                        <!-- Primary Result Set (Virtual List) -->
-                        <div v-if="activeTab.resultSets[0]"
-                            class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
-
-                            <!-- Header / Message -->
-                            <div v-if="activeTab.resultSets[0].message"
-                                class="bg-muted px-4 py-2 text-xs font-mono border-b border-border text-foreground">
-                                {{ activeTab.resultSets[0].message }}
-                            </div>
-
-                            <!-- Virtual Table Container -->
-                            <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
-                                <table
-                                    v-if="activeTab.resultSets[0].columns && activeTab.resultSets[0].columns.length > 0"
-                                    class="w-full text-sm text-left relative">
-                                    <thead
-                                        class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
-                                        <tr>
-                                            <th v-for="col in activeTab.resultSets[0].columns" :key="col" scope="col"
-                                                class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
-                                                @click="toggleSort(col)">
-                                                <div class="flex flex-col gap-2">
-                                                    <div class="flex items-center justify-between gap-2">
-                                                        <span>{{ col }}</span>
-                                                        <div class="flex flex-col">
-                                                            <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'asc'"
-                                                                xmlns="http://www.w3.org/2000/svg" width="12"
-                                                                height="12" viewBox="0 0 24 24" fill="none"
-                                                                stroke="currentColor" stroke-width="2"
-                                                                stroke-linecap="round" stroke-linejoin="round"
-                                                                class="lucide lucide-chevron-up">
-                                                                <path d="m18 15-6-6-6 6" />
-                                                            </svg>
-                                                            <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'desc'"
-                                                                xmlns="http://www.w3.org/2000/svg" width="12"
-                                                                height="12" viewBox="0 0 24 24" fill="none"
-                                                                stroke="currentColor" stroke-width="2"
-                                                                stroke-linecap="round" stroke-linejoin="round"
-                                                                class="lucide lucide-chevron-down">
-                                                                <path d="m6 9 6 6 6-6" />
-                                                            </svg>
-                                                            <svg v-if="activeTab.sortColumn !== col"
-                                                                xmlns="http://www.w3.org/2000/svg" width="12"
-                                                                height="12" viewBox="0 0 24 24" fill="none"
-                                                                stroke="currentColor" stroke-width="2"
-                                                                stroke-linecap="round" stroke-linejoin="round"
-                                                                class="lucide lucide-chevrons-up-down text-muted-foreground/30">
-                                                                <path d="m7 15 5 5 5-5" />
-                                                                <path d="m7 9 5-5 5 5" />
-                                                            </svg>
-                                                        </div>
-                                                    </div>
-                                                    <input v-if="activeTab.primaryKeys.length > 0 || true" type="text"
-                                                        v-model="activeTab.filters[col]" placeholder="Filter..."
-                                                        class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
-                                                        @click.stop />
-                                                </div>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-border">
-                                        <tr :style="{ height: `${padTop}px` }"></tr>
-                                        <tr v-for="item in virtualList" :key="item.index"
-                                            class="bg-card hover:bg-muted/50 transition-colors h-[37px]">
-                                            <td v-for="col in activeTab.resultSets[0].columns" :key="col"
-                                                class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
-                                                :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
-                                                @dblclick="handleCellClick(item, col)">
-
-                                                <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
-                                                    class="absolute inset-0 p-0.5">
-                                                    <input :id="`edit-input-${item.index}-${col}`"
-                                                        v-model="activeTab.editingCell.value"
-                                                        class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
-                                                        @blur="saveCellEdit(item, col)"
-                                                        @keydown.enter="saveCellEdit(item, col)"
-                                                        @keydown.esc="activeTab.editingCell = null" />
-                                                </div>
-                                                <span v-else class="truncate block max-w-[300px]"
-                                                    :title="String(item.data[col])">
-                                                    {{ item.data[col] === null ? 'NULL' : item.data[col] }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        <tr :style="{ height: `${padBottom}px` }"></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div
-                                class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
-                                <span>{{ filteredResults.length }} rows returned ({{ activeTab.resultSets[0].rows ?
-                                    activeTab.resultSets[0].rows.length : 0 }}
-                                    total)</span>
-                                <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
-                            </div>
-                        </div>
-
-                        <!-- Subsequent Result Sets (Standard Tables) -->
-                        <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="rsIndex + 1"
-                            class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
-
-                            <!-- Result Set Header / Message -->
-                            <div v-if="resultSet.message"
-                                class="bg-muted px-4 py-2 text-xs font-mono border-b border-border text-foreground">
-                                {{ resultSet.message }}
-                            </div>
-
-                            <!-- Standard Table for subsequent result sets -->
-                            <div v-if="resultSet.columns && resultSet.columns.length > 0"
-                                class="flex-1 overflow-auto bg-card">
-                                <table class="w-full text-sm text-left relative">
-                                    <thead
-                                        class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
-                                        <tr>
-                                            <th v-for="col in resultSet.columns" :key="col"
-                                                class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] select-none">
-                                                {{ col }}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-border">
-                                        <tr v-for="(row, rIndex) in resultSet.rows" :key="rIndex"
-                                            class="bg-card hover:bg-muted/50 transition-colors">
-                                            <td v-for="col in resultSet.columns" :key="col"
-                                                class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border">
-                                                <span class="truncate block max-w-[300px]" :title="String(row[col])">
-                                                    {{ row[col] === null ? 'NULL' : row[col] }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div
-                                class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
-                                <span>{{ resultSet.rows ? resultSet.rows.length : 0 }} rows</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Empty State -->
-                    <div v-else-if="!activeTab.error && activeTab.queryExecuted"
-                        class="flex flex-col items-center justify-center h-full text-muted-foreground animate-in fade-in zoom-in-95 duration-300">
-                        <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    <!-- Data Tab Content -->
+                    <div v-if="activeTab.resultViewTab === 'data' || (!activeTab.queryExecuted && !activeTab.error)"
+                        class="flex-1 overflow-auto p-4">
+                        <!-- Error State -->
+                        <div v-if="activeTab.error"
+                            class="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-search-x">
-                                <path d="m13.5 8.5-5 5" />
-                                <path d="m8.5 8.5 5 5" />
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="m21 21-4.3-4.3" />
+                                stroke-linejoin="round" class="lucide lucide-alert-triangle mt-0.5">
+                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                                <path d="M12 9v4" />
+                                <path d="M12 17h.01" />
                             </svg>
+                            <div class="flex-1 text-sm font-medium break-all font-mono">{{ activeTab.error }}</div>
                         </div>
-                        <h3 class="text-lg font-semibold text-foreground">No Results Found</h3>
-                        <p class="text-sm">The query executed successfully but returned no data.</p>
+
+                        <!-- Results List (Multiple Sets) -->
+                        <div v-else-if="activeTab.resultSets && activeTab.resultSets.length > 0"
+                            class="flex flex-col gap-4 h-full">
+
+                            <!-- Primary Result Set (Virtual List) -->
+                            <div v-if="activeTab.resultSets[0]"
+                                class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+
+                                <!-- Virtual Table Container -->
+                                <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
+                                    <table
+                                        v-if="activeTab.resultSets[0].columns && activeTab.resultSets[0].columns.length > 0"
+                                        class="w-full text-sm text-left relative">
+                                        <thead
+                                            class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
+                                            <tr>
+                                                <th v-for="col in activeTab.resultSets[0].columns" :key="col"
+                                                    scope="col"
+                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
+                                                    @click="toggleSort(col)">
+                                                    <div class="flex flex-col gap-2">
+                                                        <div class="flex items-center justify-between gap-2">
+                                                            <span>{{ col }}</span>
+                                                            <div class="flex flex-col">
+                                                                <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'asc'"
+                                                                    xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                    height="12" viewBox="0 0 24 24" fill="none"
+                                                                    stroke="currentColor" stroke-width="2"
+                                                                    stroke-linecap="round" stroke-linejoin="round"
+                                                                    class="lucide lucide-chevron-up">
+                                                                    <path d="m18 15-6-6-6 6" />
+                                                                </svg>
+                                                                <svg v-if="activeTab.sortColumn === col && activeTab.sortDirection === 'desc'"
+                                                                    xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                    height="12" viewBox="0 0 24 24" fill="none"
+                                                                    stroke="currentColor" stroke-width="2"
+                                                                    stroke-linecap="round" stroke-linejoin="round"
+                                                                    class="lucide lucide-chevron-down">
+                                                                    <path d="m6 9 6 6 6-6" />
+                                                                </svg>
+                                                                <svg v-if="activeTab.sortColumn !== col"
+                                                                    xmlns="http://www.w3.org/2000/svg" width="12"
+                                                                    height="12" viewBox="0 0 24 24" fill="none"
+                                                                    stroke="currentColor" stroke-width="2"
+                                                                    stroke-linecap="round" stroke-linejoin="round"
+                                                                    class="lucide lucide-chevrons-up-down text-muted-foreground/30">
+                                                                    <path d="m7 15 5 5 5-5" />
+                                                                    <path d="m7 9 5-5 5 5" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                        <input v-if="activeTab.primaryKeys.length > 0 || true"
+                                                            type="text" v-model="activeTab.filters[col]"
+                                                            placeholder="Filter..."
+                                                            class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
+                                                            @click.stop />
+                                                    </div>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-border">
+                                            <tr :style="{ height: `${padTop}px` }"></tr>
+                                            <tr v-for="item in virtualList" :key="item.index"
+                                                class="transition-colors h-[37px] cursor-pointer"
+                                                :class="selectedRowIndex === item.index ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
+                                                @click="selectedRowIndex = selectedRowIndex === item.index ? null : item.index">
+                                                <td v-for="col in activeTab.resultSets[0].columns" :key="col"
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
+                                                    :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
+                                                    @dblclick="handleCellClick(item, col)">
+
+                                                    <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
+                                                        class="absolute inset-0 p-0.5">
+                                                        <input :id="`edit-input-${item.index}-${col}`"
+                                                            v-model="activeTab.editingCell.value"
+                                                            class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
+                                                            @blur="saveCellEdit(item, col)"
+                                                            @keydown.enter="saveCellEdit(item, col)"
+                                                            @keydown.esc="activeTab.editingCell = null" />
+                                                    </div>
+                                                    <span v-else class="truncate block max-w-[300px]"
+                                                        :title="String(item.data[col])">
+                                                        {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            <tr :style="{ height: `${padBottom}px` }"></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div
+                                    class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
+                                    <span>{{ filteredResults.length }} rows returned ({{ activeTab.totalRowCount !==
+                                        undefined ?
+                                        (activeTab.totalRowCount + (activeTab.isPartialStats ? '+' : '')) :
+                                        (activeTab.resultSets[0].rows ?
+                                            activeTab.resultSets[0].rows.length : 0) }}
+                                        total)</span>
+                                    <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
+                                </div>
+                            </div>
+
+                            <!-- Subsequent Result Sets (Standard Tables) -->
+                            <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="rsIndex + 1"
+                                class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+
+                                <!-- Standard Table for subsequent result sets -->
+                                <div v-if="resultSet.columns && resultSet.columns.length > 0"
+                                    class="flex-1 overflow-auto bg-card">
+                                    <table class="w-full text-sm text-left relative">
+                                        <thead
+                                            class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
+                                            <tr>
+                                                <th v-for="col in resultSet.columns" :key="col"
+                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] select-none">
+                                                    {{ col }}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-border">
+                                            <tr v-for="(row, rIndex) in resultSet.rows" :key="rIndex"
+                                                class="transition-colors cursor-pointer"
+                                                :class="selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
+                                                @click="selectedRowIndex = selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? null : `sub-${rsIndex}-${rIndex}`">
+                                                <td v-for="col in resultSet.columns" :key="col"
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border">
+                                                    <span class="truncate block max-w-[300px]"
+                                                        :title="String(row[col])">
+                                                        {{ row[col] === null ? 'NULL' : row[col] }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div
+                                    class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
+                                    <span>{{ resultSet.rows ? resultSet.rows.length : 0 }} rows</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-else-if="!activeTab.error && activeTab.queryExecuted"
+                            class="flex flex-col items-center justify-center h-full text-muted-foreground animate-in fade-in zoom-in-95 duration-300">
+                            <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-search-x">
+                                    <path d="m13.5 8.5-5 5" />
+                                    <path d="m8.5 8.5 5 5" />
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.3-4.3" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-foreground">No Results Found</h3>
+                            <p class="text-sm">The query executed successfully but returned no data.</p>
+                        </div>
+
+                        <!-- Initial State -->
+                        <div v-else class="flex flex-col items-center justify-center h-full text-muted-foreground">
+                            <div
+                                class="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-terminal text-primary">
+                                    <polyline points="4 17 10 11 4 5" />
+                                    <line x1="12" x2="20" y1="19" y2="19" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-foreground">Ready to Query</h3>
+                            <p class="text-sm max-w-sm text-center mt-2">Select a table from the sidebar or type a
+                                custom
+                                SQL query to get started.</p>
+
+                            <div class="flex gap-2 mt-6">
+                                <span class="text-xs bg-muted px-2 py-1 rounded border border-border">Ctrl + Enter to
+                                    Run</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Initial State -->
-                    <div v-else class="flex flex-col items-center justify-center h-full text-muted-foreground">
-                        <div class="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-terminal text-primary">
-                                <polyline points="4 17 10 11 4 5" />
-                                <line x1="12" x2="20" y1="19" y2="19" />
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-foreground">Ready to Query</h3>
-                        <p class="text-sm max-w-sm text-center mt-2">Select a table from the sidebar or type a custom
-                            SQL query to get started.</p>
+                    <!-- Messages Tab Content -->
+                    <div v-if="activeTab.resultViewTab === 'messages' && (activeTab.queryExecuted || activeTab.error)"
+                        class="flex-1 overflow-auto p-4">
+                        <div class="border border-border rounded-lg shadow-sm bg-card overflow-hidden">
+                            <div
+                                class="bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground uppercase border-b border-border">
+                                Messages
+                            </div>
+                            <div class="p-4 font-mono text-sm text-foreground space-y-1">
+                                <!-- Error message -->
+                                <div v-if="activeTab.error" class="text-destructive">
+                                    Msg: {{ activeTab.error }}
+                                </div>
 
-                        <div class="flex gap-2 mt-6">
-                            <span class="text-xs bg-muted px-2 py-1 rounded border border-border">Ctrl + Enter to
-                                Run</span>
+                                <!-- Result set messages -->
+                                <template v-if="!activeTab.error && activeTab.resultSets">
+                                    <div v-for="(rs, idx) in activeTab.resultSets" :key="idx" class="text-foreground">
+                                        <span v-if="rs.columns && rs.columns.length > 0">
+                                            ({{ rs.rows ? rs.rows.length : 0 }} rows affected)
+                                        </span>
+                                        <span v-else>
+                                            Commands completed successfully.
+                                        </span>
+                                    </div>
+                                </template>
+
+                                <!-- No results message -->
+                                <div v-if="!activeTab.error && (!activeTab.resultSets || activeTab.resultSets.length === 0) && activeTab.queryExecuted"
+                                    class="text-foreground">
+                                    Commands completed successfully.
+                                </div>
+
+                                <!-- Completion time -->
+                                <div v-if="activeTab.completionTime"
+                                    class="text-muted-foreground mt-3 pt-2 border-t border-border">
+                                    Completion time: {{ activeTab.completionTime }}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -741,8 +847,9 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery } from '../../wailsjs/go/main/App';
+import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
+import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream } from '../../wailsjs/go/main/App';
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
 import SqlEditor from './SqlEditor.vue';
@@ -791,6 +898,11 @@ interface QueryTab {
     relationships?: any[];
     tablesData?: Record<string, { name: string, type: string }[]>;
     activeQueryIds: string[];
+    resultViewTab: 'data' | 'messages';
+    completionTime?: string;
+    totalRowCount?: number;
+    isPartialStats?: boolean;
+    fetchTime?: number;
 }
 
 const tableSearch = ref('');
@@ -798,6 +910,7 @@ const tables = ref<string[]>([]);
 const tabs = ref<QueryTab[]>([]);
 const activeTabId = ref<string | null>(null);
 const sqlEditorRef = ref<any>(null);
+const selectedRowIndex = ref<number | string | null>(null);
 
 
 // Sidebar State
@@ -1039,7 +1152,10 @@ const addTab = () => {
         error: '',
         isLoading: false,
         queryExecuted: false,
-        activeQueryIds: []
+        activeQueryIds: [],
+        resultViewTab: 'data',
+        totalRowCount: undefined,
+        isPartialStats: false
     });
     activeTabId.value = newId;
 };
@@ -1136,6 +1252,44 @@ const selectTable = async (tableName: string) => {
         }
 
         runQuery();
+        checkRowCount(tableName);
+    }
+};
+
+const checkRowCount = async (tableName: string) => {
+    if (!activeTab.value) return;
+
+    // Reset previous count
+    activeTab.value.totalRowCount = undefined;
+
+    const type = (props.dbType || '').toLowerCase();
+    let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
+
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        countQuery = `SELECT COUNT(*) FROM ${tableName}`; // Might need brackets if table name has spaces or keywords, but usually handled by user or we should escape
+        // Simple escape if not already
+        if (!tableName.startsWith('[') && !tableName.includes(' ')) {
+            // Leave as is or enforce? Let's trust input for now or do minimal checks
+        }
+    }
+
+    try {
+        const reqId = generateId();
+        // Use standard ExecuteQuery via App.go which wraps db.ExecuteQuery
+        // We use a separate ID so it doesn't conflict with main query cancellation if we want
+        // But if we want it cancellable, we should track it. For now, fire and forget or let it finish.
+        const res = await ExecuteQuery(props.connectionId, countQuery, reqId);
+        if (res.error) {
+            console.warn("Failed to get row count", res.error);
+        } else if (res.resultSets && res.resultSets.length > 0 && res.resultSets[0].rows && res.resultSets[0].rows.length > 0) {
+            const row = res.resultSets[0].rows[0];
+            // Row is object { "COUNT(*)": 123 } or similar depending on DB
+            // We need to get the first value
+            const val = Object.values(row)[0];
+            activeTab.value.totalRowCount = Number(val);
+        }
+    } catch (e) {
+        console.warn("Failed to get row count", e);
     }
 };
 
@@ -1195,7 +1349,8 @@ const openDesignTab = (tableName: string) => {
         isLoading: false,
         queryExecuted: false,
         isDesignView: true,
-        activeQueryIds: []
+        activeQueryIds: [],
+        resultViewTab: 'data'
     });
     activeTabId.value = newId;
 
@@ -1237,7 +1392,8 @@ const openERDiagramTab = async (tableName: string) => {
         queryExecuted: true,
         isERView: true,
         relationships: [],
-        activeQueryIds: []
+        activeQueryIds: [],
+        resultViewTab: 'data'
     };
 
     tabs.value.push(newTab);
@@ -1285,7 +1441,11 @@ const openERDiagramTab = async (tableName: string) => {
                 const res = await ExecuteQuery(props.connectionId, query, reqId);
                 // Need to handle resultSets here too
                 if (!res.error && res.resultSets && res.resultSets.length > 0) {
-                    const rows = res.resultSets[0].rows;
+                    const rs = res.resultSets[0];
+                    // Convert array rows to object rows
+                    const rows = (rs.rows || []).map((row: any[]) =>
+                        Object.fromEntries((rs.columns || []).map((col: string, i: number) => [col, row[i]]))
+                    );
                     tablesData[tbl] = rows.map((col: any) => {
                         const name = col.COLUMN_NAME || col.column_name || col.Field || col.name || col.Name || 'unknown';
                         const type = col.DATA_TYPE || col.data_type || col.Type || col.type || 'string';
@@ -1335,44 +1495,137 @@ const runQuery = async () => {
     activeTab.value.queryExecuted = false;
     activeTab.value.isLoading = true;
     activeTab.value.executionTime = undefined;
+    activeTab.value.fetchTime = undefined;
     activeTab.value.editingCell = null;
+    activeTab.value.totalRowCount = undefined;
+    activeTab.value.isPartialStats = false;
 
     const startTime = performance.now();
     const reqId = generateId();
-    activeTab.value.activeQueryIds.push(reqId);
+    const tab = activeTab.value;
+    tab.activeQueryIds.push(reqId);
 
-    try {
-        let queryToRun = activeTab.value.query;
-
-        if (sqlEditorRef.value) {
-            const selection = sqlEditorRef.value.getSelection();
-            if (selection && selection.trim()) {
-                queryToRun = selection;
-            }
+    let queryToRun = tab.query;
+    if (sqlEditorRef.value) {
+        const selection = sqlEditorRef.value.getSelection();
+        if (selection && selection.trim()) {
+            queryToRun = selection;
         }
+    }
 
-        const res = await ExecuteQuery(props.connectionId, queryToRun, reqId);
-        const endTime = performance.now();
-        activeTab.value.executionTime = Math.round(endTime - startTime);
+    // Track whether we received first batch (for execution time)
+    let firstBatchReceived = false;
 
-        if (res.error) {
-            activeTab.value.error = res.error;
-        } else {
-            // Map the backend ResultSets to frontend structure
-            if (res.resultSets) {
-                activeTab.value.resultSets = res.resultSets;
+    const cleanup = () => {
+        EventsOff('query:batch:' + reqId);
+        EventsOff('query:done:' + reqId);
+        EventsOff('query:error:' + reqId);
+        EventsOff('query:stats:' + reqId);
+        tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
+    };
+
+    EventsOn('query:stats:' + reqId, (stats: any) => {
+        if (tab.activeQueryIds.includes(reqId)) {
+            // Check phase. If execution, only set execution time.
+            if (stats.phase === 'execution') {
+                tab.executionTime = stats.time;
             } else {
-                activeTab.value.resultSets = [];
+                // Fetch phase or default
+                if (stats.rows >= 0) {
+                    tab.totalRowCount = stats.rows;
+                } else {
+                    tab.totalRowCount = undefined;
+                }
+
+                // If we get "time" in fetch phase, that is EXECUTION time in our new go logic
+                // and "fetchTime" is the separate one.
+                if (stats.time !== undefined) tab.executionTime = stats.time;
+                if (stats.fetchTime !== undefined) tab.fetchTime = stats.fetchTime;
+
+                tab.isPartialStats = stats.partial;
             }
         }
-        activeTab.value.queryExecuted = true;
+    });
+
+    // Set up event listeners BEFORE calling ExecuteQueryStream
+    EventsOn('query:batch:' + reqId, (batch: any) => {
+        if (!firstBatchReceived) {
+            firstBatchReceived = true;
+            // Record time to first batch as "execution time" IF not already set by stats
+            if (tab.executionTime === undefined) {
+                tab.executionTime = Math.round(performance.now() - startTime);
+            }
+        }
+
+        const rsIdx = batch.resultSetIdx;
+        const columns = batch.columns || [];
+        const batchRows = batch.rows || [];
+
+        // Convert array rows to object rows
+        const mappedRows = batchRows.map((row: any[]) =>
+            Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]))
+        );
+
+        // Ensure result set exists at this index
+        while (tab.resultSets.length <= rsIdx) {
+            tab.resultSets.push({ columns: [], rows: [] });
+        }
+
+        const rs = tab.resultSets[rsIdx];
+        if (columns.length > 0 && rs.columns.length === 0) {
+            rs.columns = columns;
+        }
+        // Append rows
+        rs.rows = markRaw(rs.rows.concat(mappedRows));
+
+        // Show data as soon as first data batch arrives
+        if (!tab.queryExecuted) {
+            tab.queryExecuted = true;
+            tab.resultViewTab = columns.length > 0 ? 'data' : 'messages';
+        }
+    });
+
+    EventsOn('query:done:' + reqId, () => {
+        tab.isLoading = false;
+        tab.completionTime = new Date().toLocaleString();
+        if (!tab.queryExecuted) {
+            tab.queryExecuted = true;
+            const hasDataResults = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0);
+            tab.resultViewTab = hasDataResults ? 'data' : 'messages';
+        }
+        if (!firstBatchReceived) {
+            if (tab.executionTime === undefined) {
+                tab.executionTime = Math.round(performance.now() - startTime);
+            }
+        }
+        cleanup();
+    });
+
+    EventsOn('query:error:' + reqId, (errMsg: string) => {
+        tab.error = errMsg;
+        tab.isLoading = false;
+        tab.queryExecuted = true;
+        tab.executionTime = Math.round(performance.now() - startTime);
+        tab.completionTime = new Date().toLocaleString();
+        tab.resultViewTab = 'messages';
+        cleanup();
+    });
+
+    // Start the streaming query (returns immediately)
+    try {
+        const err = await ExecuteQueryStream(props.connectionId, queryToRun, reqId);
+        if (err) {
+            tab.error = err;
+            tab.isLoading = false;
+            tab.queryExecuted = true;
+            tab.resultViewTab = 'messages';
+            cleanup();
+        }
     } catch (e: any) {
-        activeTab.value.error = e.toString();
-        const endTime = performance.now();
-        activeTab.value.executionTime = Math.round(endTime - startTime);
-    } finally {
-        activeTab.value.isLoading = false;
-        activeTab.value.activeQueryIds = activeTab.value.activeQueryIds.filter(id => id !== reqId);
+        tab.error = e.toString();
+        tab.isLoading = false;
+        tab.executionTime = Math.round(performance.now() - startTime);
+        cleanup();
     }
 };
 

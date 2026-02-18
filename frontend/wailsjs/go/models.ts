@@ -60,7 +60,7 @@ export namespace main {
 	}
 	export class ResultSet {
 	    columns: string[];
-	    rows: any[];
+	    rows: any[][];
 	    message?: string;
 	
 	    static createFrom(source: any = {}) {

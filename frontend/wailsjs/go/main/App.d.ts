@@ -10,6 +10,8 @@ export function DisconnectDB(arg1:string):Promise<string>;
 
 export function ExecuteQuery(arg1:string,arg2:string,arg3:string):Promise<main.QueryResult>;
 
+export function ExecuteQueryStream(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;

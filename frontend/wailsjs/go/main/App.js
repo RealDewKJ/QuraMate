@@ -18,6 +18,10 @@ export function ExecuteQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteQuery'](arg1, arg2, arg3);
 }
 
+export function ExecuteQueryStream(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExecuteQueryStream'](arg1, arg2, arg3);
+}
+
 export function ExportTable(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTable'](arg1, arg2, arg3, arg4);
 }

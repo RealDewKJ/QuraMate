@@ -148,9 +148,9 @@ func (d *Database) GetTables() ([]string, error) {
 }
 
 type ResultSet struct {
-	Columns []string                 `json:"columns"`
-	Rows    []map[string]interface{} `json:"rows"`
-	Message string                   `json:"message,omitempty"`
+	Columns []string        `json:"columns"`
+	Rows    [][]interface{} `json:"rows"`
+	Message string          `json:"message,omitempty"`
 }
 
 func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet, error) {
@@ -195,28 +195,34 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 
 		// If we have columns, let's scan rows
 		if len(columns) > 0 {
+			nCols := len(columns)
+			// Pre-allocate scan targets once, reuse for every row
+			scanTargets := make([]interface{}, nCols)
+			scanPtrs := make([]*interface{}, nCols)
+			for i := 0; i < nCols; i++ {
+				scanPtrs[i] = new(interface{})
+				scanTargets[i] = scanPtrs[i]
+			}
+			// Pre-allocate rows slice
+			currentSet.Rows = make([][]interface{}, 0, 256)
+
 			for rows.Next() {
 				// Check for cancellation during row processing
 				if err := ctx.Err(); err != nil {
 					return nil, err
 				}
 
-				values := make([]interface{}, len(columns))
-				for i := range values {
-					values[i] = new(interface{})
-				}
-
-				if err := rows.Scan(values...); err != nil {
+				if err := rows.Scan(scanTargets...); err != nil {
 					return nil, err
 				}
 
-				row := make(map[string]interface{})
-				for i, col := range columns {
-					val := *(values[i].(*interface{}))
+				row := make([]interface{}, nCols)
+				for i := 0; i < nCols; i++ {
+					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
-						row[col] = string(b)
+						row[i] = string(b)
 					} else {
-						row[col] = val
+						row[i] = val
 					}
 				}
 				currentSet.Rows = append(currentSet.Rows, row)
@@ -239,6 +245,110 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 	}
 
 	return resultSets, nil
+}
+
+// StreamBatch represents a batch of rows sent during streaming
+type StreamBatch struct {
+	Columns      []string        `json:"columns"`
+	Rows         [][]interface{} `json:"rows"`
+	ResultSetIdx int             `json:"resultSetIdx"`
+	BatchIndex   int             `json:"batchIndex"`
+}
+
+// ExecuteQueryStream executes a query and streams results in batches via the onBatch callback.
+// batchSize controls how many rows are buffered before emitting a batch.
+func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSize int, onBatch func(batch StreamBatch)) error {
+	if d.persistentConn == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	rows, err := d.persistentConn.QueryContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	resultSetIdx := 0
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		columns, _ := rows.Columns()
+
+		if len(columns) > 0 {
+			nCols := len(columns)
+			scanTargets := make([]interface{}, nCols)
+			scanPtrs := make([]*interface{}, nCols)
+			for i := 0; i < nCols; i++ {
+				scanPtrs[i] = new(interface{})
+				scanTargets[i] = scanPtrs[i]
+			}
+
+			batch := make([][]interface{}, 0, batchSize)
+			batchIndex := 0
+
+			for rows.Next() {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				if err := rows.Scan(scanTargets...); err != nil {
+					return err
+				}
+
+				row := make([]interface{}, nCols)
+				for i := 0; i < nCols; i++ {
+					val := *scanPtrs[i]
+					if b, ok := val.([]byte); ok {
+						row[i] = string(b)
+					} else {
+						row[i] = val
+					}
+				}
+				batch = append(batch, row)
+
+				if len(batch) >= batchSize {
+					onBatch(StreamBatch{
+						Columns:      columns,
+						Rows:         batch,
+						ResultSetIdx: resultSetIdx,
+						BatchIndex:   batchIndex,
+					})
+					batch = make([][]interface{}, 0, batchSize)
+					batchIndex++
+				}
+			}
+
+			// Emit remaining rows
+			onBatch(StreamBatch{
+				Columns:      columns,
+				Rows:         batch,
+				ResultSetIdx: resultSetIdx,
+				BatchIndex:   batchIndex,
+			})
+		} else {
+			// No-column result set (e.g., UPDATE/INSERT)
+			onBatch(StreamBatch{
+				Columns:      nil,
+				Rows:         nil,
+				ResultSetIdx: resultSetIdx,
+				BatchIndex:   0,
+			})
+		}
+
+		resultSetIdx++
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
