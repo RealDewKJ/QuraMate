@@ -263,7 +263,7 @@ func (d *Database) GetTables() ([]string, error) {
 	}
 	defer rows.Close()
 
-	var tables []string
+	tables := []string{}
 	for rows.Next() {
 		var table string
 		if err := rows.Scan(&table); err != nil {
@@ -299,7 +299,7 @@ func (d *Database) GetViews() ([]string, error) {
 	}
 	defer rows.Close()
 
-	var views []string
+	views := []string{}
 	for rows.Next() {
 		var view string
 		if err := rows.Scan(&view); err != nil {
@@ -335,7 +335,7 @@ func (d *Database) GetStoredProcedures() ([]string, error) {
 	}
 	defer rows.Close()
 
-	var procs []string
+	procs := []string{}
 	for rows.Next() {
 		var proc string
 		if err := rows.Scan(&proc); err != nil {
@@ -371,7 +371,7 @@ func (d *Database) GetFunctions() ([]string, error) {
 	}
 	defer rows.Close()
 
-	var funcs []string
+	funcs := []string{}
 	for rows.Next() {
 		var fn string
 		if err := rows.Scan(&fn); err != nil {
@@ -664,7 +664,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 }
 
 func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
-	if d.persistentConn == nil {
+	if d.conn == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 
@@ -699,13 +699,13 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting primary keys")
 	}
 
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var pks []string
+	pks := []string{}
 	for rows.Next() {
 		var pk string
 		if err := rows.Scan(&pk); err != nil {
@@ -718,7 +718,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 
 func (d *Database) getSqlitePrimaryKeys(tableName string) ([]string, error) {
 	query := fmt.Sprintf("PRAGMA table_info(%s)", tableName)
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +976,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 	}
 	defer rows.Close()
 
-	var fks []ForeignKey
+	fks := []ForeignKey{}
 	for rows.Next() {
 		var fk ForeignKey
 		if err := rows.Scan(&fk.Table, &fk.Column, &fk.RefTable, &fk.RefColumn, &fk.Constraint); err != nil {
@@ -995,7 +995,7 @@ func (d *Database) getSqliteForeignKeys(tableName string) ([]ForeignKey, error) 
 	}
 	defer rows.Close()
 
-	var fks []ForeignKey
+	fks := []ForeignKey{}
 	for rows.Next() {
 		var id, seq int
 		var table, from, to, on_update, on_delete, match string
@@ -1106,4 +1106,680 @@ func (d *Database) ExplainQuery(ctx context.Context, query string) (string, erro
 	}
 
 	return planBuilder.String(), nil
+}
+
+// ColumnDefinition struct
+type ColumnDefinition struct {
+	Name          string      `json:"name"`
+	Type          string      `json:"type"`
+	Nullable      bool        `json:"nullable"`
+	DefaultValue  interface{} `json:"defaultValue"`
+	PrimaryKey    bool        `json:"primaryKey"`
+	AutoIncrement bool        `json:"autoIncrement"`
+}
+
+func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres":
+		query = fmt.Sprintf(`
+			SELECT 
+				column_name, 
+				data_type, 
+				is_nullable, 
+				column_default 
+			FROM information_schema.columns 
+			WHERE table_name = '%s'
+			ORDER BY ordinal_position`, tableName)
+	case "mysql":
+		query = fmt.Sprintf(`
+			SELECT 
+				COLUMN_NAME, 
+				COLUMN_TYPE, 
+				IS_NULLABLE, 
+				COLUMN_DEFAULT, 
+				EXTRA 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '%s'
+			ORDER BY ORDINAL_POSITION`, tableName)
+	case "mssql":
+		query = fmt.Sprintf(`
+			SELECT 
+				COLUMN_NAME, 
+				DATA_TYPE, 
+				IS_NULLABLE, 
+				COLUMN_DEFAULT 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_NAME = '%s'
+			ORDER BY ORDINAL_POSITION`, tableName)
+	case "sqlite":
+		return d.getSqliteTableDefinition(tableName)
+	default:
+		return nil, fmt.Errorf("unsupported database type")
+	}
+
+	rows, err := d.conn.QueryContext(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Get PKs to mark columns
+	pks, _ := d.GetPrimaryKeys(tableName)
+	pkMap := make(map[string]bool)
+	for _, pk := range pks {
+		pkMap[pk] = true
+	}
+
+	columns := []ColumnDefinition{}
+	for rows.Next() {
+		var name, dataType, isNullableStr string
+		var defaultValue interface{}
+		var extra string
+
+		var err error
+		if d.Type == "mysql" {
+			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue, &extra)
+		} else {
+			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		isNullable := false
+		if strings.ToUpper(isNullableStr) == "YES" || isNullableStr == "1" || isNullableStr == "true" {
+			isNullable = true
+		}
+
+		col := ColumnDefinition{
+			Name:         name,
+			Type:         dataType,
+			Nullable:     isNullable,
+			DefaultValue: defaultValue,
+			PrimaryKey:   pkMap[name],
+		}
+
+		if d.Type == "mysql" && strings.Contains(strings.ToLower(extra), "auto_increment") {
+			col.AutoIncrement = true
+		}
+		// Basic auto-increment detection for Postgres (serial types)
+		if d.Type == "postgres" && defaultValue != nil {
+			defStr := fmt.Sprintf("%v", defaultValue)
+			if strings.Contains(defStr, "nextval") {
+				col.AutoIncrement = true
+			}
+		}
+
+		columns = append(columns, col)
+	}
+
+	return columns, nil
+}
+
+func (d *Database) getSqliteTableDefinition(tableName string) ([]ColumnDefinition, error) {
+	query := fmt.Sprintf("PRAGMA table_info(%s)", tableName)
+	rows, err := d.conn.QueryContext(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns := []ColumnDefinition{}
+	for rows.Next() {
+		var cid int
+		var name string
+		var typeName string
+		var notnull int
+		var dfltValue interface{}
+		var pk int
+
+		if err := rows.Scan(&cid, &name, &typeName, &notnull, &dfltValue, &pk); err != nil {
+			return nil, err
+		}
+
+		columns = append(columns, ColumnDefinition{
+			Name:          name,
+			Type:          typeName,
+			Nullable:      notnull == 0,
+			DefaultValue:  dfltValue,
+			PrimaryKey:    pk > 0,
+			AutoIncrement: false, // Hard to detect reliably in SQLite without parsing DDL often, but can infer if INTEGER PRIMARY KEY
+		})
+	}
+	return columns, nil
+}
+
+// IndexDefinition struct
+type IndexDefinition struct {
+	Name    string   `json:"name"`
+	Columns []string `json:"columns"`
+	Unique  bool     `json:"unique"`
+	Primary bool     `json:"primary"`
+}
+
+func (d *Database) GetTableIndexes(tableName string) ([]IndexDefinition, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	indexes := []IndexDefinition{}
+	// Helper map to group columns by index name
+	indexMap := make(map[string]*IndexDefinition)
+	// Maintain order of index names as they are encountered
+	var indexOrder []string
+
+	switch d.Type {
+	case "postgres":
+		query := fmt.Sprintf(`
+			SELECT
+				i.relname as index_name,
+				a.attname as column_name,
+				ix.indisunique,
+				ix.indisprimary
+			FROM
+				pg_class t,
+				pg_class i,
+				pg_index ix,
+				pg_attribute a
+			WHERE
+				t.oid = ix.indrelid
+				AND i.oid = ix.indexrelid
+				AND a.attrelid = t.oid
+				AND a.attnum = ANY(ix.indkey)
+				AND t.relkind = 'r'
+				AND t.relname = '%s'`, tableName)
+		rows, err := d.conn.QueryContext(context.Background(), query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var indexName, columnName string
+			var isUnique, isPrimary bool
+			if err := rows.Scan(&indexName, &columnName, &isUnique, &isPrimary); err != nil {
+				return nil, err
+			}
+
+			if idx, exists := indexMap[indexName]; exists {
+				idx.Columns = append(idx.Columns, columnName)
+			} else {
+				indexOrder = append(indexOrder, indexName)
+				indexMap[indexName] = &IndexDefinition{
+					Name:    indexName,
+					Columns: []string{columnName},
+					Unique:  isUnique,
+					Primary: isPrimary,
+				}
+			}
+		}
+
+	case "mysql":
+		query := fmt.Sprintf(`
+            SELECT 
+                INDEX_NAME, 
+                COLUMN_NAME, 
+                NON_UNIQUE,
+				SEQ_IN_INDEX
+            FROM INFORMATION_SCHEMA.STATISTICS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '%s'
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX`, tableName)
+
+		rows, err := d.conn.QueryContext(context.Background(), query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var indexName, columnName string
+			var nonUnique, seqInIndex int
+			if err := rows.Scan(&indexName, &columnName, &nonUnique, &seqInIndex); err != nil {
+				return nil, err
+			}
+
+			if idx, exists := indexMap[indexName]; exists {
+				idx.Columns = append(idx.Columns, columnName)
+			} else {
+				indexOrder = append(indexOrder, indexName)
+				indexMap[indexName] = &IndexDefinition{
+					Name:    indexName,
+					Columns: []string{columnName},
+					Unique:  nonUnique == 0,
+					Primary: indexName == "PRIMARY",
+				}
+			}
+		}
+
+	case "mssql":
+		query := fmt.Sprintf(`
+			SELECT 
+				i.name AS IndexName,
+				c.name AS ColumnName,
+				i.is_unique,
+				i.is_primary_key
+			FROM 
+				sys.indexes i
+			INNER JOIN 
+				sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+			INNER JOIN 
+				sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+			WHERE 
+				i.object_id = OBJECT_ID('%s')
+			ORDER BY 
+				i.name, ic.index_column_id`, tableName)
+		rows, err := d.conn.QueryContext(context.Background(), query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var indexName, columnName string
+			var isUnique, isPrimary bool
+			if err := rows.Scan(&indexName, &columnName, &isUnique, &isPrimary); err != nil {
+				return nil, err
+			}
+
+			if idx, exists := indexMap[indexName]; exists {
+				idx.Columns = append(idx.Columns, columnName)
+			} else {
+				indexOrder = append(indexOrder, indexName)
+				indexMap[indexName] = &IndexDefinition{
+					Name:    indexName,
+					Columns: []string{columnName},
+					Unique:  isUnique,
+					Primary: isPrimary,
+				}
+			}
+		}
+
+	case "sqlite":
+		query := fmt.Sprintf("PRAGMA index_list(%s)", tableName)
+		rows, err := d.conn.QueryContext(context.Background(), query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		type sqliteIndexInfo struct {
+			Name   string
+			Unique bool
+			Origin string
+		}
+		var sqliteIndexes []sqliteIndexInfo
+
+		for rows.Next() {
+			var seq int
+			var name string
+			var unique int
+			var origin string
+			var partial int
+			if err := rows.Scan(&seq, &name, &unique, &origin, &partial); err != nil {
+				return nil, err
+			}
+			sqliteIndexes = append(sqliteIndexes, sqliteIndexInfo{Name: name, Unique: unique != 0, Origin: origin})
+		}
+		rows.Close()
+
+		for _, idxInfo := range sqliteIndexes {
+			infoQuery := fmt.Sprintf("PRAGMA index_info(%s)", idxInfo.Name)
+			infoRows, err := d.conn.QueryContext(context.Background(), infoQuery)
+			if err != nil {
+				continue
+			}
+
+			var cols []string
+			for infoRows.Next() {
+				var seqno, cid int
+				var name string
+				if err := infoRows.Scan(&seqno, &cid, &name); err != nil {
+					break
+				}
+				cols = append(cols, name)
+			}
+			infoRows.Close()
+
+			indexOrder = append(indexOrder, idxInfo.Name)
+			indexMap[idxInfo.Name] = &IndexDefinition{
+				Name:    idxInfo.Name,
+				Columns: cols,
+				Unique:  idxInfo.Unique,
+				Primary: idxInfo.Origin == "pk",
+			}
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported database type")
+	}
+
+	for _, name := range indexOrder {
+		if idx, ok := indexMap[name]; ok {
+			indexes = append(indexes, *idx)
+		}
+	}
+
+	return indexes, nil
+}
+
+// TableChanges struct represents modifications to a table
+type TableChanges struct {
+	RenameTable  string             `json:"renameTable"` // New name if renaming
+	AddColumns   []ColumnDefinition `json:"addColumns"`
+	DropColumns  []string           `json:"dropColumns"`
+	AlterColumns []ColumnChange     `json:"alterColumns"`
+	AddIndexes   []IndexDefinition  `json:"addIndexes"`
+	DropIndexes  []string           `json:"dropIndexes"`
+	AddFKs       []ForeignKey       `json:"addFKs"`
+	DropFKs      []string           `json:"dropFKs"`
+}
+
+type ColumnChange struct {
+	OldName       string           `json:"oldName"`
+	NewDefinition ColumnDefinition `json:"newDefinition"`
+}
+
+func (d *Database) AlterTable(tableName string, changes TableChanges) error {
+	if d.persistentConn == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	if d.ReadOnly {
+		return fmt.Errorf("database is in read-only mode")
+	}
+
+	// Transaction wrapper
+	tx, err := d.persistentConn.BeginTx(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var statements []string
+	var errGen error
+
+	switch d.Type {
+	case "postgres":
+		statements, errGen = d.generatePostgresAlterStatements(tableName, changes)
+	case "mysql":
+		statements, errGen = d.generateMysqlAlterStatements(tableName, changes)
+	case "mssql":
+		statements, errGen = d.generateMssqlAlterStatements(tableName, changes)
+	case "sqlite":
+		statements, errGen = d.generateSqliteAlterStatements(tableName, changes)
+	default:
+		return fmt.Errorf("unsupported database type")
+	}
+
+	if errGen != nil {
+		return errGen
+	}
+
+	for _, stmt := range statements {
+		_, err := tx.ExecContext(context.Background(), stmt)
+		if err != nil {
+			return fmt.Errorf("error executing '%s': %w", stmt, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (d *Database) generatePostgresAlterStatements(tableName string, changes TableChanges) ([]string, error) {
+	var stmts []string
+
+	// Rename table
+	if changes.RenameTable != "" && changes.RenameTable != tableName {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s RENAME TO %s", tableName, changes.RenameTable))
+		tableName = changes.RenameTable // Use new name for subsequent changes
+	}
+
+	// Column changes
+	for _, col := range changes.DropColumns {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", tableName, col))
+	}
+
+	for _, col := range changes.AddColumns {
+		def := fmt.Sprintf("%s %s", col.Name, col.Type)
+		if !col.Nullable {
+			def += " NOT NULL"
+		}
+		if col.DefaultValue != nil {
+			def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+		}
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", tableName, def))
+	}
+
+	for _, change := range changes.AlterColumns {
+		// PostgreSQL often needs separate statements for type, nullability, default
+		if change.OldName != change.NewDefinition.Name {
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", tableName, change.OldName, change.NewDefinition.Name))
+		}
+
+		// For type change
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s USING %s::%s", tableName, change.NewDefinition.Name, change.NewDefinition.Type, change.NewDefinition.Name, change.NewDefinition.Type))
+
+		// For Nullable
+		if change.NewDefinition.Nullable {
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s DROP NOT NULL", tableName, change.NewDefinition.Name))
+		} else {
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET NOT NULL", tableName, change.NewDefinition.Name))
+		}
+	}
+
+	// Index changes
+	for _, idx := range changes.DropIndexes {
+		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s", idx))
+	}
+	for _, idx := range changes.AddIndexes {
+		unique := ""
+		if idx.Unique {
+			unique = "UNIQUE"
+		}
+		cols := strings.Join(idx.Columns, ", ")
+		stmts = append(stmts, fmt.Sprintf("CREATE %s INDEX %s ON %s (%s)", unique, idx.Name, tableName, cols))
+	}
+
+	// FK changes
+	for _, fk := range changes.DropFKs {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", tableName, fk))
+	}
+	for _, fk := range changes.AddFKs {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)",
+			tableName, fk.Constraint, fk.Column, fk.RefTable, fk.RefColumn))
+	}
+
+	return stmts, nil
+}
+
+func (d *Database) generateMysqlAlterStatements(tableName string, changes TableChanges) ([]string, error) {
+	var stmts []string
+
+	// Rename
+	if changes.RenameTable != "" && changes.RenameTable != tableName {
+		stmts = append(stmts, fmt.Sprintf("RENAME TABLE %s TO %s", tableName, changes.RenameTable))
+		tableName = changes.RenameTable
+	}
+
+	// Helper for column definitions
+	getDef := func(col ColumnDefinition) string {
+		def := fmt.Sprintf("%s %s", col.Name, col.Type)
+		if !col.Nullable {
+			def += " NOT NULL"
+		} else {
+			def += " NULL"
+		}
+		if col.AutoIncrement {
+			def += " AUTO_INCREMENT"
+		}
+		if col.DefaultValue != nil {
+			def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+		}
+		return def
+	}
+
+	var alters []string
+
+	for _, col := range changes.DropColumns {
+		alters = append(alters, fmt.Sprintf("DROP COLUMN %s", col))
+	}
+	for _, col := range changes.AddColumns {
+		alters = append(alters, fmt.Sprintf("ADD COLUMN %s", getDef(col)))
+	}
+	for _, change := range changes.AlterColumns {
+		if change.OldName != change.NewDefinition.Name {
+			alters = append(alters, fmt.Sprintf("CHANGE COLUMN %s %s", change.OldName, getDef(change.NewDefinition)))
+		} else {
+			alters = append(alters, fmt.Sprintf("MODIFY COLUMN %s", getDef(change.NewDefinition)))
+		}
+	}
+	for _, idx := range changes.DropIndexes {
+		if idx == "PRIMARY" {
+			alters = append(alters, "DROP PRIMARY KEY")
+		} else {
+			alters = append(alters, fmt.Sprintf("DROP INDEX %s", idx))
+		}
+	}
+	for _, idx := range changes.AddIndexes {
+		if idx.Primary {
+			alters = append(alters, fmt.Sprintf("ADD PRIMARY KEY (%s)", strings.Join(idx.Columns, ", ")))
+		} else {
+			unique := ""
+			if idx.Unique {
+				unique = "UNIQUE"
+			}
+			alters = append(alters, fmt.Sprintf("ADD %s INDEX %s (%s)", unique, idx.Name, strings.Join(idx.Columns, ", ")))
+		}
+	}
+	for _, fk := range changes.DropFKs {
+		alters = append(alters, fmt.Sprintf("DROP FOREIGN KEY %s", fk))
+	}
+	for _, fk := range changes.AddFKs {
+		alters = append(alters, fmt.Sprintf("ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)",
+			fk.Constraint, fk.Column, fk.RefTable, fk.RefColumn))
+	}
+
+	if len(alters) > 0 {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s %s", tableName, strings.Join(alters, ", ")))
+	}
+
+	return stmts, nil
+}
+
+func (d *Database) generateMssqlAlterStatements(tableName string, changes TableChanges) ([]string, error) {
+	var stmts []string
+
+	if changes.RenameTable != "" && changes.RenameTable != tableName {
+		stmts = append(stmts, fmt.Sprintf("EXEC sp_rename '%s', '%s'", tableName, changes.RenameTable))
+		tableName = changes.RenameTable
+	}
+
+	// MSSQL usually requires separate ALTER statements
+	for _, col := range changes.DropColumns {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", tableName, col))
+	}
+	for _, col := range changes.AddColumns {
+		def := fmt.Sprintf("%s %s", col.Name, col.Type)
+		if !col.Nullable {
+			def += " NOT NULL"
+		}
+		if col.DefaultValue != nil {
+			def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+		}
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD %s", tableName, def))
+	}
+	for _, change := range changes.AlterColumns {
+		if change.OldName != change.NewDefinition.Name {
+			stmts = append(stmts, fmt.Sprintf("EXEC sp_rename '%s.%s', '%s', 'COLUMN'", tableName, change.OldName, change.NewDefinition.Name))
+		}
+
+		def := fmt.Sprintf("%s", change.NewDefinition.Type)
+		if !change.NewDefinition.Nullable {
+			def += " NOT NULL"
+		} else {
+			def += " NULL"
+		}
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s %s", tableName, change.NewDefinition.Name, def))
+	}
+
+	for _, idx := range changes.DropIndexes {
+		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s ON %s", idx, tableName))
+	}
+	for _, idx := range changes.AddIndexes {
+		unique := ""
+		if idx.Unique {
+			unique = "UNIQUE"
+		}
+		cols := strings.Join(idx.Columns, ", ")
+		stmts = append(stmts, fmt.Sprintf("CREATE %s INDEX %s ON %s (%s)", unique, idx.Name, tableName, cols))
+	}
+
+	for _, fk := range changes.DropFKs {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", tableName, fk))
+	}
+	for _, fk := range changes.AddFKs {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)",
+			tableName, fk.Constraint, fk.Column, fk.RefTable, fk.RefColumn))
+	}
+
+	return stmts, nil
+}
+
+func (d *Database) generateSqliteAlterStatements(tableName string, changes TableChanges) ([]string, error) {
+	// SQLite supports basic ALTER TABLE
+	// RENAME TABLE, RENAME COLUMN, ADD COLUMN
+	// It does NOT support DROP COLUMN, ALTER COLUMN type/nullability directly (requires recreation)
+
+	// Complex check: if we have drop columns or alter column type/nullability, we MUST recreate.
+	mustRecreate := len(changes.DropColumns) > 0 || len(changes.AlterColumns) > 0 || len(changes.DropFKs) > 0 || len(changes.AddFKs) > 0
+	// Actually adding FKs might require recreation too if constraints are inline? ALTER TABLE ADD CONSTRAINT is NOT supported in SQLite.
+
+	if mustRecreate {
+		return nil, fmt.Errorf("complex table alterations (Modify/Drop Column, FKs) are not yet supported for SQLite in this version (requires table recreation)")
+	}
+
+	var stmts []string
+
+	if changes.RenameTable != "" && changes.RenameTable != tableName {
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s RENAME TO %s", tableName, changes.RenameTable))
+		tableName = changes.RenameTable
+	}
+
+	for _, col := range changes.AddColumns {
+		def := fmt.Sprintf("%s %s", col.Name, col.Type)
+		// SQLite ADD COLUMN has limitations (e.g. can't be UNIQUE or PRIMARY KEY usually directly without constraints?)
+		// Actually basic ADD COLUMN is fine.
+		if !col.Nullable {
+			// Adding NOT NULL column to populated table requires DEFAULT
+			if col.DefaultValue == nil {
+				return nil, fmt.Errorf("cannot add NOT NULL column to SQLite table without DEFAULT value")
+			}
+			def += " NOT NULL"
+		}
+		if col.DefaultValue != nil {
+			def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+		}
+		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", tableName, def))
+	}
+
+	// Index operations are separate and supported
+	for _, idx := range changes.DropIndexes {
+		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s", idx))
+	}
+	for _, idx := range changes.AddIndexes {
+		unique := ""
+		if idx.Unique {
+			unique = "UNIQUE"
+		}
+		cols := strings.Join(idx.Columns, ", ")
+		stmts = append(stmts, fmt.Sprintf("CREATE %s INDEX %s ON %s (%s)", unique, idx.Name, tableName, cols))
+	}
+
+	return stmts, nil
 }

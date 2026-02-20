@@ -890,3 +890,51 @@ func (a *App) ExplainQuery(connectionID string, query string) string {
 	}
 	return plan
 }
+
+func (a *App) GetTableDefinition(connectionID string, tableName string) []ColumnDefinition {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []ColumnDefinition{}
+	}
+
+	cols, err := db.GetTableDefinition(tableName)
+	if err != nil {
+		return []ColumnDefinition{}
+	}
+	return cols
+}
+
+func (a *App) GetTableIndexes(connectionID string, tableName string) []IndexDefinition {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []IndexDefinition{}
+	}
+
+	indexes, err := db.GetTableIndexes(tableName)
+	if err != nil {
+		return []IndexDefinition{}
+	}
+	return indexes
+}
+
+func (a *App) AlterTable(connectionID string, tableName string, changes TableChanges) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	err := db.AlterTable(tableName, changes)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}

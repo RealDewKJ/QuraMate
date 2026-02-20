@@ -297,7 +297,8 @@
 
             <!-- Query Area -->
             <div v-if="activeTab" class="flex flex-col h-full overflow-hidden">
-                <div v-if="!activeTab.isERView" class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
+                <div v-if="!activeTab.isERView && !activeTab.isDesignView"
+                    class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
                     <div class="relative w-full h-64">
                         <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables"
                             :get-columns="fetchTableColumns" />
@@ -355,7 +356,7 @@
                                         <polyline points="19 12 12 19 5 12" />
                                     </svg>
                                     <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
-                                    }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
                                 </span>
                             </div>
                         </div>
@@ -375,7 +376,7 @@
                             Read Only
                         </div>
 
-                        <button @click="analyzeQuery" :disabled="activeTab.isLoading || !activeTab.query"
+                        <!-- <button @click="analyzeQuery" :disabled="activeTab.isLoading || !activeTab.query"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
                             title="Analyze Query (Explain)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -389,7 +390,7 @@
                                 <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
                             </svg>
                             Analyze
-                        </button>
+                        </button> -->
 
                         <button @click="beautifyQuery" :disabled="activeTab.isLoading || !activeTab.query"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
@@ -428,7 +429,8 @@
 
 
                 <!-- Results Area -->
-                <div v-if="!activeTab.isERView" class="flex-1 overflow-hidden bg-muted/10 flex flex-col">
+                <div v-if="!activeTab.isERView && !activeTab.isDesignView"
+                    class="flex-1 overflow-hidden bg-muted/10 flex flex-col">
 
                     <!-- Data/Messages Sub-Tabs -->
                     <div v-if="activeTab.queryExecuted || activeTab.error"
@@ -601,7 +603,22 @@
                                         (activeTab.resultSets[0].rows ?
                                             activeTab.resultSets[0].rows.length : 0) }}
                                         total)</span>
-                                    <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
+                                    <div class="flex items-center gap-3">
+                                        <button
+                                            v-if="activeTab.tableName && !props.isReadOnly && activeTab.primaryKeys.length > 0"
+                                            @click="openInsertRowModal"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-plus">
+                                                <path d="M5 12h14" />
+                                                <path d="M12 5v14" />
+                                            </svg>
+                                            Row
+                                        </button>
+                                        <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -762,6 +779,12 @@
                         :isDark="true" />
                 </div>
 
+                <!-- Table Designer View -->
+                <div v-if="activeTab.isDesignView" class="flex-1 overflow-hidden bg-background">
+                    <TableStructureDesigner :key="activeTab.id" :table-name="activeTab.tableName || ''"
+                        :connection-id="props.connectionId" @close="closeTab(activeTab.id)" @refresh="loadTables" />
+                </div>
+
             </div>
 
             <div v-else
@@ -816,7 +839,7 @@
                 </svg>
                 View Design
             </button>
-            <button @click="handleViewERDiagram"
+            <!-- <button @click="handleViewERDiagram"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -828,6 +851,17 @@
                     <path d="M12 12V8" />
                 </svg>
                 View ER Diagram
+            </button> -->
+            <button @click="handleViewDesign"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-pencil-ruler">
+                    <path d="M2 22h20" />
+                    <path d="M12 6 2 16v6h6l10-10" />
+                    <path d="m9 9 5 5" />
+                </svg>
+                Design Table
             </button>
             <div class="border-t border-border my-1"></div>
             <button @click="handleExport"
@@ -852,17 +886,7 @@
                 </svg>
                 Import Data
             </button>
-            <button @click="handleImport"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-download">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" x2="12" y1="15" y2="3" />
-                </svg>
-                Import Data
-            </button>
+
         </div>
 
         <!-- View Context Menu -->
@@ -1030,6 +1054,125 @@
             </div>
         </div>
 
+        <!-- Insert Row Modal -->
+        <div v-if="insertRowModal && insertRowModal.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @mousedown.self="cancelInsertRow">
+            <div @keydown.stop @mousedown.stop
+                class="bg-card w-full max-w-lg rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-plus-circle text-primary">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M8 12h8" />
+                            <path d="M12 8v8" />
+                        </svg>
+                        Insert Row
+                    </h3>
+                    <button @click="cancelInsertRow" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <p class="text-sm text-muted-foreground">
+                    Insert a new row into <span class="font-medium text-foreground">{{ insertRowModal.tableName
+                    }}</span>
+                </p>
+
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1">
+                    <div v-for="col in insertRowModal.columns" :key="col" class="flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <label
+                                class="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                                {{ col }}
+                                <span v-if="getColDef(col)?.primaryKey"
+                                    class="text-[9px] px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-500 rounded font-normal normal-case">PK</span>
+                                <span v-if="getColDef(col)?.autoIncrement"
+                                    class="text-[9px] px-1 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded font-normal normal-case">Auto</span>
+                                <span v-if="getColDef(col)"
+                                    class="text-[9px] px-1 py-0.5 bg-muted text-muted-foreground rounded font-normal normal-case">{{
+                                        getColDef(col)?.type }}</span>
+                            </label>
+                            <button @click="toggleInsertNull(col)"
+                                class="text-[10px] px-1.5 py-0.5 rounded transition-colors"
+                                :class="insertRowModal.nullColumns[col] ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'">
+                                NULL
+                            </button>
+                        </div>
+                        <!-- Type-aware inputs -->
+                        <template v-if="!insertRowModal.nullColumns[col]">
+                            <!-- Boolean/bit -->
+                            <div v-if="getInputType(col) === 'checkbox'" class="flex items-center gap-2 h-8">
+                                <input type="checkbox" v-model="insertRowModal.values[col]" :true-value="'1'"
+                                    :false-value="'0'"
+                                    class="insert-row-input w-4 h-4 rounded border-input bg-background text-primary focus:ring-ring" />
+                                <span class="text-sm text-muted-foreground">{{ insertRowModal.values[col] === '1' ?
+                                    'True' : 'False' }}</span>
+                            </div>
+                            <!-- Date -->
+                            <input v-else-if="getInputType(col) === 'date'" v-model="insertRowModal.values[col]"
+                                type="date"
+                                class="insert-row-input w-full h-8 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                            <!-- DateTime -->
+                            <input v-else-if="getInputType(col) === 'datetime-local'"
+                                v-model="insertRowModal.values[col]" type="datetime-local" step="1"
+                                class="insert-row-input w-full h-8 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                            <!-- Time -->
+                            <input v-else-if="getInputType(col) === 'time'" v-model="insertRowModal.values[col]"
+                                type="time" step="1"
+                                class="insert-row-input w-full h-8 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                            <!-- Number -->
+                            <input v-else-if="getInputType(col) === 'number'" v-model="insertRowModal.values[col]"
+                                type="number" :step="getNumberStep(col)" :placeholder="`Enter ${col}`"
+                                class="insert-row-input w-full h-8 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                            <!-- Textarea for text/blob -->
+                            <textarea v-else-if="getInputType(col) === 'textarea'" v-model="insertRowModal.values[col]"
+                                :placeholder="`Enter ${col}`" rows="3"
+                                class="insert-row-input w-full px-3 py-2 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono resize-y" />
+                            <!-- Default text input -->
+                            <input v-else v-model="insertRowModal.values[col]" type="text" :placeholder="`Enter ${col}`"
+                                class="insert-row-input w-full h-8 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                        </template>
+                        <div v-else
+                            class="w-full h-8 px-3 rounded-md border border-input bg-muted/50 text-sm text-muted-foreground flex items-center italic font-mono">
+                            NULL
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="insertRowModal.error"
+                    class="text-sm text-destructive bg-destructive/10 p-2 rounded-md break-all">
+                    {{ insertRowModal.error }}
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="cancelInsertRow"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="confirmInsertRow" :disabled="insertRowModal.isInserting"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 inline-flex items-center gap-2">
+                        <svg v-if="insertRowModal.isInserting" class="animate-spin h-3 w-3"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor" d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
+                            </path>
+                        </svg>
+                        Insert
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
 
         <!-- Import Options Modal -->
         <div v-if="showImportOptions"
@@ -1080,17 +1223,22 @@
                 </div>
             </div>
         </div>
+        <Toast ref="toastRef" />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
 import SqlEditor from './SqlEditor.vue';
 import ERDiagram from './ERDiagram.vue';
+import TableStructureDesigner from './TableStructureDesigner.vue';
+import Toast from './Toast.vue';
+
+const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 
 const props = defineProps<{
     connectionId: string;
@@ -1137,7 +1285,7 @@ interface QueryTab {
     relationships?: any[];
     tablesData?: Record<string, { name: string, type: string }[]>;
     activeQueryIds: string[];
-    resultViewTab: 'data' | 'messages' | 'analysis'; // Updated to include 'analysis'
+    resultViewTab: 'data' | 'messages' | 'analysis';
     completionTime?: string;
     totalRowCount?: number;
     isPartialStats?: boolean;
@@ -1270,6 +1418,197 @@ const updateConfirmation = ref<{
     rowIndex: number;
     item: any;
 } | null>(null);
+
+// Insert Row Modal State
+const insertRowModal = ref<{
+    isOpen: boolean;
+    tableName: string;
+    columns: string[];
+    columnDefs: Record<string, { type: string; nullable: boolean; autoIncrement: boolean; primaryKey: boolean }>;
+    values: Record<string, string>;
+    nullColumns: Record<string, boolean>;
+    isInserting: boolean;
+    error: string;
+} | null>(null);
+
+// Map SQL column type to HTML input type
+const getInputTypeForColumn = (sqlType: string): string => {
+    const t = sqlType.toLowerCase();
+
+    // Boolean
+    if (t === 'bit' || t === 'boolean' || t === 'bool' || t === 'tinyint(1)') return 'checkbox';
+
+    // Date only
+    if (t === 'date') return 'date';
+
+    // Date + Time
+    if (t.includes('datetime') || t.includes('timestamp') || t === 'smalldatetime' || t === 'datetime2') return 'datetime-local';
+
+    // Time only
+    if (t === 'time') return 'time';
+
+    // Integer types
+    if (t.includes('int') || t === 'serial' || t === 'bigserial' || t === 'smallserial'
+        || t === 'tinyint' || t === 'smallint' || t === 'mediumint' || t === 'bigint') return 'number';
+
+    // Decimal/float types
+    if (t.includes('decimal') || t.includes('numeric') || t.includes('float')
+        || t.includes('double') || t.includes('real') || t === 'money' || t === 'smallmoney') return 'number';
+
+    // Large text
+    if (t.includes('text') || t.includes('clob') || t === 'ntext' || t === 'mediumtext' || t === 'longtext') return 'textarea';
+
+    // Default: text input for varchar, char, nvarchar, uuid, json, xml, blob, binary, etc.
+    return 'text';
+};
+
+const getInputType = (col: string): string => {
+    if (!insertRowModal.value?.columnDefs[col]) return 'text';
+    return getInputTypeForColumn(insertRowModal.value.columnDefs[col].type);
+};
+
+const getNumberStep = (col: string): string => {
+    if (!insertRowModal.value?.columnDefs[col]) return 'any';
+    const t = insertRowModal.value.columnDefs[col].type.toLowerCase();
+    if (t.includes('int') || t === 'serial' || t === 'bigserial' || t === 'smallserial') return '1';
+    return 'any';
+};
+
+const getColDef = (col: string) => {
+    return insertRowModal.value?.columnDefs?.[col] || null;
+};
+
+const openInsertRowModal = async () => {
+    if (!activeTab.value || !activeTab.value.tableName || !activeTab.value.resultSets?.[0]?.columns) return;
+
+    const columns = activeTab.value.resultSets[0].columns;
+    const pks = activeTab.value.primaryKeys || [];
+    const values: Record<string, string> = {};
+    const nullColumns: Record<string, boolean> = {};
+    const columnDefs: Record<string, { type: string; nullable: boolean; autoIncrement: boolean; primaryKey: boolean }> = {};
+
+    // Fetch column definitions from backend
+    try {
+        const defs = await GetTableDefinition(props.connectionId, activeTab.value.tableName);
+        if (defs && defs.length > 0) {
+            for (const def of defs) {
+                columnDefs[def.name] = {
+                    type: def.type,
+                    nullable: def.nullable,
+                    autoIncrement: def.autoIncrement,
+                    primaryKey: def.primaryKey
+                };
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to fetch column definitions', e);
+    }
+
+    for (const col of columns) {
+        const def = columnDefs[col];
+        const isAutoInc = def?.autoIncrement || false;
+        const isPK = pks.includes(col);
+
+        // Auto-increment or PK columns default to NULL
+        nullColumns[col] = isAutoInc || isPK;
+
+        // Set smart defaults based on type
+        if (def) {
+            const inputType = getInputTypeForColumn(def.type);
+            if (inputType === 'checkbox') {
+                values[col] = '0';
+            } else {
+                values[col] = '';
+            }
+        } else {
+            values[col] = '';
+        }
+    }
+
+    insertRowModal.value = {
+        isOpen: true,
+        tableName: activeTab.value.tableName,
+        columns: columns,
+        columnDefs: columnDefs,
+        values: values,
+        nullColumns: nullColumns,
+        isInserting: false,
+        error: ''
+    };
+
+    // Auto-focus the first visible input
+    nextTick(() => {
+        const firstInput = document.querySelector('.insert-row-input') as HTMLInputElement;
+        if (firstInput) firstInput.focus();
+    });
+};
+
+const toggleInsertNull = (col: string) => {
+    if (!insertRowModal.value) return;
+    insertRowModal.value.nullColumns[col] = !insertRowModal.value.nullColumns[col];
+    if (insertRowModal.value.nullColumns[col]) {
+        insertRowModal.value.values[col] = '';
+    }
+};
+
+const cancelInsertRow = () => {
+    insertRowModal.value = null;
+};
+
+const confirmInsertRow = async () => {
+    if (!insertRowModal.value || !activeTab.value) return;
+
+    insertRowModal.value.isInserting = true;
+    insertRowModal.value.error = '';
+
+    const { tableName, columns, values, nullColumns, columnDefs } = insertRowModal.value;
+
+    // Build INSERT statement
+    const insertCols: string[] = [];
+    const insertVals: string[] = [];
+
+    for (const col of columns) {
+        if (nullColumns[col]) {
+            insertCols.push(col);
+            insertVals.push('NULL');
+        } else {
+            insertCols.push(col);
+            const val = values[col];
+            const def = columnDefs[col];
+            const inputType = def ? getInputTypeForColumn(def.type) : 'text';
+
+            // Numbers and booleans don't need quotes
+            if (inputType === 'number' || inputType === 'checkbox') {
+                insertVals.push(val || '0');
+            } else {
+                // Escape single quotes in values
+                const escaped = val.replace(/'/g, "''");
+                insertVals.push(`'${escaped}'`);
+            }
+        }
+    }
+
+    const sql = `INSERT INTO ${tableName} (${insertCols.join(', ')}) VALUES (${insertVals.join(', ')})`;
+
+    try {
+        const res = await ExecuteTransientQuery(props.connectionId, sql);
+        if (res.error) {
+            insertRowModal.value.isInserting = false;
+            insertRowModal.value.error = res.error;
+            return;
+        }
+
+        // Success - close modal and refresh query
+        insertRowModal.value = null;
+        toastRef.value?.success('Row inserted successfully!');
+        runQuery();
+    } catch (e: any) {
+        if (insertRowModal.value) {
+            insertRowModal.value.isInserting = false;
+            insertRowModal.value.error = e.toString();
+        }
+    }
+};
 
 const handleExport = async () => {
     if (!contextMenuTargetTable.value) return;
@@ -1529,28 +1868,28 @@ const closeTab = (id: string) => {
 const loadTables = async () => {
     try {
         const result = await GetTables(props.connectionId);
-        tables.value = result.sort((a, b) => a.localeCompare(b));
+        tables.value = (result || []).sort((a, b) => a.localeCompare(b));
     } catch (e) {
         console.error("Failed to load tables", e);
     }
 
     try {
         const result = await GetViews(props.connectionId);
-        views.value = result.sort((a, b) => a.localeCompare(b));
+        views.value = (result || []).sort((a, b) => a.localeCompare(b));
     } catch (e) {
         console.error("Failed to load views", e);
     }
 
     try {
         const result = await GetStoredProcedures(props.connectionId);
-        storedProcedures.value = result.sort((a, b) => a.localeCompare(b));
+        storedProcedures.value = (result || []).sort((a, b) => a.localeCompare(b));
     } catch (e) {
         console.error("Failed to load stored procedures", e);
     }
 
     try {
         const result = await GetFunctions(props.connectionId);
-        functions.value = result.sort((a, b) => a.localeCompare(b));
+        functions.value = (result || []).sort((a, b) => a.localeCompare(b));
     } catch (e) {
         console.error("Failed to load functions", e);
     }
@@ -1591,7 +1930,7 @@ const selectTable = async (tableName: string) => {
 
         // Fetch Primary Keys
         try {
-            activeTab.value.primaryKeys = await GetPrimaryKeys(props.connectionId, tableName);
+            activeTab.value.primaryKeys = (await GetPrimaryKeys(props.connectionId, tableName)) || [];
         } catch (e) {
             console.error("Failed to fetch primary keys", e);
             activeTab.value.primaryKeys = [];
@@ -1635,6 +1974,45 @@ const checkRowCount = async (tableName: string) => {
         }
     } catch (e) {
         console.warn("Failed to get row count", e);
+    }
+};
+
+const openDesignView = (tableName: string) => {
+    // Check if already open
+    const existingTab = tabs.value.find(t => t.tableName === tableName && t.isDesignView);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const newId = generateId();
+    tabs.value.push({
+        id: newId,
+        name: `Design: ${tableName}`,
+        tableName: tableName,
+        query: '',
+        resultSets: [],
+        primaryKeys: [],
+        filters: {},
+        sortColumn: undefined,
+        sortDirection: null,
+        error: '',
+        isLoading: false,
+        queryExecuted: false,
+        activeQueryIds: [],
+        resultViewTab: 'data',
+        isDesignView: true,
+        isExplaining: false,
+        isERView: false,
+        isPartialStats: false
+    });
+    activeTabId.value = newId;
+};
+
+const handleViewDesign = () => {
+    if (contextMenuTargetTable.value) {
+        openDesignView(contextMenuTargetTable.value);
+        showContextMenu.value = false;
     }
 };
 
@@ -1809,60 +2187,6 @@ const handleSelectTop100 = () => {
     }
 };
 
-const openDesignTab = (tableName: string) => {
-    const type = (props.dbType || '').toLowerCase();
-    let query = '';
-
-    if (type.includes('mssql') || type.includes('sqlserver')) {
-        query = `SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
-    } else if (type.includes('postgres')) {
-        query = `SELECT column_name, data_type, is_nullable, character_maximum_length FROM information_schema.columns WHERE table_name = '${tableName}'`;
-    } else if (type.includes('mysql') || type.includes('maria')) {
-        query = `DESCRIBE ${tableName}`;
-    } else if (type.includes('sqlite')) {
-        query = `PRAGMA table_info(${tableName})`;
-    } else {
-        query = `-- Could not determine DB type for schema query\nSELECT * FROM ${tableName} LIMIT 1`;
-    }
-
-    // Check if design tab already exists
-    const existingTab = tabs.value.find(t => t.name === `Design: ${tableName}`);
-    if (existingTab) {
-        activeTabId.value = existingTab.id;
-        return;
-    }
-
-    const newId = generateId();
-    tabCounter.value++;
-    tabs.value.push({
-        id: newId,
-        name: `Design: ${tableName}`,
-        query: query,
-        resultSets: [], // Design view uses resultSets now
-        primaryKeys: [], // Design view is read-only usually
-        filters: {},
-        sortColumn: undefined,
-        sortDirection: null,
-        error: '',
-        isLoading: false,
-        queryExecuted: false,
-        isDesignView: true,
-        activeQueryIds: [],
-        resultViewTab: 'data'
-    });
-    activeTabId.value = newId;
-
-    setTimeout(() => {
-        runQuery();
-    }, 50);
-};
-
-const handleViewDesign = () => {
-    if (contextMenuTargetTable.value) {
-        openDesignTab(contextMenuTargetTable.value);
-        closeContextMenu();
-    }
-};
 
 const openERDiagramTab = async (tableName: string) => {
     const existingTab = tabs.value.find(t => t.name === `ER: ${tableName}`);
@@ -1899,7 +2223,7 @@ const openERDiagramTab = async (tableName: string) => {
 
     try {
         // 1. Get Foreign Keys First (Bidirectional)
-        const fks = await GetForeignKeys(props.connectionId, tableName);
+        const fks = (await GetForeignKeys(props.connectionId, tableName)) || [];
         newTab.relationships = fks;
 
         // 2. Identify all tables involved (Main table + any referenced/referencing tables)
@@ -2365,11 +2689,11 @@ const confirmUpdate = async () => {
             }
         } else {
             console.error("Update failed:", result);
-            alert("Update failed: " + result);
+            toastRef.value?.error('Update failed: ' + result);
         }
     } catch (e) {
         console.error("Update error:", e);
-        alert("Update error: " + e);
+        toastRef.value?.error('Update error: ' + e);
     } finally {
         if (activeTab.value) {
             activeTab.value.editingCell = null;
@@ -2393,7 +2717,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         if (activeTab.value && activeTab.value.tableName) {
-            openDesignTab(activeTab.value.tableName);
+            openDesignView(activeTab.value.tableName);
         }
     }
     if (e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) {
