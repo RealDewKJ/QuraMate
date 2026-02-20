@@ -20,9 +20,15 @@ export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Pro
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;
 
+export function GetFunctions(arg1:string):Promise<Array<string>>;
+
 export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
 
+export function GetStoredProcedures(arg1:string):Promise<Array<string>>;
+
 export function GetTables(arg1:string):Promise<Array<string>>;
+
+export function GetViews(arg1:string):Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
 

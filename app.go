@@ -119,6 +119,54 @@ func (a *App) GetTables(connectionID string) []string {
 	return tables
 }
 
+func (a *App) GetViews(connectionID string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	views, err := db.GetViews()
+	if err != nil {
+		return []string{}
+	}
+	return views
+}
+
+func (a *App) GetStoredProcedures(connectionID string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	header, err := db.GetStoredProcedures()
+	if err != nil {
+		return []string{}
+	}
+	return header
+}
+
+func (a *App) GetFunctions(connectionID string) []string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return []string{}
+	}
+
+	funcs, err := db.GetFunctions()
+	if err != nil {
+		return []string{}
+	}
+	return funcs
+}
+
 // Result struct to return both data and error message if any
 type QueryResult struct {
 	ResultSets []ResultSet `json:"resultSets"` // Changed from Data/Columns

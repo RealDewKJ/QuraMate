@@ -96,7 +96,23 @@
                             <span>Views</span>
                         </div>
                         <div v-show="openFolders.includes('Views')" class="ml-4 mt-1 border-l border-border pl-2">
-                            <span class="text-xs text-muted-foreground py-1 block italic ml-2">No views loaded.</span>
+                            <ul class="space-y-0.5">
+                                <li v-for="view in filteredViews" :key="view"
+                                    class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                                    @click="selectView(view)" @contextmenu.prevent="openViewContextMenu($event, view)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-eye text-green-500">
+                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <span class="truncate">{{ view }}</span>
+                                </li>
+                                <li v-if="filteredViews.length === 0"
+                                    class="text-xs text-muted-foreground py-2 italic ml-2">
+                                    No views found.
+                                </li>
+                            </ul>
                         </div>
                     </div>
 
@@ -122,61 +138,102 @@
                         </div>
                         <div v-show="openFolders.includes('Programmability')"
                             class="ml-4 mt-1 border-l border-border pl-2">
-                            <span class="text-xs text-muted-foreground py-1 block italic ml-2">Not implemented.</span>
+                            <!-- Stored Procedures -->
+                            <div>
+                                <div @click="toggleFolder('Stored Procedures')"
+                                    class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="lucide lucide-chevron-right transition-transform duration-200"
+                                        :class="{ 'rotate-90': openFolders.includes('Stored Procedures') }">
+                                        <path d="m9 18 6-6-6-6" />
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-scroll text-blue-400">
+                                        <path d="M8 17a5 5 0 0 1 5-5c1.1 0 2 .9 2 2v6a2 2 0 0 1-4 0v-6.5" />
+                                        <path
+                                            d="M12 2H8a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9a5 5 0 0 0-5-5Z" />
+                                    </svg>
+                                    <span>Stored Procedures</span>
+                                </div>
+                                <div v-show="openFolders.includes('Stored Procedures')"
+                                    class="ml-4 border-l border-border pl-2">
+                                    <ul class="space-y-0.5">
+                                        <li v-for="sp in filteredStoredProcedures" :key="sp"
+                                            class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                                            @contextmenu.prevent="openRoutineContextMenu($event, sp, 'PROCEDURE')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-scroll-text text-muted-foreground">
+                                                <path
+                                                    d="M8 21h12a2 2 0 0 0 2-2v-2a10 10 0 0 0-10-10H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />
+                                                <path d="M19 17V5a2 2 0 0 0-2-2H4" />
+                                            </svg>
+                                            <span class="truncate">{{ sp }}</span>
+                                        </li>
+                                        <li v-if="filteredStoredProcedures.length === 0"
+                                            class="text-xs text-muted-foreground py-1 italic ml-2">
+                                            No stored procedures.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Functions -->
+                            <div>
+                                <div @click="toggleFolder('Functions')"
+                                    class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="lucide lucide-chevron-right transition-transform duration-200"
+                                        :class="{ 'rotate-90': openFolders.includes('Functions') }">
+                                        <path d="m9 18 6-6-6-6" />
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-function-square text-purple-400">
+                                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                                        <path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3" />
+                                        <path d="M9 11.2h5.7" />
+                                    </svg>
+                                    <span>Functions</span>
+                                </div>
+                                <div v-show="openFolders.includes('Functions')"
+                                    class="ml-4 border-l border-border pl-2">
+                                    <ul class="space-y-0.5">
+                                        <li v-for="fn in filteredFunctions" :key="fn"
+                                            class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                                            @contextmenu.prevent="openRoutineContextMenu($event, fn, 'FUNCTION')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-braces text-muted-foreground">
+                                                <path
+                                                    d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+                                                <path
+                                                    d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+                                            </svg>
+                                            <span class="truncate">{{ fn }}</span>
+                                        </li>
+                                        <li v-if="filteredFunctions.length === 0"
+                                            class="text-xs text-muted-foreground py-1 italic ml-2">
+                                            No functions.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Service Broker Folder -->
-                    <div>
-                        <div @click="toggleFolder('Service Broker')"
-                            class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="lucide lucide-chevron-right transition-transform duration-200"
-                                :class="{ 'rotate-90': openFolders.includes('Service Broker') }">
-                                <path d="m9 18 6-6-6-6" />
-                            </svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-server text-orange-500">
-                                <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
-                                <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
-                                <line x1="6" x2="6.01" y1="6" y2="6" />
-                                <line x1="6" x2="6.01" y1="18" y2="18" />
-                            </svg>
-                            <span>Service Broker</span>
-                        </div>
-                        <div v-show="openFolders.includes('Service Broker')"
-                            class="ml-4 mt-1 border-l border-border pl-2">
-                            <span class="text-xs text-muted-foreground py-1 block italic ml-2">Not implemented.</span>
-                        </div>
-                    </div>
 
-                    <!-- Storage Folder -->
-                    <div>
-                        <div @click="toggleFolder('Storage')"
-                            class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="lucide lucide-chevron-right transition-transform duration-200"
-                                :class="{ 'rotate-90': openFolders.includes('Storage') }">
-                                <path d="m9 18 6-6-6-6" />
-                            </svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-database text-yellow-500">
-                                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                                <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                                <path d="M3 12A9 3 0 0 0 21 12" />
-                            </svg>
-                            <span>Storage</span>
-                        </div>
-                        <div v-show="openFolders.includes('Storage')" class="ml-4 mt-1 border-l border-border pl-2">
-                            <span class="text-xs text-muted-foreground py-1 block italic ml-2">Not implemented.</span>
-                        </div>
-                    </div>
+
+
+
+
                 </div>
             </div>
 
@@ -298,7 +355,7 @@
                                         <polyline points="19 12 12 19 5 12" />
                                     </svg>
                                     <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
-                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                    }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
                                 </span>
                             </div>
                         </div>
@@ -795,6 +852,61 @@
                 </svg>
                 Import Data
             </button>
+            <button @click="handleImport"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-download">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                Import Data
+            </button>
+        </div>
+
+        <!-- View Context Menu -->
+        <div v-if="showViewContextMenu"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            :style="{ top: `${contextMenuPosition.y}px`, left: `${contextMenuPosition.x}px` }">
+            <button @click="handleSelectTop100View"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-list-start">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                </svg>
+                Select Top 100
+            </button>
+            <button @click="handleNewView"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-plus-circle">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 12h8" />
+                    <path d="M12 8v8" />
+                </svg>
+                New View
+            </button>
+        </div>
+
+        <!-- Routine Context Menu -->
+        <div v-if="showRoutineContextMenu"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            :style="{ top: `${contextMenuPosition.y}px`, left: `${contextMenuPosition.x}px` }">
+            <button @click="handleScriptRoutine"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-file-code">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                Script as Create
+            </button>
+            <!-- Add Execute option later if needed -->
         </div>
 
         <!-- Row Context Menu -->
@@ -973,7 +1085,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
-import { GetTables, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -1034,6 +1146,9 @@ interface QueryTab {
 
 const tableSearch = ref('');
 const tables = ref<string[]>([]);
+const views = ref<string[]>([]);
+const storedProcedures = ref<string[]>([]);
+const functions = ref<string[]>([]);
 const tableSchemas = ref<Record<string, string[]>>({});
 const tabs = ref<QueryTab[]>([]);
 const activeTabId = ref<string | null>(null);
@@ -1418,6 +1533,27 @@ const loadTables = async () => {
     } catch (e) {
         console.error("Failed to load tables", e);
     }
+
+    try {
+        const result = await GetViews(props.connectionId);
+        views.value = result.sort((a, b) => a.localeCompare(b));
+    } catch (e) {
+        console.error("Failed to load views", e);
+    }
+
+    try {
+        const result = await GetStoredProcedures(props.connectionId);
+        storedProcedures.value = result.sort((a, b) => a.localeCompare(b));
+    } catch (e) {
+        console.error("Failed to load stored procedures", e);
+    }
+
+    try {
+        const result = await GetFunctions(props.connectionId);
+        functions.value = result.sort((a, b) => a.localeCompare(b));
+    } catch (e) {
+        console.error("Failed to load functions", e);
+    }
 };
 
 const selectTable = async (tableName: string) => {
@@ -1513,6 +1649,157 @@ const openContextMenu = (event: MouseEvent, table: string) => {
 const closeContextMenu = () => {
     showContextMenu.value = false;
     showRowContextMenu.value = false;
+    showViewContextMenu.value = false;
+    showRoutineContextMenu.value = false;
+};
+
+// ... View Logic ...
+const filteredViews = computed(() => {
+    if (!tableSearch.value) return views.value;
+    return views.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
+});
+
+const filteredStoredProcedures = computed(() => {
+    if (!tableSearch.value) return storedProcedures.value;
+    return storedProcedures.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
+});
+
+const filteredFunctions = computed(() => {
+    if (!tableSearch.value) return functions.value;
+    return functions.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
+});
+
+const selectView = (viewName: string) => {
+    const existingTab = tabs.value.find(t => t.tableName === viewName && !t.isDesignView && !t.isERView);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const currentTab = activeTab.value;
+    const isPristine = currentTab &&
+        !currentTab.tableName &&
+        !currentTab.query &&
+        !currentTab.isDesignView &&
+        !currentTab.isERView &&
+        !currentTab.queryExecuted;
+
+    if (!isPristine) {
+        addTab();
+    }
+
+    if (activeTab.value) {
+        const type = (props.dbType || '').toLowerCase();
+        activeTab.value.tableName = viewName;
+        activeTab.value.name = viewName;
+
+        if (type.includes('mssql') || type.includes('sqlserver')) {
+            activeTab.value.query = `SELECT TOP 100 * FROM ${viewName}`;
+        } else {
+            activeTab.value.query = `SELECT * FROM ${viewName} LIMIT 100`;
+        }
+
+        // Views usually don't have PKs in the same way, or at least we typically don't edit them directly via grid easily without triggers/configuration.
+        // So we might skip GetPrimaryKeys or just let it fail gracefully.
+        activeTab.value.primaryKeys = [];
+
+        runQuery();
+        checkRowCount(viewName);
+    }
+};
+
+const showViewContextMenu = ref(false);
+const contextMenuTargetView = ref('');
+
+const openViewContextMenu = (event: MouseEvent, view: string) => {
+    contextMenuTargetView.value = view;
+    const { clientX, clientY } = event;
+    contextMenuPosition.value = { x: clientX, y: clientY };
+    showViewContextMenu.value = true;
+    showContextMenu.value = false;
+    showRowContextMenu.value = false;
+};
+
+const handleSelectTop100View = () => {
+    if (contextMenuTargetView.value) {
+        selectView(contextMenuTargetView.value);
+        closeContextMenu();
+    }
+};
+
+const handleNewView = () => {
+    addTab();
+    if (activeTab.value) {
+        activeTab.value.name = "New View";
+        activeTab.value.query = `-- Create a new view
+CREATE VIEW NewViewName AS
+SELECT *
+FROM ExistingTable;`;
+    }
+    closeContextMenu();
+};
+
+const showRoutineContextMenu = ref(false);
+const contextMenuTargetRoutine = ref('');
+const contextMenuTargetRoutineType = ref<'PROCEDURE' | 'FUNCTION'>('PROCEDURE');
+
+const openRoutineContextMenu = (event: MouseEvent, routine: string, type: 'PROCEDURE' | 'FUNCTION') => {
+    contextMenuTargetRoutine.value = routine;
+    contextMenuTargetRoutineType.value = type;
+    const { clientX, clientY } = event;
+    contextMenuPosition.value = { x: clientX, y: clientY };
+    showRoutineContextMenu.value = true;
+    showContextMenu.value = false;
+    showRowContextMenu.value = false;
+    showViewContextMenu.value = false;
+};
+
+const handleScriptRoutine = () => {
+    const routine = contextMenuTargetRoutine.value;
+    if (!routine) return;
+
+    // We don't have a GetRoutineDefinition method yet, so placeholders for now,
+    // or we can try to guess/query standard schemas.
+    // Ideally we should add GetRoutineDefinition backend method.
+    // For now, let's open a query that *would* show the definition, or just a stub.
+
+    // Actually, scripting requires fetching the definition which is DB specific.
+    // Let's create a tab that *queries* the definition using helper SQL.
+
+    addTab();
+    if (activeTab.value) {
+        activeTab.value.name = `Script: ${routine}`;
+        activeTab.value.query = `-- Scripting for ${routine} (${contextMenuTargetRoutineType.value})
+-- Note: Provide a backend method 'GetRoutineDefinition' for better support.
+
+-- Postgres:
+-- SELECT pg_get_functiondef('${routine}'::regproc);
+
+-- MySQL:
+-- SHOW CREATE PROCEDURE ${routine};
+
+-- MSSQL:
+-- sp_helptext '${routine}';
+`;
+
+        // Try to be smart for MSSQL at least
+        const type = (props.dbType || '').toLowerCase();
+        if (type.includes('mssql')) {
+            activeTab.value.query = `EXEC sp_helptext '${routine}'`;
+            setTimeout(() => runQuery(), 50);
+        } else if (type.includes('postgres')) {
+            activeTab.value.query = `SELECT pg_get_functiondef('${routine}'::regproc)`;
+            // This might fail if schema is needed or not in search path, but good attempt
+        } else if (type.includes('mysql')) {
+            activeTab.value.query = `SHOW CREATE ${contextMenuTargetRoutineType.value} ${routine}`;
+            setTimeout(() => runQuery(), 50);
+        } else if (type.includes('sqlite')) {
+            activeTab.value.query = `SELECT sql FROM sqlite_master WHERE name = '${routine}'`;
+            setTimeout(() => runQuery(), 50);
+        }
+
+    }
+    closeContextMenu();
 };
 
 const handleSelectTop100 = () => {

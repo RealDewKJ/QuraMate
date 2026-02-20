@@ -38,12 +38,24 @@ export function GetForeignKeys(arg1, arg2) {
   return window['go']['main']['App']['GetForeignKeys'](arg1, arg2);
 }
 
+export function GetFunctions(arg1) {
+  return window['go']['main']['App']['GetFunctions'](arg1);
+}
+
 export function GetPrimaryKeys(arg1, arg2) {
   return window['go']['main']['App']['GetPrimaryKeys'](arg1, arg2);
 }
 
+export function GetStoredProcedures(arg1) {
+  return window['go']['main']['App']['GetStoredProcedures'](arg1);
+}
+
 export function GetTables(arg1) {
   return window['go']['main']['App']['GetTables'](arg1);
+}
+
+export function GetViews(arg1) {
+  return window['go']['main']['App']['GetViews'](arg1);
 }
 
 export function Greet(arg1) {

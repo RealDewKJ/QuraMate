@@ -4,7 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
+	"net"
+	"os"
 	"strings"
+
+	"golang.org/x/crypto/ssh"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -20,11 +25,21 @@ type DBConfig struct {
 	Password string `json:"password"`
 	Database string `json:"database"`
 	ReadOnly bool   `json:"readOnly"`
+
+	// SSH Tunnel Config
+	SSHEnabled  bool   `json:"sshEnabled"`
+	SSHHost     string `json:"sshHost"`
+	SSHPort     int    `json:"sshPort"`
+	SSHUser     string `json:"sshUser"`
+	SSHPassword string `json:"sshPassword"`
+	SSHKeyFile  string `json:"sshKeyFile"`
 }
 
 type Database struct {
 	conn           *sql.DB
 	persistentConn *sql.Conn
+	sshClient      *ssh.Client
+	sshListener    net.Listener
 	Type           string
 	ReadOnly       bool
 }
@@ -38,22 +53,105 @@ func (d *Database) Connect(config DBConfig) error {
 		d.Disconnect()
 	}
 
+	var dbHost string
+	var dbPort int
+
+	// Handle SSH Tunneling
+	if config.SSHEnabled {
+		// 1. Setup SSH Client Config
+		sshConfig := &ssh.ClientConfig{
+			User:            config.SSHUser,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(), // For simplicity, we ignore host key verification. In prod, prompt user.
+			Timeout:         0,                           // No timeout for now
+		}
+
+		if config.SSHKeyFile != "" {
+			key, err := os.ReadFile(config.SSHKeyFile)
+			if err != nil {
+				return fmt.Errorf("unable to read private key: %v", err)
+			}
+			signer, err := ssh.ParsePrivateKey(key)
+			if err != nil {
+				return fmt.Errorf("unable to parse private key: %v", err)
+			}
+			sshConfig.Auth = []ssh.AuthMethod{
+				ssh.PublicKeys(signer),
+			}
+		} else {
+			sshConfig.Auth = []ssh.AuthMethod{
+				ssh.Password(config.SSHPassword),
+			}
+		}
+
+		// 2. Connect to SSH Server
+		sshAddr := fmt.Sprintf("%s:%d", config.SSHHost, config.SSHPort)
+		client, err := ssh.Dial("tcp", sshAddr, sshConfig)
+		if err != nil {
+			return fmt.Errorf("failed to dial ssh: %w", err)
+		}
+		d.sshClient = client
+
+		// 3. Setup Local Listener for Port Forwarding
+		listener, err := net.Listen("tcp", "localhost:0")
+		if err != nil {
+			client.Close()
+			return fmt.Errorf("failed to start local listener: %w", err)
+		}
+		d.sshListener = listener
+
+		// 4. Start Forwarding
+		go func() {
+			for {
+				localConn, err := listener.Accept()
+				if err != nil {
+					// Listener closed
+					return
+				}
+
+				go func(lc net.Conn) {
+					defer lc.Close()
+					remoteAddr := fmt.Sprintf("%s:%d", config.Host, config.Port)
+					remoteConn, err := client.Dial("tcp", remoteAddr)
+					if err != nil {
+						fmt.Printf("SSH tunnel dial error: %v\n", err)
+						return
+					}
+					defer remoteConn.Close()
+
+					// Bidirectional copy
+					go io.Copy(lc, remoteConn)
+					io.Copy(remoteConn, lc)
+				}(localConn)
+			}
+		}()
+
+		// 5. Update DB Connection Info to use Local Listener
+		tcpAddr := listener.Addr().(*net.TCPAddr)
+		dbHost = "localhost"
+		dbPort = tcpAddr.Port
+
+	} else {
+		// Direct Connection
+		dbHost = config.Host
+		dbPort = config.Port
+	}
+
 	var dsn string
 	var driverName string
 
 	switch config.Type {
 	case "postgres":
 		driverName = "pgx"
-		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, config.Host, config.Port, config.Database)
+		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mysql":
 		driverName = "mysql"
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.User, config.Password, config.Host, config.Port, config.Database)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mssql":
 		driverName = "sqlserver"
-		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, config.Host, config.Port, config.Database)
+		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "sqlite":
 		driverName = "sqlite"
-		dsn = config.Database // Path to DB file
+		dsn = config.Database // Path to DB file (local)
 	default:
 		return fmt.Errorf("unsupported database type: %s", config.Type)
 	}
@@ -66,6 +164,16 @@ func (d *Database) Connect(config DBConfig) error {
 	// Ping to ensure connectivity
 	err = conn.Ping()
 	if err != nil {
+		conn.Close() // Close SQL connection
+		// If we opened an SSH tunnel, we should close it too since connection failed
+		if d.sshListener != nil {
+			d.sshListener.Close()
+			d.sshListener = nil
+		}
+		if d.sshClient != nil {
+			d.sshClient.Close()
+			d.sshClient = nil
+		}
 		return err
 	}
 
@@ -75,6 +183,14 @@ func (d *Database) Connect(config DBConfig) error {
 	persistentConn, err := conn.Conn(context.Background())
 	if err != nil {
 		conn.Close()
+		if d.sshListener != nil {
+			d.sshListener.Close()
+			d.sshListener = nil
+		}
+		if d.sshClient != nil {
+			d.sshClient.Close()
+			d.sshClient = nil
+		}
 		return fmt.Errorf("failed to acquire dedicated connection: %w", err)
 	}
 
@@ -97,6 +213,17 @@ func (d *Database) Disconnect() error {
 		}
 		d.conn = nil
 	}
+
+	// Close SSH resources
+	if d.sshListener != nil {
+		d.sshListener.Close()
+		d.sshListener = nil
+	}
+	if d.sshClient != nil {
+		d.sshClient.Close()
+		d.sshClient = nil
+	}
+
 	return err
 }
 
@@ -145,6 +272,114 @@ func (d *Database) GetTables() ([]string, error) {
 		tables = append(tables, table)
 	}
 	return tables, nil
+}
+
+func (d *Database) GetViews() ([]string, error) {
+	if d.persistentConn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres":
+		query = "SELECT table_name FROM information_schema.views WHERE table_schema NOT IN ('information_schema', 'pg_catalog')"
+	case "mysql":
+		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = DATABASE()"
+	case "mssql":
+		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS"
+	case "sqlite":
+		query = "SELECT name FROM sqlite_master WHERE type='view'"
+	default:
+		return nil, fmt.Errorf("unsupported database type for getting views")
+	}
+
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var views []string
+	for rows.Next() {
+		var view string
+		if err := rows.Scan(&view); err != nil {
+			return nil, err
+		}
+		views = append(views, view)
+	}
+	return views, nil
+}
+
+func (d *Database) GetStoredProcedures() ([]string, error) {
+	if d.persistentConn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres":
+		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'PROCEDURE' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
+	case "mysql":
+		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' AND ROUTINE_SCHEMA = DATABASE()"
+	case "mssql":
+		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE'"
+	case "sqlite":
+		return []string{}, nil // SQLite doesn't support stored procedures
+	default:
+		return nil, fmt.Errorf("unsupported database type for getting stored procedures")
+	}
+
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var procs []string
+	for rows.Next() {
+		var proc string
+		if err := rows.Scan(&proc); err != nil {
+			return nil, err
+		}
+		procs = append(procs, proc)
+	}
+	return procs, nil
+}
+
+func (d *Database) GetFunctions() ([]string, error) {
+	if d.persistentConn == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres":
+		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'FUNCTION' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
+	case "mysql":
+		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION' AND ROUTINE_SCHEMA = DATABASE()"
+	case "mssql":
+		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION'"
+	case "sqlite":
+		return []string{}, nil // SQLite doesn't support stored functions in this way
+	default:
+		return nil, fmt.Errorf("unsupported database type for getting functions")
+	}
+
+	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var funcs []string
+	for rows.Next() {
+		var fn string
+		if err := rows.Scan(&fn); err != nil {
+			return nil, err
+		}
+		funcs = append(funcs, fn)
+	}
+	return funcs, nil
 }
 
 type ResultSet struct {

@@ -22,6 +22,12 @@ export namespace main {
 	    password: string;
 	    database: string;
 	    readOnly: boolean;
+	    sshEnabled: boolean;
+	    sshHost: string;
+	    sshPort: number;
+	    sshUser: string;
+	    sshPassword: string;
+	    sshKeyFile: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DBConfig(source);
@@ -36,6 +42,12 @@ export namespace main {
 	        this.password = source["password"];
 	        this.database = source["database"];
 	        this.readOnly = source["readOnly"];
+	        this.sshEnabled = source["sshEnabled"];
+	        this.sshHost = source["sshHost"];
+	        this.sshPort = source["sshPort"];
+	        this.sshUser = source["sshUser"];
+	        this.sshPassword = source["sshPassword"];
+	        this.sshKeyFile = source["sshKeyFile"];
 	    }
 	}
 	export class ForeignKey {

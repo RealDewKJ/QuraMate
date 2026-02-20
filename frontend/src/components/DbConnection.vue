@@ -113,6 +113,52 @@
                         </div>
                     </div>
 
+                    <!-- SSH Tunnel Config -->
+                    <div
+                        class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 border-t pt-4 border-border">
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="sshEnabled" v-model="config.sshEnabled"
+                                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <label for="sshEnabled"
+                                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Use SSH Tunnel
+                            </label>
+                        </div>
+
+                        <div v-if="config.sshEnabled" class="space-y-4 pl-4 border-l-2 border-border/50 ml-1">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium leading-none" for="sshHost">SSH Host</label>
+                                    <input v-model="config.sshHost" id="sshHost" type="text"
+                                        placeholder="ssh.example.com"
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium leading-none" for="sshPort">SSH Port</label>
+                                    <input v-model.number="config.sshPort" id="sshPort" type="number" placeholder="22"
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium leading-none" for="sshUser">SSH User</label>
+                                <input v-model="config.sshUser" id="sshUser" type="text"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
+                                <input v-model="config.sshPassword" id="sshPassword" type="password"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium leading-none" for="sshKeyFile">SSH Key File
+                                    (Optional)</label>
+                                <input v-model="config.sshKeyFile" id="sshKeyFile" type="text"
+                                    placeholder="/path/to/private_key"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center space-x-2 animate-in fade-in slide-in-from-top-4 duration-300">
                         <input type="checkbox" id="readOnly" v-model="config.readOnly"
                             class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
@@ -249,7 +295,7 @@
                                         <span class="text-sm font-medium truncate">{{ getConnectionLabel(conn) }}</span>
                                         <span class="text-xs text-muted-foreground truncate">{{ conn.host }}:{{
                                             conn.port
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                 </div>
                                 <button @click.stop="removeConnection(index)"
@@ -297,7 +343,13 @@ const config = reactive({
     user: 'postgres',
     password: '',
     database: 'postgres',
-    readOnly: false
+    readOnly: false,
+    sshEnabled: false,
+    sshHost: '',
+    sshPort: 22,
+    sshUser: '',
+    sshPassword: '',
+    sshKeyFile: ''
 });
 
 const error = ref('');
@@ -352,12 +404,39 @@ const isConfigEqual = (c1: any, c2: any) => {
             name1 === name2;
     }
 
+    const sshEnabled1 = !!c1.sshEnabled;
+    const sshEnabled2 = !!c2.sshEnabled;
+
+    // If SSH is disabled for both, we don't care about other SSH fields matching
+    if (!sshEnabled1 && !sshEnabled2) {
+        return type1 === type2 &&
+            host1 === host2 &&
+            port1 === port2 &&
+            user1 === user2 &&
+            db1 === db2 &&
+            name1 === name2;
+    }
+
+    const sshHost1 = (c1.sshHost || '').toLowerCase();
+    const sshHost2 = (c2.sshHost || '').toLowerCase();
+    const sshPort1 = parseInt(String(c1.sshPort || 22), 10);
+    const sshPort2 = parseInt(String(c2.sshPort || 22), 10);
+    const sshUser1 = c1.sshUser || '';
+    const sshUser2 = c2.sshUser || '';
+    const sshKeyFile1 = c1.sshKeyFile || '';
+    const sshKeyFile2 = c2.sshKeyFile || '';
+
     return type1 === type2 &&
         host1 === host2 &&
         port1 === port2 &&
         user1 === user2 &&
         db1 === db2 &&
-        name1 === name2;
+        name1 === name2 &&
+        sshEnabled1 === sshEnabled2 &&
+        sshHost1 === sshHost2 &&
+        sshPort1 === sshPort2 &&
+        sshUser1 === sshUser2 &&
+        sshKeyFile1 === sshKeyFile2;
 };
 
 const connect = async () => {
