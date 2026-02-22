@@ -1,6 +1,6 @@
-# VaultDB Project Capabilities
+# QuraMate Project Capabilities
 
-VaultDB is a modern, cross-platform database client built with Go (Wails) and Vue.js, designed for speed and ease of use. Key features include:
+QuraMate is a modern, cross-platform database client built with Go (Wails) and Vue.js, designed for speed and ease of use. Key features include:
 
 ## 1. Supported Databases
 

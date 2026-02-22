@@ -786,7 +786,7 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 		// Check for DEFAULT value marker
 		isDefault := false
 		if m, ok := val.(map[string]interface{}); ok {
-			if _, hasKey := m["_vaultdb_sql_default"]; hasKey {
+			if _, hasKey := m["_quramate_sql_default"]; hasKey {
 				isDefault = true
 			}
 		}

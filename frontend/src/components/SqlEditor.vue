@@ -53,7 +53,7 @@ const detectTheme = (): string => {
 // Initialize Editor
 onMounted(() => {
     if (editorContainer.value) {
-        // Define custom Monaco theme to match VaultDB dark mode (v2)
+        // Define custom Monaco theme to match QuraMate dark mode (v2)
         monaco.editor.defineTheme('vault-dark', {
             base: 'vs-dark',
             inherit: true,

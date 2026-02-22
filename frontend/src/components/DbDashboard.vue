@@ -1408,7 +1408,7 @@ const handleSetEmpty = () => {
 };
 
 const handleSetDefault = () => {
-    initiateQuickUpdate({ _vaultdb_sql_default: true });
+    initiateQuickUpdate({ _quramate_sql_default: true });
 };
 
 const initiateQuickUpdate = (newValue: any) => {
@@ -1444,7 +1444,7 @@ const initiateQuickUpdate = (newValue: any) => {
 
 const formatValueForDisplay = (val: any) => {
     if (val === null) return 'NULL';
-    if (typeof val === 'object' && val._vaultdb_sql_default) return '<DEFAULT>';
+    if (typeof val === 'object' && val._quramate_sql_default) return '<DEFAULT>';
     return String(val);
 };
 

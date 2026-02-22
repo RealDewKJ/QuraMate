@@ -1,4 +1,4 @@
-module VaultDB
+module QuraMate
 
 go 1.24.0
 

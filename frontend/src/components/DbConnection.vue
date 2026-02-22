@@ -28,9 +28,9 @@
         <div class="w-full max-w-md space-y-4 bg-card text-card-foreground p-6 rounded-xl border shadow-lg">
             <div class="text-center space-y-1">
                 <div class="flex items-center justify-center mx-auto mb-2">
-                    <img src="../assets/images/new-icon.png" class="w-20 h-20 object-contain" alt="VaultDB Icon" />
+                    <img src="../assets/images/new-icon.png" class="w-20 h-20 object-contain" alt="QuraMate Icon" />
                 </div>
-                <p class="text-muted-foreground text-sm">VaultDB - Connect to your database to start managing data.</p>
+                <p class="text-muted-foreground text-sm">QuraMate - Connect to your database to start managing data.</p>
             </div>
 
             <div class="space-y-3">
