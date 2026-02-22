@@ -25,24 +25,16 @@
             </button>
         </div>
 
-        <div class="w-full max-w-md space-y-8 bg-card text-card-foreground p-8 rounded-xl border shadow-lg">
-            <div class="text-center space-y-2">
-                <div
-                    class="h-12 w-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground mx-auto mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="lucide lucide-database">
-                        <ellipse cx="12" cy="5" rx="9" ry="3" />
-                        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                        <path d="M3 12A9 3 0 0 0 21 12" />
-                    </svg>
+        <div class="w-full max-w-md space-y-4 bg-card text-card-foreground p-6 rounded-xl border shadow-lg">
+            <div class="text-center space-y-1">
+                <div class="flex items-center justify-center mx-auto mb-2">
+                    <img src="../assets/images/new-icon.png" class="w-20 h-20 object-contain" alt="VaultDB Icon" />
                 </div>
-                <h2 class="text-3xl font-bold tracking-tight">VaultDB</h2>
-                <p class="text-muted-foreground text-sm">Connect to your database to start managing data.</p>
+                <p class="text-muted-foreground text-sm">VaultDB - Connect to your database to start managing data.</p>
             </div>
 
-            <div class="space-y-4">
-                <div class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div class="space-y-3">
+                <div class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div class="space-y-2">
                         <label class="text-sm font-medium leading-none" for="connName">Connection Name
                             (Optional)</label>
@@ -59,6 +51,7 @@
                                 class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none">
                                 <option value="postgres">PostgreSQL</option>
                                 <option value="mysql">MySQL</option>
+                                <option value="mariadb">MariaDB</option>
                                 <option value="mssql">MSSQL</option>
                                 <option value="sqlite">SQLite</option>
                             </select>
@@ -75,7 +68,7 @@
                     </div>
 
                     <div v-if="config.type !== 'sqlite'"
-                        class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="host">Host</label>
@@ -88,15 +81,24 @@
                                     class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium leading-none" for="user">User</label>
-                            <input v-model="config.user" id="user" type="text"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium leading-none" for="password">Password</label>
-                            <input v-model="config.password" id="password" type="password"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium leading-none" for="user">User</label>
+                                <input v-model="config.user" id="user" type="text"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium leading-none" for="password">Password</label>
+                                <div class="relative">
+                                    <input v-model="config.password" id="password" :type="showPassword ? 'text' : 'password'"
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <button type="button" @click="showPassword = !showPassword"
+                                        class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                                        <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="space-y-2">
                             <label class="text-sm font-medium leading-none" for="database">Database Name</label>
@@ -105,17 +107,23 @@
                         </div>
                     </div>
 
-                    <div v-else class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div v-else class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                         <div class="space-y-2">
                             <label class="text-sm font-medium leading-none" for="filepath">Database File Path</label>
-                            <input v-model="config.database" id="filepath" type="text" placeholder="/path/to/db.sqlite"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            <div class="flex items-center space-x-2">
+                                <input v-model="config.database" id="filepath" type="text" placeholder="/path/to/db.sqlite"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                <button type="button" @click="handleSelectSqliteFile"
+                                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                                    Browse...
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- SSH Tunnel Config -->
                     <div
-                        class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 border-t pt-4 border-border">
+                        class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300 border-t pt-3 border-border">
                         <div class="flex items-center space-x-2">
                             <input type="checkbox" id="sshEnabled" v-model="config.sshEnabled"
                                 class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
@@ -125,7 +133,7 @@
                             </label>
                         </div>
 
-                        <div v-if="config.sshEnabled" class="space-y-4 pl-4 border-l-2 border-border/50 ml-1">
+                        <div v-if="config.sshEnabled" class="space-y-3 pl-4 border-l-2 border-border/50 ml-1">
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-2">
                                     <label class="text-sm font-medium leading-none" for="sshHost">SSH Host</label>
@@ -146,8 +154,15 @@
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
-                                <input v-model="config.sshPassword" id="sshPassword" type="password"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                <div class="relative">
+                                    <input v-model="config.sshPassword" id="sshPassword" :type="showSshPassword ? 'text' : 'password'"
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <button type="button" @click="showSshPassword = !showSshPassword"
+                                        class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
+                                        <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                                    </button>
+                                </div>
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="sshKeyFile">SSH Key File
@@ -167,7 +182,7 @@
                             Only Mode</label>
                     </div>
 
-                    <div class="flex gap-2 mt-6">
+                    <div class="flex gap-2 mt-4">
                         <button @click="connect" :class="{ 'opacity-50 cursor-not-allowed': isLoading }"
                             :disabled="isLoading"
                             class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
@@ -204,9 +219,9 @@
                             class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-history">
-                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74-2.74L3 12" />
-                                <path d="M3 3v9h9" />
+                                stroke-linejoin="round" class="lucide lucide-clock">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
                             </svg>
                         </button>
                     </div>
@@ -265,7 +280,7 @@
                                             <path d="M3 5V19A9 3 0 0 0 21 19V5" />
                                             <path d="M3 12A9 3 0 0 0 21 12" />
                                         </svg>
-                                        <svg v-else-if="conn.type === 'mysql'" xmlns="http://www.w3.org/2000/svg"
+                                        <svg v-else-if="conn.type === 'mysql' || conn.type === 'mariadb'" xmlns="http://www.w3.org/2000/svg"
                                             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-database">
@@ -327,7 +342,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue';
-import { ConnectDB, TestConnection, SetReadOnly } from '../../wailsjs/go/main/App';
+import { ConnectDB, TestConnection, SetReadOnly, SelectSqliteFile } from '../../wailsjs/go/main/App';
 
 const props = defineProps<{
     activeConnections: any[]
@@ -359,6 +374,8 @@ const isTesting = ref(false);
 const isDark = ref(false);
 const showSavedModal = ref(false);
 const savedConnections = ref<any[]>([]);
+const showPassword = ref(false);
+const showSshPassword = ref(false);
 
 const toggleTheme = () => {
     isDark.value = !isDark.value;
@@ -369,9 +386,20 @@ const toggleTheme = () => {
     }
 };
 
+const handleSelectSqliteFile = async () => {
+    try {
+        const filePath = await SelectSqliteFile();
+        if (filePath) {
+            config.database = filePath;
+        }
+    } catch (e) {
+        console.error("Failed to select SQLite file", e);
+    }
+};
+
 watch(() => config.type, (newType) => {
     if (newType === 'postgres') config.port = 5432;
-    else if (newType === 'mysql') config.port = 3306;
+    else if (newType === 'mysql' || newType === 'mariadb') config.port = 3306;
     else if (newType === 'mssql') config.port = 1433;
 });
 

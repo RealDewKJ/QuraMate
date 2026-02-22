@@ -47,12 +47,23 @@ let themeObserver: MutationObserver | null = null;
 
 // Detect current theme from document element
 const detectTheme = (): string => {
-    return document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs';
+    return document.documentElement.classList.contains('dark') ? 'vault-dark' : 'vs';
 };
 
 // Initialize Editor
 onMounted(() => {
     if (editorContainer.value) {
+        // Define custom Monaco theme to match VaultDB dark mode (v2)
+        monaco.editor.defineTheme('vault-dark', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editor.background': '#161b22', // Matches GitHub Dark style background for cards
+                'editor.lineHighlightBackground': '#1f242c', // Matches accent hover
+            }
+        });
+
         const currentTheme = props.theme || detectTheme();
 
         editor = monaco.editor.create(editorContainer.value, {

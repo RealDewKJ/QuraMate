@@ -557,7 +557,7 @@
                                                         <input v-if="activeTab.primaryKeys.length > 0 || true"
                                                             type="text" v-model="activeTab.filters[col]"
                                                             placeholder="Filter..."
-                                                            class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text"
+                                                            class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text placeholder:text-muted-foreground/70"
                                                             @click.stop />
                                                     </div>
                                                 </th>
@@ -2168,7 +2168,7 @@ const handleScriptRoutine = () => {
         } else if (type.includes('postgres')) {
             activeTab.value.query = `SELECT pg_get_functiondef('${routine}'::regproc)`;
             // This might fail if schema is needed or not in search path, but good attempt
-        } else if (type.includes('mysql')) {
+        } else if (type.includes('mysql') || type.includes('maria')) {
             activeTab.value.query = `SHOW CREATE ${contextMenuTargetRoutineType.value} ${routine}`;
             setTimeout(() => runQuery(), 50);
         } else if (type.includes('sqlite')) {

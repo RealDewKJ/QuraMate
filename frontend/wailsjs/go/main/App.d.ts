@@ -44,6 +44,8 @@ export function SelectExportFile(arg1:string):Promise<string>;
 
 export function SelectImportFile():Promise<string>;
 
+export function SelectSqliteFile():Promise<string>;
+
 export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 
 export function TestConnection(arg1:main.DBConfig):Promise<string>;

@@ -875,6 +875,21 @@ func (a *App) SelectImportFile() string {
 	return selection
 }
 
+// SelectSqliteFile opens an open file dialog to select a SQLite database file
+func (a *App) SelectSqliteFile() string {
+	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select SQLite Database",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "SQLite Databases", Pattern: "*.sqlite;*.db"},
+			{DisplayName: "All Files", Pattern: "*.*"},
+		},
+	})
+	if err != nil {
+		return ""
+	}
+	return selection
+}
+
 func (a *App) ExplainQuery(connectionID string, query string) string {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]

@@ -14,7 +14,8 @@
     --popover-foreground: 222.2 84% 4.9%;
 
     /* White Orange Theme - Light */
-    --primary: 24.6 95% 53.1%; /* Orange */
+    --primary: 24.6 95% 53.1%;
+    /* Orange */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
@@ -31,39 +32,41 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 24.6 95% 53.1%; /* Orange Ring */
+    --ring: 24.6 95% 53.1%;
+    /* Orange Ring */
 
     --radius: 0.5rem;
   }
 
   .dark {
-    /* Deep Charcoal - Dark */
-    --background: 220 15% 15%; /* Deep Charcoal */
-    --foreground: 210 40% 98%;
+    /* GitHub-inspired Deep Space - Dark */
+    --background: 216 28% 7%;
+    --foreground: 210 17% 82%;
 
-    --card: 220 15% 18%; /* Slightly lighter charcoal for cards */
-    --card-foreground: 210 40% 98%;
+    --card: 215 21% 11%;
+    --card-foreground: 210 17% 82%;
 
-    --popover: 220 15% 18%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 215 21% 11%;
+    --popover-foreground: 210 17% 82%;
 
-    --primary: 24.6 95% 53.1%; /* Orange */
+    --primary: 24.6 95% 53.1%;
+    /* Orange */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 212 15% 15%;
+    --secondary-foreground: 210 17% 82%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 212 15% 15%;
+    --muted-foreground: 211 10% 58%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 212 15% 15%;
+    --accent-foreground: 210 17% 82%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 212 12% 21%;
+    --input: 212 12% 21%;
     --ring: 24.6 95% 53.1%;
   }
 }
@@ -72,6 +75,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }

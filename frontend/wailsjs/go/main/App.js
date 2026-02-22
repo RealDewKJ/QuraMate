@@ -86,6 +86,10 @@ export function SelectImportFile() {
   return window['go']['main']['App']['SelectImportFile']();
 }
 
+export function SelectSqliteFile() {
+  return window['go']['main']['App']['SelectSqliteFile']();
+}
+
 export function SetReadOnly(arg1, arg2) {
   return window['go']['main']['App']['SetReadOnly'](arg1, arg2);
 }

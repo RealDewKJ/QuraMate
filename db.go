@@ -143,7 +143,7 @@ func (d *Database) Connect(config DBConfig) error {
 	case "postgres":
 		driverName = "pgx"
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
-	case "mysql":
+	case "mysql", "mariadb":
 		driverName = "mysql"
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mssql":
@@ -247,7 +247,7 @@ func (d *Database) GetTables() ([]string, error) {
 	switch d.Type {
 	case "postgres":
 		query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
-	case "mysql":
+	case "mysql", "mariadb":
 		query = "SHOW TABLES"
 	case "mssql":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
@@ -283,7 +283,7 @@ func (d *Database) GetViews() ([]string, error) {
 	switch d.Type {
 	case "postgres":
 		query = "SELECT table_name FROM information_schema.views WHERE table_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql":
+	case "mysql", "mariadb":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS"
@@ -319,7 +319,7 @@ func (d *Database) GetStoredProcedures() ([]string, error) {
 	switch d.Type {
 	case "postgres":
 		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'PROCEDURE' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql":
+	case "mysql", "mariadb":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' AND ROUTINE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE'"
@@ -355,7 +355,7 @@ func (d *Database) GetFunctions() ([]string, error) {
 	switch d.Type {
 	case "postgres":
 		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'FUNCTION' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql":
+	case "mysql", "mariadb":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION' AND ROUTINE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION'"
@@ -678,7 +678,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 								 AND a.attnum = ANY(i.indkey)
 			WHERE  i.indrelid = '%s'::regclass
 			AND    i.indisprimary`, tableName)
-	case "mysql":
+	case "mysql", "mariadb":
 		query = fmt.Sprintf(`
 			SELECT COLUMN_NAME
 			FROM information_schema.COLUMNS
@@ -933,7 +933,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 				  AND ccu.table_schema = tc.table_schema
 			WHERE tc.constraint_type = 'FOREIGN KEY' 
             AND (tc.table_name = '%s' OR ccu.table_name = '%s');`, tableName, tableName)
-	case "mysql":
+	case "mysql", "mariadb":
 		query = fmt.Sprintf(`
 			SELECT
 				TABLE_NAME, COLUMN_NAME,
@@ -1025,7 +1025,7 @@ func (d *Database) ExplainQuery(ctx context.Context, query string) (string, erro
 	switch d.Type {
 	case "postgres":
 		explainQuery = "EXPLAIN " + query
-	case "mysql":
+	case "mysql", "mariadb":
 		explainQuery = "EXPLAIN " + query
 	case "sqlite":
 		explainQuery = "EXPLAIN QUERY PLAN " + query
@@ -1135,7 +1135,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			FROM information_schema.columns 
 			WHERE table_name = '%s'
 			ORDER BY ordinal_position`, tableName)
-	case "mysql":
+	case "mysql", "mariadb":
 		query = fmt.Sprintf(`
 			SELECT 
 				COLUMN_NAME, 
@@ -1182,7 +1182,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 		var extra string
 
 		var err error
-		if d.Type == "mysql" {
+		if d.Type == "mysql" || d.Type == "mariadb" {
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue, &extra)
 		} else {
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue)
@@ -1205,7 +1205,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			PrimaryKey:   pkMap[name],
 		}
 
-		if d.Type == "mysql" && strings.Contains(strings.ToLower(extra), "auto_increment") {
+		if (d.Type == "mysql" || d.Type == "mariadb") && strings.Contains(strings.ToLower(extra), "auto_increment") {
 			col.AutoIncrement = true
 		}
 		// Basic auto-increment detection for Postgres (serial types)
@@ -1320,7 +1320,7 @@ func (d *Database) GetTableIndexes(tableName string) ([]IndexDefinition, error) 
 			}
 		}
 
-	case "mysql":
+	case "mysql", "mariadb":
 		query := fmt.Sprintf(`
             SELECT 
                 INDEX_NAME, 
@@ -1507,7 +1507,7 @@ func (d *Database) AlterTable(tableName string, changes TableChanges) error {
 	switch d.Type {
 	case "postgres":
 		statements, errGen = d.generatePostgresAlterStatements(tableName, changes)
-	case "mysql":
+	case "mysql", "mariadb":
 		statements, errGen = d.generateMysqlAlterStatements(tableName, changes)
 	case "mssql":
 		statements, errGen = d.generateMssqlAlterStatements(tableName, changes)
