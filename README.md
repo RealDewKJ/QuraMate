@@ -48,7 +48,7 @@ No cloud. No accounts. Your data stays on your machine.
 
 ## Supported Databases
 
-QuraMate supports **12 database engines** out of the box — no plugins, no extensions.
+QuraMate supports **11 database engines** out of the box — no plugins, no extensions.
 
 ### Server-based
 
@@ -68,7 +68,6 @@ QuraMate supports **12 database engines** out of the box — no plugins, no exte
 | Database | Protocol |
 | -------- | -------- |
 | SQLite   | `sqlite` |
-| DuckDB   | `duckdb` |
 | LibSQL   | `sqlite` |
 
 ## Download
@@ -77,6 +76,7 @@ Pre-built binaries are available on the [Releases](https://github.com/RealDewKJ/
 
 | Platform | Architecture          | Download                                                                          |
 | -------- | --------------------- | --------------------------------------------------------------------------------- |
+| Windows  | x64                   | [QuraMate.exe](https://github.com/RealDewKJ/QuraMate/releases/latest)             |
 | macOS    | Apple Silicon (arm64) | [QuraMate-macOS-arm64.zip](https://github.com/RealDewKJ/QuraMate/releases/latest) |
 
 > **Note:** Windows and Linux builds coming soon. You can build from source for any platform Wails supports.
@@ -106,7 +106,7 @@ wails dev
 wails build
 ```
 
-The output binary will be at `build/bin/QuraMate.app` (macOS) or `build/bin/QuraMate` (Linux/Windows).
+The output binary will be at `build/bin/QuraMate.app` (macOS) or `build/bin/QuraMate.exe` (Windows).
 
 ## Tech Stack
 

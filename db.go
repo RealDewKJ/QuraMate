@@ -11,10 +11,11 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	_ "github.com/apache/arrow-go/v18/arrow/cdata"
+	// _ "github.com/apache/arrow-go/v18/arrow/cdata"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/marcboeker/go-duckdb"
+
+	// _ "github.com/marcboeker/go-duckdb"
 	_ "github.com/microsoft/go-mssqldb"
 	_ "modernc.org/sqlite"
 )
