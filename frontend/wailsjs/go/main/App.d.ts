@@ -6,6 +6,8 @@ export function AlterTable(arg1:string,arg2:string,arg3:main.TableChanges):Promi
 
 export function CancelQuery(arg1:string):Promise<string>;
 
+export function CheckForUpdates():Promise<main.UpdateInfo>;
+
 export function ConnectDB(arg1:main.DBConfig):Promise<main.ConnectResult>;
 
 export function DisconnectDB(arg1:string):Promise<string>;
@@ -19,6 +21,8 @@ export function ExecuteTransientQuery(arg1:string,arg2:string):Promise<main.Quer
 export function ExplainQuery(arg1:string,arg2:string):Promise<string>;
 
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
+export function GetCurrentVersion():Promise<string>;
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;
 
@@ -39,6 +43,8 @@ export function GetViews(arg1:string):Promise<Array<string>>;
 export function Greet(arg1:string):Promise<string>;
 
 export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
+
+export function OpenDownloadURL(arg1:string):Promise<string>;
 
 export function SelectExportFile(arg1:string):Promise<string>;
 

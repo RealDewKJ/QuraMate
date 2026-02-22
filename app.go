@@ -38,6 +38,15 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	// Auto-check for updates after a short delay
+	go func() {
+		time.Sleep(3 * time.Second)
+		info := a.CheckForUpdates()
+		if info.Available {
+			runtime.EventsEmit(a.ctx, "app:update-available", info)
+		}
+	}()
 }
 
 // Greet returns a greeting for the given name

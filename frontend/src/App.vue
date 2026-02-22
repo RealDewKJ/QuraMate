@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue';
 import DbConnection from './components/DbConnection.vue';
 import DbDashboard from './components/DbDashboard.vue';
+import UpdateNotification from './components/UpdateNotification.vue';
+
+const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
 
 interface Connection {
   id: string;
@@ -75,32 +78,52 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
 <template>
   <div class="h-screen flex flex-col bg-background text-foreground">
     <!-- Tab Bar -->
-    <div class="flex items-center bg-muted/20 border-b border-border overflow-x-auto">
-      <button @click="switchToHome"
-        class="flex items-center px-4 py-3 text-sm font-medium border-r border-border transition-colors hover:bg-muted/50 focus:outline-none"
-        :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === null, 'text-muted-foreground': activeTabId !== null }">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          class="lucide lucide-plus mr-2">
-          <path d="M5 12h14" />
-          <path d="M12 5v14" />
-        </svg>
-        New Connection
-      </button>
-
-      <div v-for="conn in connections" :key="conn.id" @click="switchToTab(conn.id)"
-        class="flex items-center px-4 py-3 text-sm font-medium border-r border-border cursor-pointer transition-colors hover:bg-muted/50 select-none group min-w-[150px] max-w-[250px]"
-        :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === conn.id, 'text-muted-foreground': activeTabId !== conn.id }">
-        <div class="flex items-center truncate mr-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+    <div class="flex items-center bg-muted/20 border-b border-border">
+      <div class="flex items-center overflow-x-auto flex-1">
+        <button @click="switchToHome"
+          class="flex items-center px-4 py-3 text-sm font-medium border-r border-border transition-colors hover:bg-muted/50 focus:outline-none"
+          :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === null, 'text-muted-foreground': activeTabId !== null }">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            class="lucide lucide-database mr-2 flex-shrink-0">
-            <ellipse cx="12" cy="5" rx="9" ry="3" />
-            <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-            <path d="M3 12A9 3 0 0 0 21 12" />
+            class="lucide lucide-plus mr-2">
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
           </svg>
-          <span class="truncate">{{ conn.name }}</span>
+          New Connection
+        </button>
+
+        <div v-for="conn in connections" :key="conn.id" @click="switchToTab(conn.id)"
+          class="flex items-center px-4 py-3 text-sm font-medium border-r border-border cursor-pointer transition-colors hover:bg-muted/50 select-none group min-w-[150px] max-w-[250px]"
+          :class="{ 'bg-background text-primary border-b-2 border-b-primary': activeTabId === conn.id, 'text-muted-foreground': activeTabId !== conn.id }">
+          <div class="flex items-center truncate mr-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-database mr-2 flex-shrink-0">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+              <path d="M3 12A9 3 0 0 0 21 12" />
+            </svg>
+            <span class="truncate">{{ conn.name }}</span>
+          </div>
         </div>
+      </div>
+
+      <!-- Version & Update Check -->
+      <div class="flex items-center gap-2 px-3 flex-shrink-0 border-l border-border">
+        <span class="text-[11px] text-muted-foreground font-mono" v-if="updateNotificationRef?.currentVersion">
+          v{{ updateNotificationRef.currentVersion }}
+        </span>
+        <button @click="updateNotificationRef?.manualCheck()"
+          class="flex items-center justify-center w-7 h-7 rounded-md transition-colors hover:bg-muted/60 text-muted-foreground hover:text-primary"
+          :class="{ 'animate-spin': updateNotificationRef?.checking }" title="ตรวจสอบอัพเดต">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M21 21v-5h-5" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -116,6 +139,9 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
           @disconnect="handleDisconnect" />
       </div>
     </div>
+
+    <!-- Update Notification Overlay -->
+    <UpdateNotification ref="updateNotificationRef" />
   </div>
 </template>
 
