@@ -875,12 +875,12 @@ func (a *App) SelectImportFile() string {
 	return selection
 }
 
-// SelectSqliteFile opens an open file dialog to select a SQLite database file
+// SelectSqliteFile opens an open file dialog to select a local database file (SQLite or DuckDB)
 func (a *App) SelectSqliteFile() string {
 	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select SQLite Database",
+		Title: "Select Local Database File",
 		Filters: []runtime.FileFilter{
-			{DisplayName: "SQLite Databases", Pattern: "*.sqlite;*.db"},
+			{DisplayName: "Local Databases", Pattern: "*.sqlite;*.db;*.duckdb;*.ddb"},
 			{DisplayName: "All Files", Pattern: "*.*"},
 		},
 	})

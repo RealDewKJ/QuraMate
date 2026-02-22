@@ -11,8 +11,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	_ "github.com/apache/arrow-go/v18/arrow/cdata"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/marcboeker/go-duckdb"
 	_ "github.com/microsoft/go-mssqldb"
 	_ "modernc.org/sqlite"
 )
@@ -140,17 +142,20 @@ func (d *Database) Connect(config DBConfig) error {
 	var driverName string
 
 	switch config.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		driverName = "pgx"
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		driverName = "mysql"
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mssql":
 		driverName = "sqlserver"
 		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, dbHost, dbPort, config.Database)
-	case "sqlite":
+	case "sqlite", "libsql":
 		driverName = "sqlite"
+		dsn = config.Database // Path to DB file (local)
+	case "duckdb":
+		driverName = "duckdb"
 		dsn = config.Database // Path to DB file (local)
 	default:
 		return fmt.Errorf("unsupported database type: %s", config.Type)
@@ -245,14 +250,16 @@ func (d *Database) GetTables() ([]string, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = "SHOW TABLES"
 	case "mssql":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'"
-	case "sqlite":
+	case "sqlite", "libsql":
 		query = "SELECT name FROM sqlite_master WHERE type='table'"
+	case "duckdb":
+		query = "SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog') AND table_type = 'BASE TABLE'"
 	default:
 		return nil, fmt.Errorf("unsupported database type for getting tables")
 	}
@@ -281,14 +288,16 @@ func (d *Database) GetViews() ([]string, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = "SELECT table_name FROM information_schema.views WHERE table_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS"
-	case "sqlite":
+	case "sqlite", "libsql":
 		query = "SELECT name FROM sqlite_master WHERE type='view'"
+	case "duckdb":
+		query = "SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog') AND table_type = 'VIEW'"
 	default:
 		return nil, fmt.Errorf("unsupported database type for getting views")
 	}
@@ -317,14 +326,14 @@ func (d *Database) GetStoredProcedures() ([]string, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'PROCEDURE' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' AND ROUTINE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE'"
-	case "sqlite":
-		return []string{}, nil // SQLite doesn't support stored procedures
+	case "sqlite", "libsql", "duckdb":
+		return []string{}, nil // SQLite and DuckDB don't support stored procedures in this context
 	default:
 		return nil, fmt.Errorf("unsupported database type for getting stored procedures")
 	}
@@ -353,14 +362,14 @@ func (d *Database) GetFunctions() ([]string, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = "SELECT routine_name FROM information_schema.routines WHERE routine_type = 'FUNCTION' AND routine_schema NOT IN ('information_schema', 'pg_catalog')"
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION' AND ROUTINE_SCHEMA = DATABASE()"
 	case "mssql":
 		query = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION'"
-	case "sqlite":
-		return []string{}, nil // SQLite doesn't support stored functions in this way
+	case "sqlite", "libsql", "duckdb":
+		return []string{}, nil // SQLite and DuckDB don't support stored functions in this way
 	default:
 		return nil, fmt.Errorf("unsupported database type for getting functions")
 	}
@@ -670,7 +679,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = fmt.Sprintf(`
 			SELECT a.attname
 			FROM   pg_index i
@@ -678,7 +687,7 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 								 AND a.attnum = ANY(i.indkey)
 			WHERE  i.indrelid = '%s'::regclass
 			AND    i.indisprimary`, tableName)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = fmt.Sprintf(`
 			SELECT COLUMN_NAME
 			FROM information_schema.COLUMNS
@@ -691,8 +700,8 @@ func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
 			WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
 			AND TABLE_NAME = '%s'`, tableName)
-	case "sqlite":
-		// SQLite requires parsing "PRAGMA table_info(tableName)"
+	case "sqlite", "libsql", "duckdb":
+		// SQLite and DuckDB support parsing "PRAGMA table_info(tableName)"
 		// We can't use a simple SELECT for this in the same way, so we handle it differently
 		return d.getSqlitePrimaryKeys(tableName)
 	default:
@@ -764,7 +773,7 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 	getPlaceholder := func() string {
 		paramCount++
 		switch d.Type {
-		case "postgres":
+		case "postgres", "greenplum", "redshift", "cockroachdb":
 			return fmt.Sprintf("$%d", paramCount)
 		case "mssql":
 			return fmt.Sprintf("@p%d", paramCount)
@@ -842,7 +851,7 @@ func (d *Database) InsertRecord(tableName string, data map[string]interface{}) e
 	getPlaceholder := func() string {
 		paramCount++
 		switch d.Type {
-		case "postgres":
+		case "postgres", "greenplum", "redshift", "cockroachdb":
 			return fmt.Sprintf("$%d", paramCount)
 		case "mssql":
 			return fmt.Sprintf("@p%d", paramCount)
@@ -885,7 +894,7 @@ func (d *Database) InsertRecordTx(tx *sql.Tx, tableName string, data map[string]
 	getPlaceholder := func() string {
 		paramCount++
 		switch d.Type {
-		case "postgres":
+		case "postgres", "greenplum", "redshift", "cockroachdb":
 			return fmt.Sprintf("$%d", paramCount)
 		case "mssql":
 			return fmt.Sprintf("@p%d", paramCount)
@@ -916,7 +925,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = fmt.Sprintf(`
 			SELECT
 				tc.table_name, kcu.column_name,
@@ -933,7 +942,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 				  AND ccu.table_schema = tc.table_schema
 			WHERE tc.constraint_type = 'FOREIGN KEY' 
             AND (tc.table_name = '%s' OR ccu.table_name = '%s');`, tableName, tableName)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = fmt.Sprintf(`
 			SELECT
 				TABLE_NAME, COLUMN_NAME,
@@ -961,7 +970,7 @@ func (d *Database) GetForeignKeys(tableName string) ([]ForeignKey, error) {
 				INNER JOIN sys.columns AS cr ON fkc.referenced_column_id = cr.column_id AND fkc.referenced_object_id = cr.object_id
 			WHERE
 				tp.name = '%s' OR tr.name = '%s';`, tableName, tableName)
-	case "sqlite":
+	case "sqlite", "libsql":
 		query = fmt.Sprintf("PRAGMA foreign_key_list(%s)", tableName)
 		// SQLite returns id, seq, table, from, to, on_update, on_delete, match
 		// We'll handle this separately as the columns are different
@@ -1023,11 +1032,11 @@ func (d *Database) ExplainQuery(ctx context.Context, query string) (string, erro
 	var explainQuery string
 
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		explainQuery = "EXPLAIN " + query
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		explainQuery = "EXPLAIN " + query
-	case "sqlite":
+	case "sqlite", "libsql":
 		explainQuery = "EXPLAIN QUERY PLAN " + query
 	case "mssql":
 		// MSSQL requires SET SHOWPLAN_TEXT to be the only statement in the batch.
@@ -1125,7 +1134,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 
 	var query string
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query = fmt.Sprintf(`
 			SELECT 
 				column_name, 
@@ -1135,7 +1144,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			FROM information_schema.columns 
 			WHERE table_name = '%s'
 			ORDER BY ordinal_position`, tableName)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query = fmt.Sprintf(`
 			SELECT 
 				COLUMN_NAME, 
@@ -1156,7 +1165,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			FROM INFORMATION_SCHEMA.COLUMNS 
 			WHERE TABLE_NAME = '%s'
 			ORDER BY ORDINAL_POSITION`, tableName)
-	case "sqlite":
+	case "sqlite", "libsql":
 		return d.getSqliteTableDefinition(tableName)
 	default:
 		return nil, fmt.Errorf("unsupported database type")
@@ -1182,7 +1191,7 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 		var extra string
 
 		var err error
-		if d.Type == "mysql" || d.Type == "mariadb" {
+		if d.Type == "mysql" || d.Type == "mariadb" || d.Type == "databend" {
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue, &extra)
 		} else {
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue)
@@ -1205,11 +1214,11 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			PrimaryKey:   pkMap[name],
 		}
 
-		if (d.Type == "mysql" || d.Type == "mariadb") && strings.Contains(strings.ToLower(extra), "auto_increment") {
+		if (d.Type == "mysql" || d.Type == "mariadb" || d.Type == "databend") && strings.Contains(strings.ToLower(extra), "auto_increment") {
 			col.AutoIncrement = true
 		}
 		// Basic auto-increment detection for Postgres (serial types)
-		if d.Type == "postgres" && defaultValue != nil {
+		if (d.Type == "postgres" || d.Type == "greenplum" || d.Type == "redshift" || d.Type == "cockroachdb") && defaultValue != nil {
 			defStr := fmt.Sprintf("%v", defaultValue)
 			if strings.Contains(defStr, "nextval") {
 				col.AutoIncrement = true
@@ -1275,7 +1284,7 @@ func (d *Database) GetTableIndexes(tableName string) ([]IndexDefinition, error) 
 	var indexOrder []string
 
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		query := fmt.Sprintf(`
 			SELECT
 				i.relname as index_name,
@@ -1320,7 +1329,7 @@ func (d *Database) GetTableIndexes(tableName string) ([]IndexDefinition, error) 
 			}
 		}
 
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		query := fmt.Sprintf(`
             SELECT 
                 INDEX_NAME, 
@@ -1400,7 +1409,7 @@ func (d *Database) GetTableIndexes(tableName string) ([]IndexDefinition, error) 
 			}
 		}
 
-	case "sqlite":
+	case "sqlite", "libsql":
 		query := fmt.Sprintf("PRAGMA index_list(%s)", tableName)
 		rows, err := d.conn.QueryContext(context.Background(), query)
 		if err != nil {
@@ -1505,13 +1514,13 @@ func (d *Database) AlterTable(tableName string, changes TableChanges) error {
 	var errGen error
 
 	switch d.Type {
-	case "postgres":
+	case "postgres", "greenplum", "redshift", "cockroachdb":
 		statements, errGen = d.generatePostgresAlterStatements(tableName, changes)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "databend":
 		statements, errGen = d.generateMysqlAlterStatements(tableName, changes)
 	case "mssql":
 		statements, errGen = d.generateMssqlAlterStatements(tableName, changes)
-	case "sqlite":
+	case "sqlite", "libsql":
 		statements, errGen = d.generateSqliteAlterStatements(tableName, changes)
 	default:
 		return fmt.Errorf("unsupported database type")

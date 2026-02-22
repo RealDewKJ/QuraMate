@@ -296,10 +296,11 @@
             </div>
 
             <!-- Query Area -->
-            <div v-if="activeTab" class="flex flex-col h-full overflow-hidden">
+            <div v-if="activeTab" class="flex flex-col h-full overflow-hidden query-area-container">
                 <div v-if="!activeTab.isERView && !activeTab.isDesignView"
-                    class="flex flex-col border-b border-border bg-card p-4 gap-3 relative">
-                    <div class="relative w-full h-64">
+                    class="flex flex-col border-b border-border bg-card p-4 gap-3 relative shrink-0 min-h-[0px]"
+                    :style="{ height: activeTab.editorHeight + 'px' }">
+                    <div class="relative w-full flex-1 min-h-0">
                         <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables"
                             :get-columns="fetchTableColumns" />
 
@@ -427,6 +428,12 @@
                     </div>
                 </div>
 
+                <!-- Resizer Handle -->
+                <div v-if="!activeTab.isERView && !activeTab.isDesignView"
+                    class="h-1.5 hover:bg-primary/30 cursor-row-resize flex items-center justify-center transition-colors group z-20 shrink-0"
+                    @mousedown="startResizing">
+                    <div class="w-8 h-1 bg-border rounded-full group-hover:bg-primary/50"></div>
+                </div>
 
                 <!-- Results Area -->
                 <div v-if="!activeTab.isERView && !activeTab.isDesignView"
@@ -1290,6 +1297,7 @@ interface QueryTab {
     totalRowCount?: number;
     isPartialStats?: boolean;
     fetchTime?: number;
+    editorHeight: number;
 }
 
 const tableSearch = ref('');
@@ -1302,6 +1310,38 @@ const tabs = ref<QueryTab[]>([]);
 const activeTabId = ref<string | null>(null);
 const sqlEditorRef = ref<any>(null);
 const selectedRowIndex = ref<number | string | null>(null);
+
+// Resizing State
+const isResizing = ref(false);
+
+const startResizing = (e: MouseEvent) => {
+    isResizing.value = true;
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'row-resize';
+};
+
+const doResize = (e: MouseEvent) => {
+    if (!isResizing.value || !activeTab.value) return;
+
+    const queryArea = document.querySelector('.query-area-container');
+    if (queryArea) {
+        const rect = queryArea.getBoundingClientRect();
+        const newHeight = e.clientY - rect.top;
+
+        // Min 120px to keep buttons visible, Max leave 150px for results
+        if (newHeight >= 120 && newHeight <= window.innerHeight - 150) {
+            activeTab.value.editorHeight = newHeight;
+        }
+    }
+};
+
+const stopResizing = () => {
+    isResizing.value = false;
+    document.removeEventListener('mousemove', doResize);
+    document.removeEventListener('mouseup', stopResizing);
+    document.body.style.cursor = '';
+};
 
 
 // Sidebar State
@@ -1819,7 +1859,8 @@ const addTab = () => {
         activeQueryIds: [],
         resultViewTab: 'data',
         totalRowCount: undefined,
-        isPartialStats: false
+        isPartialStats: false,
+        editorHeight: 256
     });
     activeTabId.value = newId;
 };
@@ -2004,7 +2045,8 @@ const openDesignView = (tableName: string) => {
         isDesignView: true,
         isExplaining: false,
         isERView: false,
-        isPartialStats: false
+        isPartialStats: false,
+        editorHeight: 256
     });
     activeTabId.value = newId;
 };
@@ -2165,13 +2207,13 @@ const handleScriptRoutine = () => {
         if (type.includes('mssql')) {
             activeTab.value.query = `EXEC sp_helptext '${routine}'`;
             setTimeout(() => runQuery(), 50);
-        } else if (type.includes('postgres')) {
+        } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
             activeTab.value.query = `SELECT pg_get_functiondef('${routine}'::regproc)`;
             // This might fail if schema is needed or not in search path, but good attempt
-        } else if (type.includes('mysql') || type.includes('maria')) {
+        } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
             activeTab.value.query = `SHOW CREATE ${contextMenuTargetRoutineType.value} ${routine}`;
             setTimeout(() => runQuery(), 50);
-        } else if (type.includes('sqlite')) {
+        } else if (type.includes('sqlite') || type.includes('libsql')) {
             activeTab.value.query = `SELECT sql FROM sqlite_master WHERE name = '${routine}'`;
             setTimeout(() => runQuery(), 50);
         }
@@ -2215,7 +2257,8 @@ const openERDiagramTab = async (tableName: string) => {
         isERView: true,
         relationships: [],
         activeQueryIds: [],
-        resultViewTab: 'data'
+        resultViewTab: 'data',
+        editorHeight: 256
     };
 
     tabs.value.push(newTab);
@@ -2243,11 +2286,11 @@ const openERDiagramTab = async (tableName: string) => {
         const getSchemaQuery = (tbl: string) => {
             if (type.includes('mssql') || type.includes('sqlserver')) {
                 return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl}'`;
-            } else if (type.includes('postgres')) {
+            } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
                 return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tbl}'`;
-            } else if (type.includes('mysql') || type.includes('maria')) {
+            } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
                 return `DESCRIBE ${tbl}`;
-            } else if (type.includes('sqlite')) {
+            } else if (type.includes('sqlite') || type.includes('libsql')) {
                 return `PRAGMA table_info(${tbl})`;
             } else {
                 return `SELECT * FROM ${tbl} LIMIT 1`;
@@ -2316,11 +2359,11 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
 
     if (type.includes('mssql') || type.includes('sqlserver')) {
         query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
-    } else if (type.includes('postgres')) {
+    } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
         query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`;
-    } else if (type.includes('mysql') || type.includes('maria')) {
+    } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
         query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
-    } else if (type.includes('sqlite')) {
+    } else if (type.includes('sqlite') || type.includes('libsql')) {
         // SQLite PRAGMA returns a result set we need to parse differently if we use generic ExecuteQuery
         // But let's try standard schema table if available or just PRAGMA
         query = `SELECT name FROM pragma_table_info('${tableName}')`;
@@ -2557,10 +2600,10 @@ const beautifyQuery = () => {
         const type = (props.dbType || '').toLowerCase();
         let language = 'sql';
 
-        if (type.includes('postgres')) language = 'postgresql';
-        else if (type.includes('mysql') || type.includes('maria')) language = 'mysql';
+        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) language = 'postgresql';
+        else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) language = 'mysql';
         else if (type.includes('mssql') || type.includes('sqlserver')) language = 'transactsql';
-        else if (type.includes('sqlite')) language = 'sqlite';
+        else if (type.includes('sqlite') || type.includes('libsql')) language = 'sqlite';
 
         activeTab.value.query = format(activeTab.value.query, {
             language: language as any,

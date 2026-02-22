@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@qdrant/js-client-rest": "^1.17.0",
     "@vueuse/core": "^14.2.1",
     "mermaid": "^11.12.2",
     "monaco-editor": "^0.55.1",

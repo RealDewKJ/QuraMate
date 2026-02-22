@@ -54,6 +54,12 @@
                                 <option value="mariadb">MariaDB</option>
                                 <option value="mssql">MSSQL</option>
                                 <option value="sqlite">SQLite</option>
+                                <option value="duckdb">DuckDB</option>
+                                <option value="greenplum">Greenplum</option>
+                                <option value="redshift">Redshift</option>
+                                <option value="cockroachdb">CockroachDB</option>
+                                <option value="databend">Databend</option>
+                                <option value="libsql">LibSQL</option>
                             </select>
                             <div
                                 class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-input-foreground">
@@ -67,7 +73,7 @@
                         </div>
                     </div>
 
-                    <div v-if="config.type !== 'sqlite'"
+                    <div v-if="config.type !== 'sqlite' && config.type !== 'duckdb' && config.type !== 'libsql'"
                         class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
@@ -272,7 +278,7 @@
                                 <div class="flex items-center gap-3 overflow-hidden">
                                     <div
                                         class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <svg v-if="conn.type === 'postgres'" xmlns="http://www.w3.org/2000/svg"
+                                        <svg v-if="conn.type === 'postgres' || conn.type === 'greenplum' || conn.type === 'redshift' || conn.type === 'cockroachdb'" xmlns="http://www.w3.org/2000/svg"
                                             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-database">
@@ -280,7 +286,7 @@
                                             <path d="M3 5V19A9 3 0 0 0 21 19V5" />
                                             <path d="M3 12A9 3 0 0 0 21 12" />
                                         </svg>
-                                        <svg v-else-if="conn.type === 'mysql' || conn.type === 'mariadb'" xmlns="http://www.w3.org/2000/svg"
+                                        <svg v-else-if="conn.type === 'mysql' || conn.type === 'mariadb' || conn.type === 'databend'" xmlns="http://www.w3.org/2000/svg"
                                             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-database">
@@ -288,7 +294,7 @@
                                             <path d="M3 5V19A9 3 0 0 0 21 19V5" />
                                             <path d="M3 12A9 3 0 0 0 21 12" />
                                         </svg>
-                                        <svg v-else-if="conn.type === 'sqlite'" xmlns="http://www.w3.org/2000/svg"
+                                        <svg v-else-if="conn.type === 'sqlite' || conn.type === 'duckdb' || conn.type === 'libsql'" xmlns="http://www.w3.org/2000/svg"
                                             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-file-code">
@@ -398,8 +404,10 @@ const handleSelectSqliteFile = async () => {
 };
 
 watch(() => config.type, (newType) => {
-    if (newType === 'postgres') config.port = 5432;
+    if (newType === 'postgres' || newType === 'greenplum' || newType === 'redshift') config.port = 5432;
+    else if (newType === 'cockroachdb') config.port = 26257;
     else if (newType === 'mysql' || newType === 'mariadb') config.port = 3306;
+    else if (newType === 'databend') config.port = 3307;
     else if (newType === 'mssql') config.port = 1433;
 });
 
@@ -425,10 +433,10 @@ const isConfigEqual = (c1: any, c2: any) => {
     const name1 = c1.name || '';
     const name2 = c2.name || '';
 
-    // Port is irrelevant for SQLite
-    if (type1 === 'sqlite') {
+    // Port is irrelevant for SQLite and DuckDB
+    if (type1 === 'sqlite' || type1 === 'duckdb' || type1 === 'libsql') {
         return type1 === type2 &&
-            db1 === db2 && // For sqlite, database is the filepath
+            db1 === db2 && // For sqlite/duckdb/libsql, database is the filepath
             name1 === name2;
     }
 
@@ -571,7 +579,11 @@ const selectConnection = (conn: any) => {
 
 const getConnectionLabel = (conn: any) => {
     if (conn.name) return conn.name;
-    if (conn.type === 'sqlite') return `SQLite: ${conn.database}`;
+    if (conn.type === 'sqlite' || conn.type === 'duckdb' || conn.type === 'libsql') return `${conn.type === 'sqlite' ? 'SQLite' : conn.type === 'duckdb' ? 'DuckDB' : 'LibSQL'}: ${conn.database}`;
+    if (conn.type === 'greenplum') return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Greenplum)`;
+    if (conn.type === 'redshift') return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Redshift)`;
+    if (conn.type === 'cockroachdb') return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (CockroachDB)`;
+    if (conn.type === 'databend') return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Databend)`;
     return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (${conn.type})`;
 };
 
