@@ -3,4 +3,5 @@ node_modules
 frontend/dist
 .agent/
 .agents/
+agent/
 .skills-lock.json
