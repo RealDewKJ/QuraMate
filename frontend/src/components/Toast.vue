@@ -35,6 +35,10 @@
                 <div class="flex-1 min-w-0">
                     <p v-if="toast.title" class="text-sm font-semibold text-foreground">{{ toast.title }}</p>
                     <p class="text-sm text-muted-foreground" :class="{ 'mt-0.5': toast.title }">{{ toast.message }}</p>
+                    <button v-if="toast.action" @click="toast.action.onClick(toast.id)" 
+                        class="mt-2 text-xs font-semibold px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors w-fit cursor-pointer border border-primary/20">
+                        {{ toast.action.label }}
+                    </button>
                 </div>
                 <!-- Close -->
                 <button @click="removeToast(toast.id)"
@@ -58,6 +62,7 @@ interface Toast {
     type: 'success' | 'error' | 'info';
     title?: string;
     message: string;
+    action?: { label: string; onClick: (id: number) => void };
 }
 
 const toasts = ref<Toast[]>([]);
@@ -74,9 +79,9 @@ const toastClass = (type: string) => {
     }
 };
 
-const addToast = (type: Toast['type'], message: string, title?: string, duration = 4000) => {
+const addToast = (type: Toast['type'], message: string, title?: string, duration = 4000, action?: { label: string; onClick: (id: number) => void }) => {
     const id = nextId++;
-    toasts.value.push({ id, type, title, message });
+    toasts.value.push({ id, type, title, message, action });
     if (duration > 0) {
         setTimeout(() => removeToast(id), duration);
     }
@@ -89,9 +94,10 @@ const removeToast = (id: number) => {
 
 // Expose methods for parent components
 defineExpose({
-    success: (message: string, title?: string) => addToast('success', message, title),
-    error: (message: string, title?: string) => addToast('error', message, title, 6000),
-    info: (message: string, title?: string) => addToast('info', message, title),
+    success: (message: string, title?: string, duration?: number, action?: { label: string; onClick: (id: number) => void }) => addToast('success', message, title, duration ?? 4000, action),
+    error: (message: string, title?: string, duration?: number, action?: { label: string; onClick: (id: number) => void }) => addToast('error', message, title, duration ?? 6000, action),
+    info: (message: string, title?: string, duration?: number, action?: { label: string; onClick: (id: number) => void }) => addToast('info', message, title, duration ?? 4000, action),
+    remove: removeToast
 });
 </script>
 
