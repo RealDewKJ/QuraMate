@@ -10,6 +10,10 @@ export function CancelQuery(arg1) {
   return window['go']['main']['App']['CancelQuery'](arg1);
 }
 
+export function CheckForUpdates() {
+  return window['go']['main']['App']['CheckForUpdates']();
+}
+
 export function ConnectDB(arg1) {
   return window['go']['main']['App']['ConnectDB'](arg1);
 }
@@ -36,6 +40,10 @@ export function ExplainQuery(arg1, arg2) {
 
 export function ExportTable(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTable'](arg1, arg2, arg3, arg4);
+}
+
+export function GetCurrentVersion() {
+  return window['go']['main']['App']['GetCurrentVersion']();
 }
 
 export function GetForeignKeys(arg1, arg2) {
@@ -76,6 +84,10 @@ export function Greet(arg1) {
 
 export function ImportTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ImportTable'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function OpenDownloadURL(arg1) {
+  return window['go']['main']['App']['OpenDownloadURL'](arg1);
 }
 
 export function SelectExportFile(arg1) {
