@@ -1,7 +1,10 @@
 build/bin
 node_modules
+**/node_modules
 frontend/dist
+frontend/node_modules
 .agent/
 .agents/
 agent/
+.agent/skills
 .skills-lock.json
