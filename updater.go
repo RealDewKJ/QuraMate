@@ -15,7 +15,7 @@ import (
 const AppVersion = "1.0.0"
 
 // GitHubRepo is the GitHub repository for update checks.
-const GitHubRepo = "RealDewKJ/VaultDB"
+const GitHubRepo = "RealDewKJ/QuraMate"
 
 // UpdateInfo holds information about an available update.
 type UpdateInfo struct {
@@ -63,7 +63,7 @@ func (a *App) CheckForUpdates() UpdateInfo {
 		return info
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "VaultDB-Updater")
+	req.Header.Set("User-Agent", "QuraMate-Updater")
 
 	resp, err := client.Do(req)
 	if err != nil {
