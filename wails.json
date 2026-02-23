@@ -3,7 +3,7 @@
   "name": "QuraMate",
   "version": "1.0.0",
   "outputfilename": "QuraMate",
-  "frontend:install": "cmd /c \"if not exist node_modules npm install\"",
+  "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",

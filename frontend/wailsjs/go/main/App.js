@@ -14,8 +14,24 @@ export function CheckForUpdates() {
   return window['go']['main']['App']['CheckForUpdates']();
 }
 
+export function ClearAppLogs() {
+  return window['go']['main']['App']['ClearAppLogs']();
+}
+
+export function ClearQueryHistory() {
+  return window['go']['main']['App']['ClearQueryHistory']();
+}
+
 export function ConnectDB(arg1) {
   return window['go']['main']['App']['ConnectDB'](arg1);
+}
+
+export function DeleteCredential(arg1) {
+  return window['go']['main']['App']['DeleteCredential'](arg1);
+}
+
+export function DeleteQueryHistory(arg1) {
+  return window['go']['main']['App']['DeleteQueryHistory'](arg1);
 }
 
 export function DisconnectDB(arg1) {
@@ -42,6 +58,10 @@ export function ExportTable(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTable'](arg1, arg2, arg3, arg4);
 }
 
+export function GetAppLogs() {
+  return window['go']['main']['App']['GetAppLogs']();
+}
+
 export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
 }
@@ -56,6 +76,10 @@ export function GetFunctions(arg1) {
 
 export function GetPrimaryKeys(arg1, arg2) {
   return window['go']['main']['App']['GetPrimaryKeys'](arg1, arg2);
+}
+
+export function GetQueryHistory(arg1) {
+  return window['go']['main']['App']['GetQueryHistory'](arg1);
 }
 
 export function GetStoredProcedures(arg1) {
@@ -94,6 +118,14 @@ export function PerformUpdate(arg1) {
   return window['go']['main']['App']['PerformUpdate'](arg1);
 }
 
+export function SaveCredential(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveCredential'](arg1, arg2, arg3);
+}
+
+export function SaveQueryHistory(arg1, arg2) {
+  return window['go']['main']['App']['SaveQueryHistory'](arg1, arg2);
+}
+
 export function SelectExportFile(arg1) {
   return window['go']['main']['App']['SelectExportFile'](arg1);
 }
@@ -112,6 +144,10 @@ export function SetReadOnly(arg1, arg2) {
 
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
+}
+
+export function ToggleFavoriteQuery(arg1, arg2) {
+  return window['go']['main']['App']['ToggleFavoriteQuery'](arg1, arg2);
 }
 
 export function UpdateRecord(arg1, arg2, arg3, arg4) {

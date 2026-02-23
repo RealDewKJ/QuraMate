@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import DbConnection from './components/DbConnection.vue';
 import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
+import { colorMode } from './composables/useTheme';
 
 const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
 
@@ -145,8 +146,8 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
       </div>
 
       <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
-        <DbDashboard :connectionId="conn.id" :dbType="conn.config.type" :isReadOnly="conn.config.readOnly"
-          @disconnect="handleDisconnect" />
+        <DbDashboard :connectionId="conn.id" :connectionName="conn.name" :dbType="conn.config.type"
+          :isReadOnly="conn.config.readOnly" @disconnect="handleDisconnect" />
       </div>
     </div>
 
@@ -155,6 +156,4 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
   </div>
 </template>
 
-<style>
-/* Global styles can also be in generic css file */
-</style>
+<style></style>

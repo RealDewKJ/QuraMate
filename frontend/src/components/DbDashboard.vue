@@ -239,6 +239,17 @@
 
             <!-- Settings and Disconnect Buttons -->
             <div class="p-4 border-t border-border flex flex-col gap-2">
+                <button @click="isHistoryOpen = true"
+                    class="w-full flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-history">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M12 7v5l4 2" />
+                    </svg>
+                    History
+                </button>
                 <button @click="isSettingsOpen = true"
                     class="w-full flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-sm font-medium py-2 px-4 rounded-md transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -369,7 +380,7 @@
                                         <polyline points="19 12 12 19 5 12" />
                                     </svg>
                                     <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
-                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                    }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
                                 </span>
                             </div>
                         </div>
@@ -795,7 +806,7 @@
                     <ERDiagram :tableName="activeTab.tableName || ''"
                         :columns="activeTab.tablesData && activeTab.tableName ? activeTab.tablesData[activeTab.tableName] : []"
                         :relationships="activeTab.relationships || []" :tablesData="activeTab.tablesData || {}"
-                        :isDark="true" />
+                        :isDark="isDarkTheme" />
                 </div>
 
                 <!-- Table Designer View -->
@@ -1102,7 +1113,7 @@
 
                 <p class="text-sm text-muted-foreground">
                     Insert a new row into <span class="font-medium text-foreground">{{ insertRowModal.tableName
-                    }}</span>
+                        }}</span>
                 </p>
 
                 <div class="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -1244,12 +1255,14 @@
         </div>
         <Toast ref="toastRef" />
         <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
+        <QueryHistory :is-open="isHistoryOpen" :connection-name="connectionName" @close="isHistoryOpen = false"
+            @run-query="handleRunHistoryQuery" />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -1258,9 +1271,30 @@ import ERDiagram from './ERDiagram.vue';
 import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
+import QueryHistory from './QueryHistory.vue';
+import { isDarkTheme } from '../composables/useTheme';
 
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
+const isHistoryOpen = ref(false);
+
+const handleRunHistoryQuery = (query: string) => {
+    isHistoryOpen.value = false;
+    if (activeTab.value && !activeTab.value.isERView && !activeTab.value.isDesignView) {
+        activeTab.value.query = query;
+        setTimeout(() => {
+            runQuery();
+        }, 50);
+    } else {
+        addTab();
+        setTimeout(() => {
+            if (activeTab.value) {
+                activeTab.value.query = query;
+                runQuery();
+            }
+        }, 100);
+    }
+};
 
 // Global settings state
 const editorSettings = ref({
@@ -1277,13 +1311,13 @@ const handleSettingsSave = (newSettings: any) => {
 
     // Currently using toast. Eventually tie this to the backend
     if (toastRef.value) {
-        // @ts-ignore
-        toastRef.value.showError('Settings saved! Note: Changes are currently local-only until backend is ready.', 3000);
+        toastRef.value.info('Settings saved! Note: Changes are currently local-only until backend is ready.', undefined, 3000);
     }
 };
 
 const props = defineProps<{
     connectionId: string;
+    connectionName?: string;
     dbType: string;
     isReadOnly?: boolean;
 }>();
@@ -1460,7 +1494,7 @@ const initiateQuickUpdate = (newValue: any) => {
 
     // Check if editable
     if (!isEditable(col)) {
-        alert("This column cannot be edited (Primary Key or Read Only).");
+        toastRef.value?.error("This column cannot be edited (Primary Key or Read Only).");
         return;
     }
 
@@ -1700,12 +1734,12 @@ const handleExport = async () => {
         try {
             const resp = await ExportTable(props.connectionId, tableName, format, result);
             if (resp !== "Success") {
-                alert(resp);
+                toastRef.value?.error(resp);
             } else {
-                // Success
+                toastRef.value?.success("Export successful!");
             }
         } catch (e) {
-            alert("Error exporting: " + e);
+            toastRef.value?.error("Error exporting: " + e);
         }
     }
     showContextMenu.value = false;
@@ -1754,13 +1788,13 @@ const confirmImport = async () => {
             importOptions.value.enableIdentityInsert
         );
         if (resp !== "Success") {
-            alert(resp);
+            toastRef.value?.error(resp);
         } else {
-            alert("Import Successful!");
+            toastRef.value?.success("Import Successful!");
             // Optionally refresh if the table is open or just notify
         }
     } catch (e) {
-        alert("Error importing: " + e);
+        toastRef.value?.error("Error importing: " + e);
     }
 };
 
@@ -2569,6 +2603,9 @@ const runQuery = async () => {
 
     // Start the streaming query (returns immediately)
     try {
+        if (queryToRun && queryToRun.trim().length > 0) {
+            SaveQueryHistory(queryToRun, props.connectionName || props.dbType || '');
+        }
         const err = await ExecuteQueryStream(props.connectionId, queryToRun, reqId);
         if (err) {
             tab.error = err;

@@ -175,7 +175,7 @@
                                         <input type="range" v-model="settings.editor.fontSize" min="10" max="24"
                                             class="w-full accent-primary">
                                         <span class="text-sm font-mono w-12 text-right">{{ settings.editor.fontSize
-                                        }}px</span>
+                                            }}px</span>
                                     </div>
                                 </div>
 
@@ -274,69 +274,86 @@
                         </div>
                     </div>
 
-                    <!-- Logs Tab -->
+                    <!-- System Logs Tab -->
                     <div v-if="activeTab === 'logs'" class="space-y-6 flex flex-col h-full">
-                        <div>
-                            <h3 class="text-lg font-medium">Application Logs</h3>
-                            <p class="text-sm text-muted-foreground">View local logs for debugging and system
-                                monitoring.</p>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-medium">System Logs</h3>
+                                <p class="text-sm text-muted-foreground">Monitor application events and errors.</p>
+                            </div>
+                            <button @click="clearLogs"
+                                class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3">
+                                Clear Logs
+                            </button>
                         </div>
 
                         <div
-                            class="flex-1 min-h-[300px] border border-border rounded-md bg-[#1e1e1e] text-[#cccccc] font-mono text-xs overflow-auto flex flex-col">
-                            <div
-                                class="bg-[#2d2d2d] border-b border-[#3c3c3c] px-3 py-1.5 flex justify-between items-center shrink-0">
-                                <span class="font-medium text-[10px] text-[#858585]">quramate.log</span>
-                                <div class="flex gap-2">
-                                    <button class="hover:text-white transition-colors" title="Refresh Logs"
-                                        @click="refreshLogs">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="lucide lucide-refresh-cw"
-                                            :class="{ 'animate-spin': isRefreshingLogs }">
-                                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                                            <path d="M3 3v5h5" />
-                                        </svg>
-                                    </button>
-                                    <button class="hover:text-white transition-colors" title="Clear View">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="lucide lucide-trash-2">
-                                            <path d="M3 6h18" />
-                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                            <line x1="10" x2="10" y1="11" y2="17" />
-                                            <line x1="14" x2="14" y1="11" y2="17" />
-                                        </svg>
-                                    </button>
+                            class="border border-border rounded-md bg-muted/30 overflow-hidden flex flex-col min-h-[400px]">
+                            <div class="flex-1 overflow-auto p-3 font-mono text-[11px] space-y-1">
+                                <div v-if="appLogs.length === 0" class="text-center text-muted-foreground py-4">
+                                    No logs recorded yet.
                                 </div>
-                            </div>
-                            <div class="p-3 overflow-auto flex-1 space-y-1">
-                                <!-- Placeholder mock logs -->
-                                <div class="text-[#858585]">[2024-03-20 10:15:32] <span
-                                        class="text-[#ce9178]">INFO</span> Application started. Version {{ appVersion }}
+                                <div v-for="(log, i) in appLogs" :key="i" class="flex gap-2">
+                                    <span class="text-muted-foreground whitespace-nowrap">{{ log.time }}</span>
+                                    <span :class="{
+                                        'text-red-500 font-bold': log.level === 'ERROR',
+                                        'text-blue-500 font-bold': log.level === 'INFO',
+                                        'text-amber-500 font-bold': log.level === 'WARN'
+                                    }">[{{ log.level }}]</span>
+                                    <span class="text-foreground/80 break-all">{{ log.message }}</span>
                                 </div>
-                                <div class="text-[#858585]">[2024-03-20 10:15:33] <span
-                                        class="text-[#ce9178]">INFO</span> Initializing local storage and settings...
-                                </div>
-                                <div class="text-[#858585]">[2024-03-20 10:16:01] <span class="text-[#b5cea8]">DB</span>
-                                    Successfully connected to PostgreSQL database at localhost:5432.</div>
-                                <div class="text-[#858585]">[2024-03-20 10:20:15] <span
-                                        class="text-[#569cd6]">QERY</span> Executing query: SELECT * FROM users LIMIT
-                                    100...</div>
-                                <div class="text-[#858585]">[2024-03-20 10:20:15] <span
-                                        class="text-[#569cd6]">QERY</span> Query returned 100 rows in 24ms.</div>
-                                <div v-if="hasMockError" class="text-[#858585]">[2024-03-20 10:25:40] <span
-                                        class="text-[#f44747]">ERROR</span> Connection timeout trying to reach AI
-                                    Provider API.</div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="flex justify-between items-center text-xs text-muted-foreground mt-2">
-                            <span>Logs are stored locally on your machine.</span>
-                            <button class="text-primary hover:underline">Open Log Folder</button>
+                    <!-- Changelogs Tab -->
+                    <div v-if="activeTab === 'changelogs'" class="space-y-6 flex flex-col h-full">
+                        <div>
+                            <h3 class="text-lg font-medium">Changelogs</h3>
+                            <p class="text-sm text-muted-foreground">Keep track of new features, improvements, and bug
+                                fixes.</p>
+                        </div>
+
+                        <div class="flex-1 overflow-auto pr-2 space-y-3">
+                            <div v-for="log in changelogs" :key="log.version"
+                                class="border border-border rounded-md overflow-hidden bg-card">
+                                <button @click="toggleVersion(log.version)"
+                                    class="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left focus:outline-none">
+                                    <div class="flex items-center gap-3">
+                                        <h4 class="font-medium text-base">{{ log.version }}</h4>
+                                        <span
+                                            class="text-xs text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">{{
+                                                log.date }}</span>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="transition-transform duration-200 text-muted-foreground"
+                                        :class="expandedVersion === log.version ? 'rotate-180' : ''">
+                                        <path d="m6 9 6 6 6-6" />
+                                    </svg>
+                                </button>
+
+                                <div v-show="expandedVersion === log.version"
+                                    class="p-4 border-t border-border bg-background space-y-2">
+                                    <ul class="space-y-2.5">
+                                        <li v-for="(change, index) in log.changes" :key="index"
+                                            class="flex gap-3 text-sm items-start">
+                                            <span
+                                                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 mt-[2px]"
+                                                :class="{
+                                                    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/50': change.type === 'feat',
+                                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50': change.type === 'fix',
+                                                    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50': change.type === 'perf',
+                                                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700/50': change.type === 'chore'
+                                                }">
+                                                {{ change.type }}
+                                            </span>
+                                            <span class="text-foreground/90 leading-snug">{{ change.text }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -419,7 +436,10 @@
 
 <script setup>
 import { ref, reactive, h, onMounted, watch } from 'vue';
+import { GetAppLogs, ClearAppLogs } from '../../wailsjs/go/main/App';
 import Toast from './Toast.vue';
+import { colorMode } from '../composables/useTheme';
+import changelogData from '../data/changelog.json';
 
 const props = defineProps({
     isOpen: {
@@ -437,15 +457,48 @@ const tabs = [
     { id: 'appearance', label: 'Appearance', icon: 'Palette' },
     { id: 'editor', label: 'SQL Editor', icon: 'Type' },
     { id: 'ai', label: 'AI Provider', icon: 'Bot' },
-    { id: 'logs', label: 'Logs', icon: 'FileText' },
+    { id: 'changelogs', label: 'Changelogs', icon: 'History' },
+    { id: 'logs', label: 'System Logs', icon: 'Terminal' },
     { id: 'info', label: 'About', icon: 'Info' }
 ];
 
 const activeTab = ref('general');
 const showAiKey = ref(false);
-const isRefreshingLogs = ref(false);
-const hasMockError = ref(true);
 const appVersion = ref('1.0.0-alpha'); // Hardcoded until we get Wails backend hooked up
+
+const appLogs = ref([]);
+const changelogs = changelogData;
+
+const fetchLogs = async () => {
+    try {
+        const logs = await GetAppLogs();
+        appLogs.value = logs.reverse(); // Newest first
+    } catch (e) {
+        console.error('Failed to fetch app logs', e);
+    }
+};
+
+const clearLogs = async () => {
+    try {
+        await ClearAppLogs();
+        appLogs.value = [];
+        toastRef.value?.success('Logs cleared successfully');
+    } catch (e) {
+        console.error('Failed to clear logs', e);
+    }
+};
+
+watch(activeTab, (newTab) => {
+    if (newTab === 'logs') {
+        fetchLogs();
+    }
+});
+
+const expandedVersion = ref(null);
+
+const toggleVersion = (version) => {
+    expandedVersion.value = expandedVersion.value === version ? null : version;
+};
 
 // Deep copy of settings for the form
 const settings = reactive({
@@ -467,13 +520,7 @@ const settings = reactive({
 
 // Load actual theme on mount to show correct active state
 onMounted(() => {
-    // Try to load settings from localStorage or similar here
-    // For now we check the html class documentElement
-    if (document.documentElement.classList.contains('dark')) {
-        settings.appearance.theme = 'dark';
-    } else {
-        settings.appearance.theme = 'light';
-    }
+    settings.appearance.theme = colorMode.value === 'auto' ? 'system' : colorMode.value;
 });
 
 const close = () => {
@@ -482,35 +529,15 @@ const close = () => {
 
 const save = () => {
     // Apply theme immediately on save
-    if (settings.appearance.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else if (settings.appearance.theme === 'light') {
-        document.documentElement.classList.remove('dark');
-    } else {
-        // System handling would go here, simplified for now
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }
+    colorMode.value = settings.appearance.theme === 'system' ? 'auto' : (settings.appearance.theme || 'auto');
 
     // TODO: Save to localStorage or backend
     toastRef.value?.success('Settings saved successfully!');
     emit('save', { ...settings });
-    emit('close');
 };
 
 const setTheme = (theme) => {
     settings.appearance.theme = theme;
-};
-
-const refreshLogs = () => {
-    isRefreshingLogs.value = true;
-    hasMockError.value = !hasMockError.value;
-    setTimeout(() => {
-        isRefreshingLogs.value = false;
-    }, 1000);
 };
 
 // Simple Lucide icon renderer for this component
@@ -546,6 +573,15 @@ const getIcon = (name) => {
             h('path', { d: 'M10 9H8' }),
             h('path', { d: 'M16 13H8' }),
             h('path', { d: 'M16 17H8' })
+        ]),
+        History: h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+            h('path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
+            h('path', { d: 'M3 3v5h5' }),
+            h('path', { d: 'M12 7v5l4 2' })
+        ]),
+        Terminal: h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+            h('polyline', { points: '4 17 10 11 4 5' }),
+            h('line', { x1: '12', x2: '20', y1: '19', y2: '19' })
         ]),
         Info: h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
             h('circle', { cx: '12', cy: '12', r: '10' }),

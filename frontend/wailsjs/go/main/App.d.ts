@@ -8,7 +8,15 @@ export function CancelQuery(arg1:string):Promise<string>;
 
 export function CheckForUpdates():Promise<main.UpdateInfo>;
 
+export function ClearAppLogs():Promise<string>;
+
+export function ClearQueryHistory():Promise<string>;
+
 export function ConnectDB(arg1:main.DBConfig):Promise<main.ConnectResult>;
+
+export function DeleteCredential(arg1:string):Promise<void>;
+
+export function DeleteQueryHistory(arg1:number):Promise<string>;
 
 export function DisconnectDB(arg1:string):Promise<string>;
 
@@ -22,6 +30,8 @@ export function ExplainQuery(arg1:string,arg2:string):Promise<string>;
 
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
+export function GetAppLogs():Promise<Array<main.LogEntry>>;
+
 export function GetCurrentVersion():Promise<string>;
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;
@@ -29,6 +39,8 @@ export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.Forei
 export function GetFunctions(arg1:string):Promise<Array<string>>;
 
 export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
+
+export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntry>>;
 
 export function GetStoredProcedures(arg1:string):Promise<Array<string>>;
 
@@ -48,6 +60,10 @@ export function OpenDownloadURL(arg1:string):Promise<string>;
 
 export function PerformUpdate(arg1:string):Promise<void>;
 
+export function SaveCredential(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SaveQueryHistory(arg1:string,arg2:string):Promise<string>;
+
 export function SelectExportFile(arg1:string):Promise<string>;
 
 export function SelectImportFile():Promise<string>;
@@ -57,5 +73,7 @@ export function SelectSqliteFile():Promise<string>;
 export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 
 export function TestConnection(arg1:main.DBConfig):Promise<string>;
+
+export function ToggleFavoriteQuery(arg1:number,arg2:boolean):Promise<string>;
 
 export function UpdateRecord(arg1:string,arg2:string,arg3:Record<string, any>,arg4:Record<string, any>):Promise<string>;

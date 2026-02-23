@@ -1,26 +1,14 @@
 <template>
-    <div class="flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-300"
-        :class="{ 'dark': isDark }">
+    <div class="flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-300">
         <div class="absolute top-4 right-4">
-            <button @click="toggleTheme"
+            <button @click="showSettings = true"
                 class="p-2 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors">
-                <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-sun">
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2" />
-                    <path d="M12 20v2" />
-                    <path d="m4.93 4.93 1.41 1.41" />
-                    <path d="m17.66 17.66 1.41 1.41" />
-                    <path d="M2 12h2" />
-                    <path d="M20 12h2" />
-                    <path d="m6.34 17.66-1.41-1.41" />
-                    <path d="m19.07 4.93-1.41-1.41" />
-                </svg>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-moon">
-                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                    class="lucide lucide-settings">
+                    <path
+                        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                    <circle cx="12" cy="12" r="3" />
                 </svg>
             </button>
         </div>
@@ -33,13 +21,27 @@
                 <p class="text-muted-foreground text-sm">QuraMate - Connect to your database to start managing data.</p>
             </div>
 
-            <div class="space-y-3">
+            <div v-if="isLoading && isQuickConnecting && !error"
+                class="py-12 flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-500">
+                <div class="relative w-16 h-16">
+                    <div class="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+                    <div
+                        class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin">
+                    </div>
+                </div>
+                <div class="text-center">
+                    <p class="font-medium text-lg">Connecting to {{ config.name || 'Database' }}...</p>
+                    <p class="text-sm text-muted-foreground">Please wait while we establish a secure connection.</p>
+                </div>
+            </div>
+
+            <div v-else class="space-y-3">
                 <div class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div class="space-y-2">
                         <label class="text-sm font-medium leading-none" for="connName">Connection Name
                             (Optional)</label>
                         <input v-model="config.name" id="connName" type="text" placeholder="My Database"
-                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                            class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                     </div>
 
                     <div class="space-y-2">
@@ -79,26 +81,26 @@
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="host">Host</label>
                                 <input v-model="config.host" id="host" type="text" placeholder="localhost"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="port">Port</label>
                                 <input v-model.number="config.port" id="port" type="number"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="user">User</label>
                                 <input v-model="config.user" id="user" type="text"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="password">Password</label>
                                 <div class="relative">
                                     <input v-model="config.password" id="password"
                                         :type="showPassword ? 'text' : 'password'"
-                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                        class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                     <button type="button" @click="showPassword = !showPassword"
                                         class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                                         <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16"
@@ -127,7 +129,7 @@
                         <div class="space-y-2">
                             <label class="text-sm font-medium leading-none" for="database">Database Name</label>
                             <input v-model="config.database" id="database" type="text"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                         </div>
                     </div>
 
@@ -137,7 +139,7 @@
                             <div class="flex items-center space-x-2">
                                 <input v-model="config.database" id="filepath" type="text"
                                     placeholder="/path/to/db.sqlite"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                 <button type="button" @click="handleSelectSqliteFile"
                                     class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                                     Browse...
@@ -164,25 +166,25 @@
                                     <label class="text-sm font-medium leading-none" for="sshHost">SSH Host</label>
                                     <input v-model="config.sshHost" id="sshHost" type="text"
                                         placeholder="ssh.example.com"
-                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                        class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-sm font-medium leading-none" for="sshPort">SSH Port</label>
                                     <input v-model.number="config.sshPort" id="sshPort" type="number" placeholder="22"
-                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                        class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                 </div>
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="sshUser">SSH User</label>
                                 <input v-model="config.sshUser" id="sshUser" type="text"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
                                 <div class="relative">
                                     <input v-model="config.sshPassword" id="sshPassword"
                                         :type="showSshPassword ? 'text' : 'password'"
-                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                        class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                     <button type="button" @click="showSshPassword = !showSshPassword"
                                         class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                                         <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16"
@@ -212,7 +214,7 @@
                                     (Optional)</label>
                                 <input v-model="config.sshKeyFile" id="sshKeyFile" type="text"
                                     placeholder="/path/to/private_key"
-                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                             </div>
                         </div>
                     </div>
@@ -382,13 +384,26 @@
                     </div>
                 </div>
             </div>
+
         </div>
+        <Toast ref="toastRef" />
+        <SettingsDialog :isOpen="showSettings" @close="showSettings = false" @save="handleSettingsSave" />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue';
-import { ConnectDB, TestConnection, SetReadOnly, SelectSqliteFile } from '../../wailsjs/go/main/App';
+import { ConnectDB, TestConnection, SetReadOnly, SelectSqliteFile, SaveCredential, DeleteCredential } from '../../wailsjs/go/main/App';
+import SettingsDialog from './SettingsDialog.vue';
+import Toast from './Toast.vue';
+
+const toastRef = ref<InstanceType<typeof Toast> | null>(null);
+
+const handleSettingsSave = () => {
+    if (toastRef.value) {
+        toastRef.value.success('Settings saved successfully!');
+    }
+};
 
 const props = defineProps<{
     activeConnections: any[]
@@ -397,6 +412,7 @@ const props = defineProps<{
 const emit = defineEmits(['connected', 'connection-exists', 'connection-updated']);
 
 const config = reactive({
+    id: '',
     name: '',
     type: 'postgres',
     host: 'localhost',
@@ -417,20 +433,13 @@ const error = ref('');
 const testSuccess = ref('');
 const isLoading = ref(false);
 const isTesting = ref(false);
-const isDark = ref(false);
+const isQuickConnecting = ref(false);
+const showModeModal = ref(false);
+const showSettings = ref(false);
 const showSavedModal = ref(false);
 const savedConnections = ref<any[]>([]);
 const showPassword = ref(false);
 const showSshPassword = ref(false);
-
-const toggleTheme = () => {
-    isDark.value = !isDark.value;
-    if (isDark.value) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-};
 
 const handleSelectSqliteFile = async () => {
     try {
@@ -516,6 +525,10 @@ const isConfigEqual = (c1: any, c2: any) => {
 };
 
 const connect = async () => {
+    performConnect();
+};
+
+const performConnect = async () => {
     error.value = '';
     testSuccess.value = '';
     isLoading.value = true;
@@ -555,7 +568,7 @@ const connect = async () => {
     try {
         const result = await ConnectDB(config);
         if (result.id) {
-            saveConnection(JSON.parse(JSON.stringify(config)));
+            await saveConnection(JSON.parse(JSON.stringify(config)));
             emit('connected', {
                 id: result.id,
                 name: config.name || getConnectionLabel(config),
@@ -568,6 +581,7 @@ const connect = async () => {
         error.value = e.toString();
     } finally {
         isLoading.value = false;
+        isQuickConnecting.value = false;
     }
 };
 
@@ -576,7 +590,11 @@ const testConnection = async () => {
     testSuccess.value = '';
     isTesting.value = true;
     try {
-        const result = await TestConnection(JSON.parse(JSON.stringify(config)));
+        const testConfig = JSON.parse(JSON.stringify(config));
+        if (!testConfig.id) {
+            testConfig.id = '';
+        }
+        const result = await TestConnection(testConfig);
         if (result === 'Success') {
             testSuccess.value = 'Connection successful!';
         } else {
@@ -589,24 +607,49 @@ const testConnection = async () => {
     }
 };
 
-const saveConnection = (newConfig: any) => {
-    const existsIndex = savedConnections.value.findIndex(c => isConfigEqual(c, newConfig));
+const saveConnection = async (newConfig: any) => {
+    if (!newConfig.id) {
+        const existing = savedConnections.value.find(c => isConfigEqual(c, newConfig));
+        if (existing && existing.id) {
+            newConfig.id = existing.id;
+        } else {
+            newConfig.id = crypto.randomUUID();
+        }
+    }
+
+    config.id = newConfig.id;
+
+    if (newConfig.password || newConfig.sshPassword) {
+        try {
+            await SaveCredential(newConfig.id, newConfig.password || '', newConfig.sshPassword || '');
+        } catch (e) {
+            console.error('Failed to save credentials to keyring', e);
+        }
+    }
+
+    const storageConfig = { ...newConfig };
+    storageConfig.password = '';
+    storageConfig.sshPassword = '';
+
+    const existsIndex = savedConnections.value.findIndex(c => c.id === storageConfig.id || isConfigEqual(c, storageConfig));
 
     if (existsIndex === -1) {
-        savedConnections.value.push(newConfig);
+        savedConnections.value.push(storageConfig);
     } else {
-        // Optional: Update the existing one (e.g. to move to top or update timestamp if we had one)
-        // For now, just ensure we don't duplicate. 
-        // We could also remove and push to end to show it as "most recently used" if the list is MRU.
-        // Let's do that - move to end (bottom of list seems to be default order).
-        // Actually, let's keep it simple. If it exists, do nothing or update details?
-        // Since we compare EVERYTHING, it's identical.
-        // So just do nothing.
+        savedConnections.value[existsIndex] = storageConfig;
     }
     localStorage.setItem('savedConnections', JSON.stringify(savedConnections.value));
 };
 
-const removeConnection = (index: number) => {
+const removeConnection = async (index: number) => {
+    const conn = savedConnections.value[index];
+    if (conn && conn.id) {
+        try {
+            await DeleteCredential(conn.id);
+        } catch (e) {
+            console.error('Failed to delete credentials from keyring', e);
+        }
+    }
     savedConnections.value.splice(index, 1);
     localStorage.setItem('savedConnections', JSON.stringify(savedConnections.value));
 };
@@ -614,7 +657,13 @@ const removeConnection = (index: number) => {
 const selectConnection = (conn: any) => {
     config.name = conn.name || '';
     Object.assign(config, conn);
+    // Explicitly clear password from the form view when loading from history
+    config.password = '';
+    config.sshPassword = '';
+
     showSavedModal.value = false;
+    isQuickConnecting.value = true;
+    connect();
 };
 
 const getConnectionLabel = (conn: any) => {
@@ -627,18 +676,32 @@ const getConnectionLabel = (conn: any) => {
     return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (${conn.type})`;
 };
 
-onMounted(() => {
-    // Check system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        // Default to dark if system is dark, or let user toggle
-        // isDark.value = true;
-        // document.documentElement.classList.add('dark');
-    }
-
+onMounted(async () => {
     const saved = localStorage.getItem('savedConnections');
     if (saved) {
         try {
-            savedConnections.value = JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            let needsSave = false;
+            for (const conn of parsed) {
+                if (!conn.id) {
+                    conn.id = crypto.randomUUID();
+                    needsSave = true;
+                }
+                if (conn.password || conn.sshPassword) {
+                    try {
+                        await SaveCredential(conn.id, conn.password || '', conn.sshPassword || '');
+                        conn.password = '';
+                        conn.sshPassword = '';
+                        needsSave = true;
+                    } catch (e) {
+                        console.error('Failed to migrate credentials to keyring', e);
+                    }
+                }
+            }
+            savedConnections.value = parsed;
+            if (needsSave) {
+                localStorage.setItem('savedConnections', JSON.stringify(savedConnections.value));
+            }
         } catch (e) {
             console.error('Failed to load saved connections', e);
         }

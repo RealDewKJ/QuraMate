@@ -1,0 +1,38 @@
+[
+  {
+    "version": "v1.0.0",
+    "date": "2026-02-22",
+    "changes": [
+      { "type": "feat", "text": "Official 1.0.0 Release" },
+      {
+        "type": "feat",
+        "text": "Multi-connection support with saved configurations"
+      },
+      {
+        "type": "feat",
+        "text": "Connection Mode Selection (Read-Only vs Normal)"
+      },
+      {
+        "type": "feat",
+        "text": "Enhanced SQL Editor with customizable fonts and themes"
+      },
+      {
+        "type": "feat",
+        "text": "Advanced query statistics and streaming feedback"
+      },
+      {
+        "type": "feat",
+        "text": "Type-aware input fields for data insertion (Dates, Numbers, etc.)"
+      },
+      {
+        "type": "feat",
+        "text": "Integrated Toast notification system for better UX"
+      },
+      { "type": "feat", "text": "Expandable changelog view in Settings" },
+      {
+        "type": "feat",
+        "text": "PostgreSQL support with improved data viewing"
+      }
+    ]
+  }
+]

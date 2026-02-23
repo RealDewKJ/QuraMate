@@ -70,6 +70,7 @@ export namespace main {
 	    }
 	}
 	export class DBConfig {
+	    id: string;
 	    type: string;
 	    host: string;
 	    port: number;
@@ -90,6 +91,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.type = source["type"];
 	        this.host = source["host"];
 	        this.port = source["port"];
@@ -141,6 +143,42 @@ export namespace main {
 	        this.columns = source["columns"];
 	        this.unique = source["unique"];
 	        this.primary = source["primary"];
+	    }
+	}
+	export class LogEntry {
+	    time: string;
+	    level: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.time = source["time"];
+	        this.level = source["level"];
+	        this.message = source["message"];
+	    }
+	}
+	export class QueryHistoryEntry {
+	    id: number;
+	    query: string;
+	    db_type: string;
+	    timestamp: string;
+	    is_favorite: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryHistoryEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.query = source["query"];
+	        this.db_type = source["db_type"];
+	        this.timestamp = source["timestamp"];
+	        this.is_favorite = source["is_favorite"];
 	    }
 	}
 	export class ResultSet {

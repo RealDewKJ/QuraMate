@@ -21,6 +21,7 @@ import (
 )
 
 type DBConfig struct {
+	ID       string `json:"id"`
 	Type     string `json:"type"`
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
@@ -148,7 +149,7 @@ func (d *Database) Connect(config DBConfig) error {
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mysql", "mariadb", "databend":
 		driverName = "mysql"
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.User, config.Password, dbHost, dbPort, config.Database)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mssql":
 		driverName = "sqlserver"
 		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, dbHost, dbPort, config.Database)

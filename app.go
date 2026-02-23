@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/xuri/excelize/v2"
+	"github.com/zalando/go-keyring"
 )
 
 // App struct
@@ -24,13 +25,27 @@ type App struct {
 	mu               sync.Mutex
 	queryCancelFuncs map[string]context.CancelFunc
 	muQueries        sync.Mutex
+	appLogs          []LogEntry
+	muLogs           sync.Mutex
+	historyDB        *HistoryDB
 }
 
-// NewApp creates a new App application struct
+type LogEntry struct {
+	Time    string `json:"time"`
+	Level   string `json:"level"`
+	Message string `json:"message"`
+}
+
 func NewApp() *App {
+	hdb, err := NewHistoryDB()
+	if err != nil {
+		fmt.Printf("Failed to initialize HistoryDB: %v\n", err)
+	}
+
 	return &App{
 		dbs:              make(map[string]*Database),
 		queryCancelFuncs: make(map[string]context.CancelFunc),
+		historyDB:        hdb,
 	}
 }
 
@@ -38,6 +53,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.logEvent("INFO", "Application started")
 
 	// Auto-check for updates after a short delay
 	go func() {
@@ -61,12 +77,27 @@ type ConnectResult struct {
 }
 
 func (a *App) ConnectDB(config DBConfig) ConnectResult {
+	if config.ID != "" {
+		if config.Password == "" {
+			if pw, err := keyring.Get("QuraMate", config.ID); err == nil {
+				config.Password = pw
+			}
+		}
+		if config.SSHEnabled && config.SSHPassword == "" {
+			if sshPw, err := keyring.Get("QuraMate-SSH", config.ID); err == nil {
+				config.SSHPassword = sshPw
+			}
+		}
+	}
+
 	newDB := NewDatabase()
 	err := newDB.Connect(config)
 	if err != nil {
+		a.logEvent("ERROR", fmt.Sprintf("Failed to connect to %s: %s", config.Type, err.Error()))
 		return ConnectResult{Error: fmt.Sprintf("Error: %s", err.Error())}
 	}
 
+	a.logEvent("INFO", fmt.Sprintf("Connected to %s database", config.Type))
 	id := uuid.New().String()
 
 	a.mu.Lock()
@@ -77,12 +108,27 @@ func (a *App) ConnectDB(config DBConfig) ConnectResult {
 }
 
 func (a *App) TestConnection(config DBConfig) string {
+	if config.ID != "" {
+		if config.Password == "" {
+			if pw, err := keyring.Get("QuraMate", config.ID); err == nil {
+				config.Password = pw
+			}
+		}
+		if config.SSHEnabled && config.SSHPassword == "" {
+			if sshPw, err := keyring.Get("QuraMate-SSH", config.ID); err == nil {
+				config.SSHPassword = sshPw
+			}
+		}
+	}
+
 	newDB := NewDatabase()
 	err := newDB.Connect(config)
 	if err != nil {
+		a.logEvent("ERROR", fmt.Sprintf("Connection test failed for %s: %s", config.Type, err.Error()))
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
 	newDB.Disconnect()
+	a.logEvent("INFO", fmt.Sprintf("Connection test successful for %s", config.Type))
 	return "Success"
 }
 
@@ -99,6 +145,36 @@ func (a *App) DisconnectDB(connectionID string) string {
 		return "Success"
 	}
 	return "Connection not found"
+}
+
+func (a *App) SaveCredential(id string, password string, sshPassword string) error {
+	if id == "" {
+		return fmt.Errorf("connection ID is required to save credentials")
+	}
+	var errs []string
+	if password != "" {
+		if err := keyring.Set("QuraMate", id, password); err != nil {
+			errs = append(errs, fmt.Sprintf("failed to save db password: %v", err))
+		}
+	}
+	if sshPassword != "" {
+		if err := keyring.Set("QuraMate-SSH", id, sshPassword); err != nil {
+			errs = append(errs, fmt.Sprintf("failed to save ssh password: %v", err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, ", "))
+	}
+	return nil
+}
+
+func (a *App) DeleteCredential(id string) error {
+	if id == "" {
+		return nil
+	}
+	_ = keyring.Delete("QuraMate", id)
+	_ = keyring.Delete("QuraMate-SSH", id)
+	return nil
 }
 
 func (a *App) SetReadOnly(connectionID string, readOnly bool) string {
@@ -212,9 +288,41 @@ func (a *App) ExecuteQuery(connectionID string, query string, queryID string) Qu
 		if err == context.Canceled {
 			return QueryResult{Error: "Query cancelled by user"}
 		}
+		a.logEvent("ERROR", fmt.Sprintf("Query execution failed: %s", err.Error()))
 		return QueryResult{Error: err.Error()}
 	}
 	return QueryResult{ResultSets: resultSets}
+}
+
+func (a *App) logEvent(level string, msg string) {
+	a.muLogs.Lock()
+	defer a.muLogs.Unlock()
+
+	entry := LogEntry{
+		Time:    time.Now().Format("2006-01-02 15:04:05"),
+		Level:   level,
+		Message: msg,
+	}
+
+	a.appLogs = append(a.appLogs, entry)
+
+	// Keep only last 1000 logs
+	if len(a.appLogs) > 1000 {
+		a.appLogs = a.appLogs[len(a.appLogs)-1000:]
+	}
+}
+
+func (a *App) GetAppLogs() []LogEntry {
+	a.muLogs.Lock()
+	defer a.muLogs.Unlock()
+	return a.appLogs
+}
+
+func (a *App) ClearAppLogs() string {
+	a.muLogs.Lock()
+	defer a.muLogs.Unlock()
+	a.appLogs = []LogEntry{}
+	return "Success"
 }
 
 func (a *App) ExecuteTransientQuery(connectionID string, query string) QueryResult {
@@ -957,6 +1065,64 @@ func (a *App) AlterTable(connectionID string, tableName string, changes TableCha
 	}
 
 	err := db.AlterTable(tableName, changes)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+// --- Query History Methods ---
+
+func (a *App) SaveQueryHistory(query string, dbType string) string {
+	if a.historyDB == nil {
+		return "HistoryDB not initialized"
+	}
+	err := a.historyDB.SaveQuery(query, dbType)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) GetQueryHistory(dbType string) []QueryHistoryEntry {
+	if a.historyDB == nil {
+		return []QueryHistoryEntry{}
+	}
+	entries, err := a.historyDB.GetQueries(dbType)
+	if err != nil {
+		a.logEvent("ERROR", fmt.Sprintf("Failed to get query history: %v", err))
+		return []QueryHistoryEntry{}
+	}
+	return entries
+}
+
+func (a *App) ToggleFavoriteQuery(id int, isFavorite bool) string {
+	if a.historyDB == nil {
+		return "HistoryDB not initialized"
+	}
+	err := a.historyDB.ToggleFavorite(id, isFavorite)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) DeleteQueryHistory(id int) string {
+	if a.historyDB == nil {
+		return "HistoryDB not initialized"
+	}
+	err := a.historyDB.DeleteQuery(id)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) ClearQueryHistory() string {
+	if a.historyDB == nil {
+		return "HistoryDB not initialized"
+	}
+	_, err := a.historyDB.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0`)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
