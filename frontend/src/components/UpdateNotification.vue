@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
-import { CheckForUpdates, OpenDownloadURL, GetCurrentVersion } from '../../wailsjs/go/main/App';
+import { CheckForUpdates, OpenDownloadURL, GetCurrentVersion, PerformUpdate } from '../../wailsjs/go/main/App';
 import Toast from './Toast.vue';
 
 interface UpdateInfo {
@@ -32,7 +32,7 @@ onUnmounted(() => {
 
 const showUpdateToast = (info: UpdateInfo) => {
     if (!toastRef.value) return;
-    
+
     if (info.available) {
         toastRef.value.info(
             info.releaseNotes ? `${info.releaseNotes.substring(0, 120)}${info.releaseNotes.length > 120 ? '...' : ''}` : 'A new version is available.',
@@ -68,7 +68,33 @@ const manualCheck = async () => {
 
 const downloadUpdate = async () => {
     if (updateInfo.value?.downloadURL) {
-        await OpenDownloadURL(updateInfo.value.downloadURL);
+        const url = updateInfo.value.downloadURL;
+        if (!toastRef.value) return;
+
+        const loadingId = toastRef.value.info(
+            'Downloading and installing the update...',
+            '🔄 Updating...',
+            0 // keep open
+        );
+
+        try {
+            await PerformUpdate(url);
+            toastRef.value.remove(loadingId);
+            toastRef.value.success(
+                'The update has been installed successfully. Please restart the application to apply changes.',
+                '✅ Update Complete',
+                0 // Keep open until app restarts
+            );
+        } catch (err: any) {
+            toastRef.value.remove(loadingId);
+            toastRef.value.error(
+                err.toString() || 'Failed to apply the update',
+                '❌ Update Failed',
+                10000
+            );
+            // Fallback to opening browser
+            await OpenDownloadURL(url);
+        }
     }
 };
 

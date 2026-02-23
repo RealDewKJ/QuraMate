@@ -237,8 +237,19 @@
                 </div>
             </div>
 
-            <!-- Disconnect Button -->
-            <div class="p-4 border-t border-border">
+            <!-- Settings and Disconnect Buttons -->
+            <div class="p-4 border-t border-border flex flex-col gap-2">
+                <button @click="isSettingsOpen = true"
+                    class="w-full flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-settings">
+                        <path
+                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Settings
+                </button>
                 <button @click="disconnect"
                     class="w-full flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive text-sm font-medium py-2 px-4 rounded-md transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -302,7 +313,8 @@
                     :style="{ height: activeTab.editorHeight + 'px' }">
                     <div class="relative w-full flex-1 min-h-0">
                         <SqlEditor ref="sqlEditorRef" v-model="activeTab.query" :tables="tables"
-                            :get-columns="fetchTableColumns" />
+                            :get-columns="fetchTableColumns" :font-family="editorSettings.fontFamily"
+                            :font-size="editorSettings.fontSize" />
 
                         <!-- Char count overlay -->
                         <div class="absolute bottom-1 right-3 z-10 flex items-center gap-2 pointer-events-none">
@@ -1231,6 +1243,7 @@
             </div>
         </div>
         <Toast ref="toastRef" />
+        <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
     </div>
 </template>
 
@@ -1244,8 +1257,30 @@ import SqlEditor from './SqlEditor.vue';
 import ERDiagram from './ERDiagram.vue';
 import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
+import SettingsDialog from './SettingsDialog.vue';
 
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
+const isSettingsOpen = ref(false);
+
+// Global settings state
+const editorSettings = ref({
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 14
+});
+
+const handleSettingsSave = (newSettings: any) => {
+    // Update local editor settings
+    if (newSettings && newSettings.editor) {
+        editorSettings.value.fontFamily = newSettings.editor.fontFamily;
+        editorSettings.value.fontSize = newSettings.editor.fontSize;
+    }
+
+    // Currently using toast. Eventually tie this to the backend
+    if (toastRef.value) {
+        // @ts-ignore
+        toastRef.value.showError('Settings saved! Note: Changes are currently local-only until backend is ready.', 3000);
+    }
+};
 
 const props = defineProps<{
     connectionId: string;

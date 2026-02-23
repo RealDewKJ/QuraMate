@@ -76,9 +76,19 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-background text-foreground">
+  <div class="h-screen flex flex-col text-foreground relative overflow-hidden bg-background">
+    <!-- Background Gradient Decorators -->
+    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+      <div
+        class="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-orange-500/10 dark:bg-orange-500/5 blur-[120px]">
+      </div>
+      <div
+        class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-orange-400/10 dark:bg-orange-400/5 blur-[150px]">
+      </div>
+    </div>
+
     <!-- Tab Bar -->
-    <div class="flex items-center bg-muted/20 border-b border-border">
+    <div class="flex items-center bg-background/80 backdrop-blur-sm border-b border-border z-10">
       <div class="flex items-center overflow-x-auto flex-1">
         <button @click="switchToHome"
           class="flex items-center px-4 py-3 text-sm font-medium border-r border-border transition-colors hover:bg-muted/50 focus:outline-none"
@@ -128,7 +138,7 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
     </div>
 
     <!-- Content Area -->
-    <div class="flex-1 overflow-hidden relative">
+    <div class="flex-1 overflow-hidden relative z-10">
       <div v-show="activeTabId === null" class="h-full overflow-auto">
         <DbConnection :activeConnections="connections" @connected="handleConnected"
           @connection-exists="handleConnectionExists" @connection-updated="handleConnectionUpdate" />

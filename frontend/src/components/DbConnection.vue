@@ -96,12 +96,30 @@
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="password">Password</label>
                                 <div class="relative">
-                                    <input v-model="config.password" id="password" :type="showPassword ? 'text' : 'password'"
+                                    <input v-model="config.password" id="password"
+                                        :type="showPassword ? 'text' : 'password'"
                                         class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                     <button type="button" @click="showPassword = !showPassword"
                                         class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                                        <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
-                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                                        <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16"
+                                            height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                            class="lucide lucide-eye">
+                                            <path
+                                                d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round"
+                                            class="lucide lucide-eye-off">
+                                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                                            <path
+                                                d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                                            <path
+                                                d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                                            <line x1="2" x2="22" y1="2" y2="22" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -117,7 +135,8 @@
                         <div class="space-y-2">
                             <label class="text-sm font-medium leading-none" for="filepath">Database File Path</label>
                             <div class="flex items-center space-x-2">
-                                <input v-model="config.database" id="filepath" type="text" placeholder="/path/to/db.sqlite"
+                                <input v-model="config.database" id="filepath" type="text"
+                                    placeholder="/path/to/db.sqlite"
                                     class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                 <button type="button" @click="handleSelectSqliteFile"
                                     class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
@@ -161,12 +180,30 @@
                             <div class="space-y-2">
                                 <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
                                 <div class="relative">
-                                    <input v-model="config.sshPassword" id="sshPassword" :type="showSshPassword ? 'text' : 'password'"
+                                    <input v-model="config.sshPassword" id="sshPassword"
+                                        :type="showSshPassword ? 'text' : 'password'"
                                         class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                                     <button type="button" @click="showSshPassword = !showSshPassword"
                                         class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
-                                        <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
-                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                                        <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16"
+                                            height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                            class="lucide lucide-eye">
+                                            <path
+                                                d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round"
+                                            class="lucide lucide-eye-off">
+                                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                                            <path
+                                                d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                                            <path
+                                                d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                                            <line x1="2" x2="22" y1="2" y2="22" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -278,25 +315,28 @@
                                 <div class="flex items-center gap-3 overflow-hidden">
                                     <div
                                         class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <svg v-if="conn.type === 'postgres' || conn.type === 'greenplum' || conn.type === 'redshift' || conn.type === 'cockroachdb'" xmlns="http://www.w3.org/2000/svg"
-                                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        <svg v-if="conn.type === 'postgres' || conn.type === 'greenplum' || conn.type === 'redshift' || conn.type === 'cockroachdb'"
+                                            xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-database">
                                             <ellipse cx="12" cy="5" rx="9" ry="3" />
                                             <path d="M3 5V19A9 3 0 0 0 21 19V5" />
                                             <path d="M3 12A9 3 0 0 0 21 12" />
                                         </svg>
-                                        <svg v-else-if="conn.type === 'mysql' || conn.type === 'mariadb' || conn.type === 'databend'" xmlns="http://www.w3.org/2000/svg"
-                                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        <svg v-else-if="conn.type === 'mysql' || conn.type === 'mariadb' || conn.type === 'databend'"
+                                            xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-database">
                                             <ellipse cx="12" cy="5" rx="9" ry="3" />
                                             <path d="M3 5V19A9 3 0 0 0 21 19V5" />
                                             <path d="M3 12A9 3 0 0 0 21 12" />
                                         </svg>
-                                        <svg v-else-if="conn.type === 'sqlite' || conn.type === 'duckdb' || conn.type === 'libsql'" xmlns="http://www.w3.org/2000/svg"
-                                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        <svg v-else-if="conn.type === 'sqlite' || conn.type === 'duckdb' || conn.type === 'libsql'"
+                                            xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round"
                                             class="lucide lucide-file-code">
                                             <path d="M10 12.5 8 15l2 2.5" />
                                             <path d="m14 12.5 2 2.5-2 2.5" />
@@ -316,7 +356,7 @@
                                         <span class="text-sm font-medium truncate">{{ getConnectionLabel(conn) }}</span>
                                         <span class="text-xs text-muted-foreground truncate">{{ conn.host }}:{{
                                             conn.port
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </div>
                                 <button @click.stop="removeConnection(index)"

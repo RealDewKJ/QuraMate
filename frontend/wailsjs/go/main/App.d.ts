@@ -46,6 +46,8 @@ export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5
 
 export function OpenDownloadURL(arg1:string):Promise<string>;
 
+export function PerformUpdate(arg1:string):Promise<void>;
+
 export function SelectExportFile(arg1:string):Promise<string>;
 
 export function SelectImportFile():Promise<string>;

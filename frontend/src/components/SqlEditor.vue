@@ -35,6 +35,8 @@ const props = defineProps<{
     tables?: string[];
     readOnly?: boolean;
     theme?: string; // 'vs', 'vs-dark', 'hc-black'
+    fontFamily?: string;
+    fontSize?: number;
     getColumns?: (tableName: string) => Promise<string[]>;
 }>();
 
@@ -74,8 +76,8 @@ onMounted(() => {
             automaticLayout: true,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            fontSize: 14,
-            fontFamily: 'Consolas, "Courier New", monospace',
+            fontSize: props.fontSize || 14,
+            fontFamily: props.fontFamily || 'Consolas, "Courier New", monospace',
             padding: { top: 10, bottom: 10 },
             lineNumbers: 'on',
             renderLineHighlight: 'all',
@@ -123,6 +125,16 @@ watch(() => props.tables, () => {
 watch(() => props.theme, (newTheme) => {
     if (editor && newTheme) {
         monaco.editor.setTheme(newTheme);
+    }
+});
+
+// Watch for font settings changes
+watch(() => [props.fontFamily, props.fontSize], ([newFontFamily, newFontSize]) => {
+    if (editor) {
+        editor.updateOptions({
+            fontFamily: newFontFamily as string || 'Consolas, "Courier New", monospace',
+            fontSize: newFontSize as number || 14
+        });
     }
 });
 

@@ -35,7 +35,7 @@
                 <div class="flex-1 min-w-0">
                     <p v-if="toast.title" class="text-sm font-semibold text-foreground">{{ toast.title }}</p>
                     <p class="text-sm text-muted-foreground" :class="{ 'mt-0.5': toast.title }">{{ toast.message }}</p>
-                    <button v-if="toast.action" @click="toast.action.onClick(toast.id)" 
+                    <button v-if="toast.action" @click="toast.action.onClick(toast.id)"
                         class="mt-2 text-xs font-semibold px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors w-fit cursor-pointer border border-primary/20">
                         {{ toast.action.label }}
                     </button>
@@ -85,6 +85,7 @@ const addToast = (type: Toast['type'], message: string, title?: string, duration
     if (duration > 0) {
         setTimeout(() => removeToast(id), duration);
     }
+    return id;
 };
 
 const removeToast = (id: number) => {

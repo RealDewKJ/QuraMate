@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -12,7 +14,7 @@ import (
 
 // AppVersion is the current version of the application.
 // Update this on each release.
-const AppVersion = "1.0.0"
+const AppVersion = "0.9.0"
 
 // GitHubRepo is the GitHub repository for update checks.
 const GitHubRepo = "RealDewKJ/QuraMate"
@@ -88,13 +90,26 @@ func (a *App) CheckForUpdates() UpdateInfo {
 		info.ReleaseNotes = release.Body
 		info.PublishedAt = release.PublishedAt
 
-		// Try to find a Windows installer/exe asset, fallback to HTML URL
+		// Try to find the correct asset for the current OS
 		info.DownloadURL = release.HTMLURL
 		for _, asset := range release.Assets {
 			name := strings.ToLower(asset.Name)
-			if strings.HasSuffix(name, ".exe") || strings.HasSuffix(name, ".msi") || strings.HasSuffix(name, ".zip") {
-				info.DownloadURL = asset.BrowserDownloadURL
-				break
+			if runtime.GOOS == "windows" {
+				if strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, "windows.zip") || strings.HasSuffix(name, "win.zip") {
+					info.DownloadURL = asset.BrowserDownloadURL
+					break
+				}
+			} else if runtime.GOOS == "darwin" {
+				if strings.HasSuffix(name, "macos-universal.zip") || strings.HasSuffix(name, "darwin.zip") || strings.HasSuffix(name, ".dmg") {
+					info.DownloadURL = asset.BrowserDownloadURL
+					break
+				}
+			} else if runtime.GOOS == "linux" {
+				// Add linux matching if needed
+				if strings.HasSuffix(name, "linux.zip") || strings.HasSuffix(name, ".tar.gz") {
+					info.DownloadURL = asset.BrowserDownloadURL
+					break
+				}
 			}
 		}
 	} else {
@@ -162,4 +177,63 @@ func parseVersionPart(s string) int {
 		}
 	}
 	return n
+}
+
+// PerformUpdate downloads the update from the provided URL, saves it to a temp file, and runs the installer.
+func (a *App) PerformUpdate(downloadURL string) error {
+	client := &http.Client{Timeout: 5 * time.Minute} // Large timeout for download
+	req, err := http.NewRequest("GET", downloadURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to download update: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code downloading update: %d", resp.StatusCode)
+	}
+
+	// Create a temporary file to save the installer
+	tmpFile, err := os.CreateTemp("", "QuraMate-Update-*.exe")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	// Copy the downloaded data into the temp file
+	_, err = io.Copy(tmpFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save update file: %w", err)
+	}
+
+	// Make sure everything is written to disk
+	tmpFile.Sync()
+	tmpFile.Close()
+
+	installerPath := tmpFile.Name()
+
+	// Execute the installer using OS-specific launcher to handle elevation prompts (UAC on Windows)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Run the installer normally (UI visible but automated via NSIS script)
+		cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
+	} else if runtime.GOOS == "darwin" {
+		cmd = exec.Command("open", installerPath)
+	} else {
+		cmd = exec.Command("xdg-open", installerPath)
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start installer: %w", err)
+	}
+
+	// Exit the current app so the installer can overwrite the files
+	os.Exit(0)
+
+	return nil
 }

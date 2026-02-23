@@ -90,6 +90,10 @@ export function OpenDownloadURL(arg1) {
   return window['go']['main']['App']['OpenDownloadURL'](arg1);
 }
 
+export function PerformUpdate(arg1) {
+  return window['go']['main']['App']['PerformUpdate'](arg1);
+}
+
 export function SelectExportFile(arg1) {
   return window['go']['main']['App']['SelectExportFile'](arg1);
 }
