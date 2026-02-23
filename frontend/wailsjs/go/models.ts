@@ -77,6 +77,7 @@ export namespace main {
 	    user: string;
 	    password: string;
 	    database: string;
+	    encoding?: string;
 	    readOnly: boolean;
 	    sshEnabled: boolean;
 	    sshHost: string;
@@ -98,6 +99,7 @@ export namespace main {
 	        this.user = source["user"];
 	        this.password = source["password"];
 	        this.database = source["database"];
+	        this.encoding = source["encoding"];
 	        this.readOnly = source["readOnly"];
 	        this.sshEnabled = source["sshEnabled"];
 	        this.sshHost = source["sshHost"];

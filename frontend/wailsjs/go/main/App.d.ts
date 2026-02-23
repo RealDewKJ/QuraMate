@@ -42,6 +42,8 @@ export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntry>>;
 
+export function GetRoutineDefinition(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function GetStoredProcedures(arg1:string):Promise<Array<string>>;
 
 export function GetTableDefinition(arg1:string,arg2:string):Promise<Array<main.ColumnDefinition>>;

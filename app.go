@@ -252,6 +252,22 @@ func (a *App) GetFunctions(connectionID string) []string {
 	return funcs
 }
 
+func (a *App) GetRoutineDefinition(connectionID string, name string, routineType string) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Error: Connection not found"
+	}
+
+	def, err := db.GetRoutineDefinition(name, routineType)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return def
+}
+
 // Result struct to return both data and error message if any
 type QueryResult struct {
 	ResultSets []ResultSet `json:"resultSets"` // Changed from Data/Columns
@@ -416,6 +432,21 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 			}
 
 			columns, _ := rows.Columns()
+			colTypes, _ := rows.ColumnTypes()
+			var columnMetas []ColumnMetadata
+			if len(colTypes) > 0 {
+				columnMetas = make([]ColumnMetadata, len(colTypes))
+				for i, ct := range colTypes {
+					length, _ := ct.Length()
+					nullable, _ := ct.Nullable()
+					columnMetas[i] = ColumnMetadata{
+						Name:     ct.Name(),
+						Type:     ct.DatabaseTypeName(),
+						Length:   length,
+						Nullable: nullable,
+					}
+				}
+			}
 
 			if len(columns) > 0 {
 				nCols := len(columns)
@@ -444,7 +475,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 					for i := 0; i < nCols; i++ {
 						val := *scanPtrs[i]
 						if b, ok := val.([]byte); ok {
-							row[i] = string(b)
+							row[i] = decodeValue(b, db.Encoding)
 						} else {
 							row[i] = val
 						}
@@ -472,6 +503,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 								}
 								runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 									Columns:      columns,
+									ColumnTypes:  columnMetas,
 									Rows:         buffer[i:end],
 									ResultSetIdx: resultSetIdx,
 									BatchIndex:   i / batchSize,
@@ -488,6 +520,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 						if len(buffer) >= batchSize {
 							runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 								Columns:      columns,
+								ColumnTypes:  columnMetas,
 								Rows:         buffer,
 								ResultSetIdx: resultSetIdx,
 								BatchIndex:   -1,
@@ -517,6 +550,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 						}
 						runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 							Columns:      columns,
+							ColumnTypes:  columnMetas,
 							Rows:         buffer[i:end],
 							ResultSetIdx: resultSetIdx,
 							BatchIndex:   i / batchSize,
@@ -526,6 +560,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 					if len(buffer) > 0 {
 						runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 							Columns:      columns,
+							ColumnTypes:  columnMetas,
 							Rows:         buffer,
 							ResultSetIdx: resultSetIdx,
 							BatchIndex:   -1,
@@ -548,6 +583,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 				})
 				runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 					Columns:      nil,
+					ColumnTypes:  nil,
 					Rows:         nil,
 					ResultSetIdx: resultSetIdx,
 					BatchIndex:   0,
@@ -658,7 +694,7 @@ func (a *App) ExportTable(connectionID string, tableName string, format string, 
 	case "sql":
 		exportErr = a.exportToSQL(tableName, data, columns, filePath)
 	case "excel":
-		exportErr = a.exportToExcel(tableName, data, columns, filePath)
+		exportErr = a.exportToExcel(data, columns, filePath)
 	default:
 		return fmt.Sprintf("Unsupported format: %s", format)
 	}
@@ -755,7 +791,7 @@ func (a *App) exportToSQL(tableName string, data [][]interface{}, columns []stri
 	return nil
 }
 
-func (a *App) exportToExcel(tableName string, data [][]interface{}, columns []string, filePath string) error {
+func (a *App) exportToExcel(data [][]interface{}, columns []string, filePath string) error {
 	f := excelize.NewFile()
 	sheetName := "Sheet1"
 	index, err := f.NewSheet(sheetName)
@@ -815,7 +851,7 @@ func (a *App) ImportTable(connectionID string, tableName string, format string, 
 	case "csv":
 		importErr = a.importFromCSV(db, tx, tableName, filePath)
 	case "sql":
-		importErr = a.importFromSQL(db, tx, filePath)
+		importErr = a.importFromSQL(tx, filePath)
 	case "excel":
 		importErr = a.importFromExcel(db, tx, tableName, filePath)
 	default:
@@ -896,7 +932,7 @@ func (a *App) importFromCSV(db *Database, tx *sql.Tx, tableName string, filePath
 	return nil
 }
 
-func (a *App) importFromSQL(db *Database, tx *sql.Tx, filePath string) error {
+func (a *App) importFromSQL(tx *sql.Tx, filePath string) error {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return err

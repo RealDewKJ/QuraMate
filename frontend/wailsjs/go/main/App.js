@@ -82,6 +82,10 @@ export function GetQueryHistory(arg1) {
   return window['go']['main']['App']['GetQueryHistory'](arg1);
 }
 
+export function GetRoutineDefinition(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetRoutineDefinition'](arg1, arg2, arg3);
+}
+
 export function GetStoredProcedures(arg1) {
   return window['go']['main']['App']['GetStoredProcedures'](arg1);
 }

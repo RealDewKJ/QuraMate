@@ -2,7 +2,10 @@
     <div class="flex h-full bg-background text-foreground font-sans">
         <!-- Sidebar -->
         <div class="w-64 border-r border-border bg-card flex flex-col transition-all duration-300">
-            <div class="p-4 border-b border-border flex items-center gap-2">
+            <div 
+                class="p-4 border-b border-border flex items-center gap-2 cursor-pointer hover:bg-accent/50 transition-colors"
+                @contextmenu.prevent="openDbContextMenu($event)"
+            >
                 <div class="h-6 w-6 rounded bg-primary flex items-center justify-center text-primary-foreground">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -12,7 +15,9 @@
                         <path d="M3 12A9 3 0 0 0 21 12" />
                     </svg>
                 </div>
-                <span class="font-semibold tracking-tight">Tables</span>
+                <span class="font-semibold tracking-tight truncate flex-1" :title="connectionName || dbType || 'Database'">
+                    {{ connectionName || dbType || 'Database' }}
+                </span>
             </div>
 
             <!-- Removed top search bar, moved inside Tables folder -->
@@ -22,6 +27,7 @@
                     <!-- Tables Folder -->
                     <div>
                         <div @click="toggleFolder('Tables')"
+                            @contextmenu.prevent="openFolderContextMenu($event, 'Tables')"
                             class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -79,6 +85,7 @@
                     <!-- Views Folder -->
                     <div>
                         <div @click="toggleFolder('Views')"
+                            @contextmenu.prevent="openFolderContextMenu($event, 'Views')"
                             class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -119,6 +126,7 @@
                     <!-- Programmability Folder -->
                     <div>
                         <div @click="toggleFolder('Programmability')"
+                            @contextmenu.prevent="openFolderContextMenu($event, 'Programmability')"
                             class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -141,6 +149,7 @@
                             <!-- Stored Procedures -->
                             <div>
                                 <div @click="toggleFolder('Stored Procedures')"
+                                    @contextmenu.prevent="openFolderContextMenu($event, 'Stored Procedures')"
                                     class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -163,6 +172,7 @@
                                     <ul class="space-y-0.5">
                                         <li v-for="sp in filteredStoredProcedures" :key="sp"
                                             class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                                            @click="selectRoutine(sp, 'PROCEDURE')"
                                             @contextmenu.prevent="openRoutineContextMenu($event, sp, 'PROCEDURE')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -185,6 +195,7 @@
                             <!-- Functions -->
                             <div>
                                 <div @click="toggleFolder('Functions')"
+                                    @contextmenu.prevent="openFolderContextMenu($event, 'Functions')"
                                     class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors select-none">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -207,6 +218,7 @@
                                     <ul class="space-y-0.5">
                                         <li v-for="fn in filteredFunctions" :key="fn"
                                             class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
+                                            @click="selectRoutine(fn, 'FUNCTION')"
                                             @contextmenu.prevent="openRoutineContextMenu($event, fn, 'FUNCTION')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -429,6 +441,19 @@
                             Beautify
                         </button>
 
+                        <button v-if="activeTab.isRoutine" @click="handleSaveRoutine" :disabled="activeTab.isLoading"
+                            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 h-9 px-4 py-2 shadow-sm"
+                            title="Save / Update Routine">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-save mr-2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                <polyline points="17 21 17 13 7 13 7 21" />
+                                <polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            Save
+                        </button>
+
                         <button v-if="activeTab.isLoading" @click="stopQuery"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -551,7 +576,8 @@
                                             <tr>
                                                 <th v-for="col in activeTab.resultSets[0].columns" :key="col"
                                                     scope="col"
-                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] cursor-pointer hover:bg-muted/80 select-none"
+                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
+                                                    :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     @click="toggleSort(col)">
                                                     <div class="flex flex-col gap-2">
                                                         <div class="flex items-center justify-between gap-2">
@@ -590,6 +616,9 @@
                                                             class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text placeholder:text-muted-foreground/70"
                                                             @click.stop />
                                                     </div>
+                                                    <!-- Column Resizer -->
+                                                    <div class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 opacity-0 group-hover/th:opacity-100 transition-opacity z-20"
+                                                        @mousedown.stop="startColumnResize($event, col)"></div>
                                                 </th>
                                             </tr>
                                         </thead>
@@ -600,7 +629,8 @@
                                                 :class="selectedRowIndex === item.index ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === item.index ? null : item.index">
                                                 <td v-for="col in activeTab.resultSets[0].columns" :key="col"
-                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative"
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden"
+                                                    :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
                                                     @dblclick="handleCellClick(item, col)"
                                                     @contextmenu.prevent="handleRowContextMenu($event, item.data, col)">
@@ -614,7 +644,7 @@
                                                             @keydown.enter="saveCellEdit(item, col)"
                                                             @keydown.esc="activeTab.editingCell = null" />
                                                     </div>
-                                                    <span v-else class="truncate block max-w-[300px]"
+                                                    <span v-else class="truncate block"
                                                         :title="String(item.data[col])">
                                                         {{ item.data[col] === null ? 'NULL' : item.data[col] }}
                                                     </span>
@@ -664,8 +694,12 @@
                                             class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
                                             <tr>
                                                 <th v-for="col in resultSet.columns" :key="col"
-                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[150px] select-none">
+                                                    class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] select-none relative group/th"
+                                                    :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }">
                                                     {{ col }}
+                                                    <!-- Column Resizer -->
+                                                    <div class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 opacity-0 group-hover/th:opacity-100 transition-opacity z-20"
+                                                        @mousedown.stop="startColumnResize($event, col)"></div>
                                                 </th>
                                             </tr>
                                         </thead>
@@ -675,9 +709,10 @@
                                                 :class="selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? null : `sub-${rsIndex}-${rIndex}`">
                                                 <td v-for="col in resultSet.columns" :key="col"
-                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border"
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border overflow-hidden"
+                                                    :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     @contextmenu.prevent="handleRowContextMenu($event, row, col)">
-                                                    <span class="truncate block max-w-[300px]"
+                                                    <span class="truncate block"
                                                         :title="String(row[col])">
                                                         {{ row[col] === null ? 'NULL' : row[col] }}
                                                     </span>
@@ -843,10 +878,10 @@
                 </button>
             </div>
         </div>
-        <!-- Context Menu -->
-        <div v-if="showContextMenu"
+        <!-- Context Menu for Tables -->
+        <div v-if="contextMenu.show"
             class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
-            :style="{ top: `${contextMenuPosition.y}px`, left: `${contextMenuPosition.x}px` }">
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -857,7 +892,8 @@
                 </svg>
                 Select Top 100
             </button>
-            <button @click="handleViewDesign"
+            <!-- Original View Design button, now replaced by Design Table -->
+            <!-- <button @click="handleViewDesign"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -868,8 +904,8 @@
                     <circle cx="11" cy="11" r="2" />
                 </svg>
                 View Design
-            </button>
-            <!-- <button @click="handleViewERDiagram"
+            </button> -->
+            <button @click="handleViewERDiagram"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -881,7 +917,7 @@
                     <path d="M12 12V8" />
                 </svg>
                 View ER Diagram
-            </button> -->
+            </button>
             <button @click="handleViewDesign"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -916,13 +952,12 @@
                 </svg>
                 Import Data
             </button>
-
         </div>
 
         <!-- View Context Menu -->
-        <div v-if="showViewContextMenu"
+        <div v-if="contextMenu.showView"
             class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
-            :style="{ top: `${contextMenuPosition.y}px`, left: `${contextMenuPosition.x}px` }">
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100View"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -946,10 +981,32 @@
             </button>
         </div>
 
+        <!-- Database Context Menu -->
+        <div v-if="contextMenu.showDb"
+            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100"
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
+            <button @click="refreshDatabase"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Refresh
+            </button>
+            <button @click="addTab"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal-square"><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>
+                New Query
+            </button>
+            <div class="h-px bg-border my-1"></div>
+            <button @click="disconnect"
+                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                Disconnect
+            </button>
+        </div>
+
         <!-- Routine Context Menu -->
-        <div v-if="showRoutineContextMenu"
+        <div v-if="contextMenu.showRoutine"
             class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
-            :style="{ top: `${contextMenuPosition.y}px`, left: `${contextMenuPosition.x}px` }">
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleScriptRoutine"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -960,13 +1017,74 @@
                 </svg>
                 Script as Create
             </button>
-            <!-- Add Execute option later if needed -->
+            <button @click="handleExecuteRoutine"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-play">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                Execute
+            </button>
+            <button @click="handleDuplicateRoutine"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-copy">
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+                Duplicate
+            </button>
+            <div class="h-px bg-border my-1"></div>
+            <button @click="handleDeleteRoutine"
+                class="w-full text-left px-3 py-1.5 text-sm hover:text-destructive hover:bg-destructive/10 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-trash-2">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    <line x1="10" x2="10" y1="11" y2="17" />
+                    <line x1="14" x2="14" y1="11" y2="17" />
+                </svg>
+                Delete
+            </button>
+        </div>
+
+        <!-- Folder Context Menu -->
+        <div v-if="contextMenu.showFolder"
+            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100"
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
+            <button @click="handleFolderRefresh"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Refresh {{ contextMenu.targetFolder }}
+            </button>
+            <div v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'" class="h-px bg-border my-1"></div>
+            <button v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'" @click="handleNewRoutine('PROCEDURE')"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                New Procedure
+            </button>
+            <div v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'" class="h-px bg-border my-1"></div>
+            <button v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'" @click="handleNewRoutine('FUNCTION')"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                New Function
+            </button>
+            <div class="h-px bg-border my-1"></div>
+            <button @click="handleFolderCollapse"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-closed"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                Collapse
+            </button>
         </div>
 
         <!-- Row Context Menu -->
-        <div v-if="showRowContextMenu"
+        <div v-if="contextMenu.showRow"
             class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
-            :style="{ top: `${rowContextMenuPosition.y}px`, left: `${rowContextMenuPosition.x}px` }">
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleCopyRow"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -1261,18 +1379,29 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, computed, watch, nextTick, markRaw } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, UpdateRecord, GetForeignKeys, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory } from '../../wailsjs/go/main/App';
+import { ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
+
+// Components
 import SqlEditor from './SqlEditor.vue';
 import ERDiagram from './ERDiagram.vue';
 import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
+
+// Composables
 import { isDarkTheme } from '../composables/useTheme';
+import { useTabs } from '../composables/useTabs';
+import { useSidebar } from '../composables/useSidebar';
+import { useRecordOperations } from '../composables/useRecordOperations';
+
+// Types
+import { QueryTab, ContextMenuState } from '../types/dashboard';
+import { ColumnMetadata, ResultSet } from '../types/database';
 
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
@@ -1315,6 +1444,9 @@ const handleSettingsSave = (newSettings: any) => {
     }
 };
 
+// Emits/Props setup
+const emit = defineEmits(['disconnect']);
+
 const props = defineProps<{
     connectionId: string;
     connectionName?: string;
@@ -1322,66 +1454,70 @@ const props = defineProps<{
     isReadOnly?: boolean;
 }>();
 
-const emit = defineEmits(['disconnect']);
+// --- Composable: Tabs ---
+const {
+    tabs,
+    activeTabId,
+    activeTab,
+    addTab,
+    closeTab,
+    generateId
+} = useTabs();
 
-interface CellEdit {
-    rowId: any; // Using row index or joined PK values as ID
-    col: string;
-    value: any;
-}
+// --- Composable: Sidebar ---
+const {
+    tableSearch,
+    tables,
+    views,
+    storedProcedures,
+    functions,
+    openFolders,
+    toggleFolder,
+    filteredTables,
+    filteredViews,
+    filteredStoredProcedures,
+    filteredFunctions,
+    loadTables,
+    refreshTables,
+    refreshViews,
+    refreshStoredProcedures,
+    refreshFunctions
+} = useSidebar(props.connectionId);
 
+// --- Composable: Record Operations ---
+const {
+    updateConfirmation,
+    insertRowModal,
+    isEditable,
+    initiateQuickUpdate,
+    confirmUpdate,
+    openInsertRowModal,
+    toggleInsertNull,
+    confirmInsertRow,
+    getInputType,
+    getNumberStep,
+    cancelInsertRow,
+    cancelUpdate
+} = useRecordOperations(
+    props.connectionId,
+    props.isReadOnly || false,
+    activeTab,
+    () => runQuery(), // Wrapped in arrow because runQuery is hoisted or defined later
+    toastRef
+);
 
-interface ResultSet {
-    columns: string[];
-    rows: any[];
-    message?: string;
-}
-
-interface QueryTab {
-    id: string;
-    name: string;
-    tableName?: string; // Store table name if it's a simple SELECT
-    query: string;
-    // results: any[]; // Deprecated, use resultSets
-    // columns: string[]; // Deprecated, use resultSets
-    resultSets: ResultSet[];
-    primaryKeys: string[];
-    filters: Record<string, string>;
-    sortColumn?: string;
-    sortDirection: 'asc' | 'desc' | null;
-    error: string;
-    isLoading: boolean;
-    isExplaining?: boolean; // Added for explain functionality
-    explanation?: string; // Added for explain functionality
-    queryExecuted: boolean;
-    executionTime?: number;
-    editingCell?: CellEdit | null;
-    isDesignView?: boolean;
-    isERView?: boolean;
-    relationships?: any[];
-    tablesData?: Record<string, { name: string, type: string }[]>;
-    activeQueryIds: string[];
-    resultViewTab: 'data' | 'messages' | 'analysis';
-    completionTime?: string;
-    totalRowCount?: number;
-    isPartialStats?: boolean;
-    fetchTime?: number;
-    editorHeight: number;
-}
-
-const tableSearch = ref('');
-const tables = ref<string[]>([]);
-const views = ref<string[]>([]);
-const storedProcedures = ref<string[]>([]);
-const functions = ref<string[]>([]);
-const tableSchemas = ref<Record<string, string[]>>({});
-const tabs = ref<QueryTab[]>([]);
-const activeTabId = ref<string | null>(null);
+// Other local state
 const sqlEditorRef = ref<any>(null);
 const selectedRowIndex = ref<number | string | null>(null);
+const tableSchemas = ref<Record<string, string[]>>({});
+
 
 // Resizing State
 const isResizing = ref(false);
+const isColumnResizing = ref(false);
+const resizingColumn = ref<string | null>(null);
+const startX = ref(0);
+const startWidth = ref(0);
 
 const startResizing = (e: MouseEvent) => {
     isResizing.value = true;
@@ -1412,316 +1548,184 @@ const stopResizing = () => {
     document.body.style.cursor = '';
 };
 
+// Column Resizing logic
+const startColumnResize = (e: MouseEvent, col: string) => {
+    if (!activeTab.value) return;
 
-// Sidebar State
-const openFolders = ref(['Tables']);
+    isColumnResizing.value = true;
+    resizingColumn.value = col;
+    startX.value = e.clientX;
 
-const toggleFolder = (folder: string) => {
-    if (openFolders.value.includes(folder)) {
-        openFolders.value = openFolders.value.filter(f => f !== folder);
+    // Default width if not set
+    if (!activeTab.value.columnWidths[col]) {
+        // Find the th element to get its current width
+        const th = (e.target as HTMLElement).closest('th');
+        startWidth.value = th ? th.offsetWidth : 150;
     } else {
-        openFolders.value.push(folder);
+        startWidth.value = activeTab.value.columnWidths[col];
+    }
+
+    document.addEventListener('mousemove', doColumnResize);
+    document.addEventListener('mouseup', stopColumnResize);
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+    e.stopPropagation();
+};
+
+const doColumnResize = (e: MouseEvent) => {
+    if (!isColumnResizing.value || !activeTab.value || !resizingColumn.value) return;
+
+    const deltaX = e.clientX - startX.value;
+    const newWidth = Math.max(50, startWidth.value + deltaX);
+
+    activeTab.value.columnWidths[resizingColumn.value] = newWidth;
+};
+
+const stopColumnResize = () => {
+    isColumnResizing.value = false;
+    resizingColumn.value = null;
+    document.removeEventListener('mousemove', doColumnResize);
+    document.removeEventListener('mouseup', stopColumnResize);
+    document.body.style.cursor = '';
+};
+
+
+// Sidebar filtered computed items are now in useSidebar
+
+// Context Menu State
+const contextMenu = reactive({
+    showDb: false,
+    showFolder: false,
+    show: false,
+    showRow: false,
+    showView: false,
+    showRoutine: false,
+    position: { x: 0, y: 0 },
+    targetTable: '',
+    targetRow: null as any,
+    targetColumn: '',
+    targetFolder: '',
+    targetView: '',
+    targetRoutine: '',
+    targetRoutineType: 'PROCEDURE' as 'PROCEDURE' | 'FUNCTION'
+});
+
+const openDbContextMenu = (event: MouseEvent) => {
+    closeContextMenu();
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.showDb = true;
+};
+
+const refreshDatabase = async () => {
+    closeContextMenu();
+    await loadTables();
+    if (toastRef.value) {
+        toastRef.value.success('Database refreshed successfully.');
     }
 };
 
-// Context Menu State
-const showContextMenu = ref(false);
-const contextMenuPosition = ref({ x: 0, y: 0 });
-const contextMenuTargetTable = ref('');
-
-// Row Context Menu State
-const showRowContextMenu = ref(false);
-const rowContextMenuPosition = ref({ x: 0, y: 0 });
-const contextMenuTargetRow = ref<any>(null);
-const contextMenuTargetColumn = ref('');
-
-const handleRowContextMenu = (event: MouseEvent, row: any, col: string) => {
-    contextMenuTargetRow.value = row;
-    contextMenuTargetColumn.value = col;
-    const { clientX, clientY } = event;
-    rowContextMenuPosition.value = { x: clientX, y: clientY };
-    showRowContextMenu.value = true;
-    showContextMenu.value = false; // Close sidebar menu
+const openFolderContextMenu = (event: MouseEvent, folderName: string) => {
+    closeContextMenu();
+    contextMenu.targetFolder = folderName;
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.showFolder = true;
 };
 
-const closeRowContextMenu = () => {
-    showRowContextMenu.value = false;
+const handleFolderRefresh = async () => {
+    closeContextMenu();
+    try {
+        if (contextMenu.targetFolder === 'Tables') {
+            await refreshTables();
+        } else if (contextMenu.targetFolder === 'Views') {
+            await refreshViews();
+        } else if (contextMenu.targetFolder === 'Programmability') {
+            await Promise.all([refreshStoredProcedures(), refreshFunctions()]);
+        }
+        if (toastRef.value) {
+            toastRef.value.success(`${contextMenu.targetFolder} refreshed successfully.`);
+        }
+    } catch (error) {
+        if (toastRef.value) {
+            toastRef.value.error(`Failed to refresh ${contextMenu.targetFolder}.`);
+        }
+    }
+};
+
+const handleFolderCollapse = () => {
+    closeContextMenu();
+    if (openFolders.value.includes(contextMenu.targetFolder)) {
+        openFolders.value = openFolders.value.filter(f => f !== contextMenu.targetFolder);
+    }
+};
+
+const openContextMenu = (event: MouseEvent, table: string) => {
+    closeContextMenu();
+    contextMenu.targetTable = table;
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.show = true;
+};
+
+const handleRowContextMenu = (event: MouseEvent, row: any, col: string) => {
+    closeContextMenu();
+    contextMenu.targetRow = row;
+    contextMenu.targetColumn = col;
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.showRow = true;
+};
+
+const openViewContextMenu = (event: MouseEvent, view: string) => {
+    closeContextMenu();
+    contextMenu.targetView = view;
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.showView = true;
+};
+
+const openRoutineContextMenu = (event: MouseEvent, routine: string, type: 'PROCEDURE' | 'FUNCTION') => {
+    closeContextMenu();
+    contextMenu.targetRoutine = routine;
+    contextMenu.targetRoutineType = type;
+    contextMenu.position = { x: event.clientX, y: event.clientY };
+    contextMenu.showRoutine = true;
+};
+
+const closeContextMenu = () => {
+    contextMenu.showDb = false;
+    contextMenu.showFolder = false;
+    contextMenu.show = false;
+    contextMenu.showRow = false;
+    contextMenu.showView = false;
+    contextMenu.showRoutine = false;
 };
 
 const handleCopyRow = () => {
-    if (contextMenuTargetRow.value) {
-        // Copy as Tab Separated Values to map to common spreadsheet behavior
-        // Or JSON? Let's try TSV which is good for pasting into Excel/Editors
-        // But JSON is safer for objects. Let's do TSV for now.
-        const values = Object.values(contextMenuTargetRow.value).map(v => v === null ? 'NULL' : String(v)).join('\t');
+    if (contextMenu.targetRow) {
+        const values = Object.values(contextMenu.targetRow).map(v => v === null ? 'NULL' : String(v)).join('\t');
         navigator.clipboard.writeText(values);
-        closeRowContextMenu();
+        closeContextMenu();
     }
 };
 
 const handleCopyCellValue = () => {
-    if (contextMenuTargetRow.value && contextMenuTargetColumn.value) {
-        const val = contextMenuTargetRow.value[contextMenuTargetColumn.value];
+    if (contextMenu.targetRow && contextMenu.targetColumn) {
+        const val = contextMenu.targetRow[contextMenu.targetColumn];
         const str = val === null ? 'NULL' : String(val);
         navigator.clipboard.writeText(str);
-        closeRowContextMenu();
+        closeContextMenu();
     }
 };
 
-const handleSetNull = () => {
-    initiateQuickUpdate(null);
-};
-
-const handleSetEmpty = () => {
-    initiateQuickUpdate('');
-};
-
-const handleSetDefault = () => {
-    initiateQuickUpdate({ _quramate_sql_default: true });
-};
-
-const initiateQuickUpdate = (newValue: any) => {
-    if (!contextMenuTargetRow.value || !contextMenuTargetColumn.value || !activeTab.value || !activeTab.value.tableName) return;
-
-    closeRowContextMenu();
-
-    const col = contextMenuTargetColumn.value;
-    const item = {
-        data: contextMenuTargetRow.value,
-        index: activeTab.value.resultSets && activeTab.value.resultSets[0] ? activeTab.value.resultSets[0].rows.indexOf(contextMenuTargetRow.value) : -1
-    };
-    // The index above might be imprecise if using virtual list with filtering, but getRowId logic handles strict PKs during update
-
-    // Check if editable
-    if (!isEditable(col)) {
-        toastRef.value?.error("This column cannot be edited (Primary Key or Read Only).");
-        return;
-    }
-
-    const originalValue = contextMenuTargetRow.value[col];
-
-    updateConfirmation.value = {
-        isOpen: true,
-        tableName: activeTab.value.tableName,
-        column: col,
-        originalValue: originalValue,
-        newValue: newValue,
-        rowIndex: item.index,
-        item: item // data reference
-    };
-};
-
-const formatValueForDisplay = (val: any) => {
-    if (val === null) return 'NULL';
-    if (typeof val === 'object' && val._quramate_sql_default) return '<DEFAULT>';
-    return String(val);
-};
-
-// Update Confirmation State
-const updateConfirmation = ref<{
-    isOpen: boolean;
-    tableName: string;
-    column: string;
-    originalValue: any;
-    newValue: any;
-    rowIndex: number;
-    item: any;
-} | null>(null);
-
-// Insert Row Modal State
-const insertRowModal = ref<{
-    isOpen: boolean;
-    tableName: string;
-    columns: string[];
-    columnDefs: Record<string, { type: string; nullable: boolean; autoIncrement: boolean; primaryKey: boolean }>;
-    values: Record<string, string>;
-    nullColumns: Record<string, boolean>;
-    isInserting: boolean;
-    error: string;
-} | null>(null);
-
-// Map SQL column type to HTML input type
-const getInputTypeForColumn = (sqlType: string): string => {
-    const t = sqlType.toLowerCase();
-
-    // Boolean
-    if (t === 'bit' || t === 'boolean' || t === 'bool' || t === 'tinyint(1)') return 'checkbox';
-
-    // Date only
-    if (t === 'date') return 'date';
-
-    // Date + Time
-    if (t.includes('datetime') || t.includes('timestamp') || t === 'smalldatetime' || t === 'datetime2') return 'datetime-local';
-
-    // Time only
-    if (t === 'time') return 'time';
-
-    // Integer types
-    if (t.includes('int') || t === 'serial' || t === 'bigserial' || t === 'smallserial'
-        || t === 'tinyint' || t === 'smallint' || t === 'mediumint' || t === 'bigint') return 'number';
-
-    // Decimal/float types
-    if (t.includes('decimal') || t.includes('numeric') || t.includes('float')
-        || t.includes('double') || t.includes('real') || t === 'money' || t === 'smallmoney') return 'number';
-
-    // Large text
-    if (t.includes('text') || t.includes('clob') || t === 'ntext' || t === 'mediumtext' || t === 'longtext') return 'textarea';
-
-    // Default: text input for varchar, char, nvarchar, uuid, json, xml, blob, binary, etc.
-    return 'text';
-};
-
-const getInputType = (col: string): string => {
-    if (!insertRowModal.value?.columnDefs[col]) return 'text';
-    return getInputTypeForColumn(insertRowModal.value.columnDefs[col].type);
-};
-
-const getNumberStep = (col: string): string => {
-    if (!insertRowModal.value?.columnDefs[col]) return 'any';
-    const t = insertRowModal.value.columnDefs[col].type.toLowerCase();
-    if (t.includes('int') || t === 'serial' || t === 'bigserial' || t === 'smallserial') return '1';
-    return 'any';
-};
-
-const getColDef = (col: string) => {
-    return insertRowModal.value?.columnDefs?.[col] || null;
-};
-
-const openInsertRowModal = async () => {
-    if (!activeTab.value || !activeTab.value.tableName || !activeTab.value.resultSets?.[0]?.columns) return;
-
-    const columns = activeTab.value.resultSets[0].columns;
-    const pks = activeTab.value.primaryKeys || [];
-    const values: Record<string, string> = {};
-    const nullColumns: Record<string, boolean> = {};
-    const columnDefs: Record<string, { type: string; nullable: boolean; autoIncrement: boolean; primaryKey: boolean }> = {};
-
-    // Fetch column definitions from backend
-    try {
-        const defs = await GetTableDefinition(props.connectionId, activeTab.value.tableName);
-        if (defs && defs.length > 0) {
-            for (const def of defs) {
-                columnDefs[def.name] = {
-                    type: def.type,
-                    nullable: def.nullable,
-                    autoIncrement: def.autoIncrement,
-                    primaryKey: def.primaryKey
-                };
-            }
-        }
-    } catch (e) {
-        console.warn('Failed to fetch column definitions', e);
-    }
-
-    for (const col of columns) {
-        const def = columnDefs[col];
-        const isAutoInc = def?.autoIncrement || false;
-        const isPK = pks.includes(col);
-
-        // Auto-increment or PK columns default to NULL
-        nullColumns[col] = isAutoInc || isPK;
-
-        // Set smart defaults based on type
-        if (def) {
-            const inputType = getInputTypeForColumn(def.type);
-            if (inputType === 'checkbox') {
-                values[col] = '0';
-            } else {
-                values[col] = '';
-            }
-        } else {
-            values[col] = '';
-        }
-    }
-
-    insertRowModal.value = {
-        isOpen: true,
-        tableName: activeTab.value.tableName,
-        columns: columns,
-        columnDefs: columnDefs,
-        values: values,
-        nullColumns: nullColumns,
-        isInserting: false,
-        error: ''
-    };
-
-    // Auto-focus the first visible input
-    nextTick(() => {
-        const firstInput = document.querySelector('.insert-row-input') as HTMLInputElement;
-        if (firstInput) firstInput.focus();
-    });
-};
-
-const toggleInsertNull = (col: string) => {
-    if (!insertRowModal.value) return;
-    insertRowModal.value.nullColumns[col] = !insertRowModal.value.nullColumns[col];
-    if (insertRowModal.value.nullColumns[col]) {
-        insertRowModal.value.values[col] = '';
-    }
-};
-
-const cancelInsertRow = () => {
-    insertRowModal.value = null;
-};
-
-const confirmInsertRow = async () => {
-    if (!insertRowModal.value || !activeTab.value) return;
-
-    insertRowModal.value.isInserting = true;
-    insertRowModal.value.error = '';
-
-    const { tableName, columns, values, nullColumns, columnDefs } = insertRowModal.value;
-
-    // Build INSERT statement
-    const insertCols: string[] = [];
-    const insertVals: string[] = [];
-
-    for (const col of columns) {
-        if (nullColumns[col]) {
-            insertCols.push(col);
-            insertVals.push('NULL');
-        } else {
-            insertCols.push(col);
-            const val = values[col];
-            const def = columnDefs[col];
-            const inputType = def ? getInputTypeForColumn(def.type) : 'text';
-
-            // Numbers and booleans don't need quotes
-            if (inputType === 'number' || inputType === 'checkbox') {
-                insertVals.push(val || '0');
-            } else {
-                // Escape single quotes in values
-                const escaped = val.replace(/'/g, "''");
-                insertVals.push(`'${escaped}'`);
-            }
-        }
-    }
-
-    const sql = `INSERT INTO ${tableName} (${insertCols.join(', ')}) VALUES (${insertVals.join(', ')})`;
-
-    try {
-        const res = await ExecuteTransientQuery(props.connectionId, sql);
-        if (res.error) {
-            insertRowModal.value.isInserting = false;
-            insertRowModal.value.error = res.error;
-            return;
-        }
-
-        // Success - close modal and refresh query
-        insertRowModal.value = null;
-        toastRef.value?.success('Row inserted successfully!');
-        runQuery();
-    } catch (e: any) {
-        if (insertRowModal.value) {
-            insertRowModal.value.isInserting = false;
-            insertRowModal.value.error = e.toString();
-        }
-    }
-};
+// Import Options State
+const showImportOptions = ref(false);
+const importOptions = ref({
+    filePath: '',
+    format: '',
+    tableName: '',
+    enableIdentityInsert: false
+});
 
 const handleExport = async () => {
-    if (!contextMenuTargetTable.value) return;
-    const tableName = contextMenuTargetTable.value;
+    if (!contextMenu.targetTable) return;
+    const tableName = contextMenu.targetTable;
 
     const result = await SelectExportFile(`${tableName}_export.json`);
 
@@ -1742,21 +1746,12 @@ const handleExport = async () => {
             toastRef.value?.error("Error exporting: " + e);
         }
     }
-    showContextMenu.value = false;
+    closeContextMenu();
 };
 
-// Import Options State
-const showImportOptions = ref(false);
-const importOptions = ref({
-    filePath: '',
-    format: '',
-    tableName: '',
-    enableIdentityInsert: false
-});
-
 const handleImport = async () => {
-    if (!contextMenuTargetTable.value) return;
-    const tableName = contextMenuTargetTable.value;
+    if (!contextMenu.targetTable) return;
+    const tableName = contextMenu.targetTable;
 
     const result = await SelectImportFile();
 
@@ -1774,7 +1769,7 @@ const handleImport = async () => {
         };
         showImportOptions.value = true;
     }
-    showContextMenu.value = false;
+    closeContextMenu();
 };
 
 const confirmImport = async () => {
@@ -1798,9 +1793,6 @@ const confirmImport = async () => {
     }
 };
 
-
-// Active Tab Helper
-const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value));
 
 // Virtual List Logic - Adapted for the first result set for now, or we need multiple virtual lists
 // For simplicity in this iteration, let's make the virtual list only apply to the first result set if it exists.
@@ -1907,41 +1899,7 @@ const getColumns = (tab: QueryTab) => {
     return [];
 };
 
-// ... (addTab update) ...
-const addTab = () => {
-    const newId = generateId();
-    tabCounter.value++;
-    tabs.value.push({
-        id: newId,
-        name: `Query ${tabCounter.value}`,
-        query: '',
-        resultSets: [],
-        primaryKeys: [],
-        filters: {},
-        sortColumn: undefined,
-        sortDirection: null,
-        error: '',
-        isLoading: false,
-        isExplaining: false,
-        explanation: undefined,
-        queryExecuted: false,
-        activeQueryIds: [],
-        resultViewTab: 'data',
-        totalRowCount: undefined,
-        isPartialStats: false,
-        editorHeight: 256
-    });
-    activeTabId.value = newId;
-};
-
-// ...
-
-
-const generateId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
-
-const tabCounter = ref(0);
+// Tab management moved to useTabs
 
 const toggleSort = (col: string) => {
     if (!activeTab.value) return;
@@ -1961,49 +1919,9 @@ const toggleSort = (col: string) => {
     }
 };
 
-const closeTab = (id: string) => {
-    const index = tabs.value.findIndex(t => t.id === id);
-    if (index !== -1) {
-        tabs.value.splice(index, 1);
-        if (activeTabId.value === id) {
-            if (tabs.value.length > 0) {
-                activeTabId.value = tabs.value[tabs.value.length - 1].id;
-            } else {
-                activeTabId.value = null;
-            }
-        }
-    }
-};
+// closeTab moved to useTabs
 
-const loadTables = async () => {
-    try {
-        const result = await GetTables(props.connectionId);
-        tables.value = (result || []).sort((a, b) => a.localeCompare(b));
-    } catch (e) {
-        console.error("Failed to load tables", e);
-    }
-
-    try {
-        const result = await GetViews(props.connectionId);
-        views.value = (result || []).sort((a, b) => a.localeCompare(b));
-    } catch (e) {
-        console.error("Failed to load views", e);
-    }
-
-    try {
-        const result = await GetStoredProcedures(props.connectionId);
-        storedProcedures.value = (result || []).sort((a, b) => a.localeCompare(b));
-    } catch (e) {
-        console.error("Failed to load stored procedures", e);
-    }
-
-    try {
-        const result = await GetFunctions(props.connectionId);
-        functions.value = (result || []).sort((a, b) => a.localeCompare(b));
-    } catch (e) {
-        console.error("Failed to load functions", e);
-    }
-};
+// loadTables moved to useSidebar
 
 const selectTable = async (tableName: string) => {
     // Check if table is already open in a tab
@@ -2032,10 +1950,23 @@ const selectTable = async (tableName: string) => {
         activeTab.value.tableName = tableName;
         activeTab.value.name = tableName; // Update tab name to table name
 
+        let escapedTableName = tableName;
+        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
+            escapedTableName = `"${tableName}"`;
+        } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+            escapedTableName = `\`${tableName}\``;
+        } else if (type.includes('mssql') || type.includes('sqlserver')) {
+            if (tableName.includes('.') && !tableName.includes('[')) {
+                escapedTableName = tableName.split('.').map(p => `[${p}]`).join('.');
+            } else if (!tableName.startsWith('[')) {
+                escapedTableName = `[${tableName}]`;
+            }
+        }
+
         if (type.includes('mssql') || type.includes('sqlserver')) {
-            activeTab.value.query = `SELECT TOP 100 * FROM ${tableName}`;
+            activeTab.value.query = `SELECT TOP 100 * FROM ${escapedTableName}`;
         } else {
-            activeTab.value.query = `SELECT * FROM ${tableName} LIMIT 100`;
+            activeTab.value.query = `SELECT * FROM ${escapedTableName} LIMIT 100`;
         }
 
         // Fetch Primary Keys
@@ -2051,6 +1982,53 @@ const selectTable = async (tableName: string) => {
     }
 };
 
+const selectRoutine = async (name: string, routineType: 'PROCEDURE' | 'FUNCTION') => {
+    // Check if routine is already open in a tab
+    const existingTab = tabs.value.find(t => t.name === name && !t.isDesignView && !t.isERView);
+
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    // Check if current active tab is empty/pristine
+    const currentTab = activeTab.value;
+    const isPristine = currentTab &&
+        !currentTab.tableName &&
+        !currentTab.query &&
+        !currentTab.isDesignView &&
+        !currentTab.isERView &&
+        !currentTab.queryExecuted;
+
+    if (!isPristine) {
+        addTab();
+    }
+
+    if (activeTab.value) {
+        activeTab.value.name = name;
+        activeTab.value.isLoading = true;
+        activeTab.value.tableName = ""; // It's not a table
+        activeTab.value.isRoutine = true;
+        activeTab.value.routineName = name;
+        activeTab.value.routineType = routineType;
+
+        try {
+            const definition = await GetRoutineDefinition(props.connectionId, name, routineType);
+            if (definition.startsWith("Error: ")) {
+                activeTab.value.error = definition;
+                activeTab.value.query = `-- Failed to fetch definition for ${name}`;
+            } else {
+                activeTab.value.query = definition;
+            }
+        } catch (e) {
+            console.error("Failed to fetch routine definition", e);
+            activeTab.value.error = "Failed to fetch routine definition";
+        } finally {
+            activeTab.value.isLoading = false;
+        }
+    }
+};
+
 const checkRowCount = async (tableName: string) => {
     if (!activeTab.value) return;
 
@@ -2058,27 +2036,29 @@ const checkRowCount = async (tableName: string) => {
     activeTab.value.totalRowCount = undefined;
 
     const type = (props.dbType || '').toLowerCase();
-    let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
-
-    if (type.includes('mssql') || type.includes('sqlserver')) {
-        countQuery = `SELECT COUNT(*) FROM ${tableName}`; // Might need brackets if table name has spaces or keywords, but usually handled by user or we should escape
-        // Simple escape if not already
-        if (!tableName.startsWith('[') && !tableName.includes(' ')) {
-            // Leave as is or enforce? Let's trust input for now or do minimal checks
+    
+    let escapedTableName = tableName;
+    if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
+        escapedTableName = `"${tableName}"`;
+    } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+        escapedTableName = `\`${tableName}\``;
+    } else if (type.includes('mssql') || type.includes('sqlserver')) {
+        if (tableName.includes('.') && !tableName.includes('[')) {
+            escapedTableName = tableName.split('.').map(p => `[${p}]`).join('.');
+        } else if (!tableName.startsWith('[')) {
+            escapedTableName = `[${tableName}]`;
         }
     }
 
+    let countQuery = `SELECT COUNT(*) FROM ${escapedTableName}`;
+
     try {
         const reqId = generateId();
-        // Use ExecuteTransientQuery to avoid blocking/being blocked by the main persistent connection
-        // This allows row count to run in parallel with the main query streaming
         const res = await ExecuteTransientQuery(props.connectionId, countQuery);
         if (res.error) {
             console.warn("Failed to get row count", res.error);
         } else if (res.resultSets && res.resultSets.length > 0 && res.resultSets[0].rows && res.resultSets[0].rows.length > 0) {
             const row = res.resultSets[0].rows[0];
-            // Row is object { "COUNT(*)": 123 } or similar depending on DB
-            // We need to get the first value
             const val = Object.values(row)[0];
             activeTab.value.totalRowCount = Number(val);
         }
@@ -2115,48 +2095,20 @@ const openDesignView = (tableName: string) => {
         isExplaining: false,
         isERView: false,
         isPartialStats: false,
-        editorHeight: 256
+        editorHeight: 300,
+        columnWidths: {}
     });
     activeTabId.value = newId;
 };
 
 const handleViewDesign = () => {
-    if (contextMenuTargetTable.value) {
-        openDesignView(contextMenuTargetTable.value);
-        showContextMenu.value = false;
+    if (contextMenu.targetTable) {
+        openDesignView(contextMenu.targetTable);
+        closeContextMenu();
     }
 };
 
-const openContextMenu = (event: MouseEvent, table: string) => {
-    contextMenuTargetTable.value = table;
-    const { clientX, clientY } = event;
-    contextMenuPosition.value = { x: clientX, y: clientY };
-    showContextMenu.value = true;
-    showRowContextMenu.value = false; // Close row menu
-};
-
-const closeContextMenu = () => {
-    showContextMenu.value = false;
-    showRowContextMenu.value = false;
-    showViewContextMenu.value = false;
-    showRoutineContextMenu.value = false;
-};
-
 // ... View Logic ...
-const filteredViews = computed(() => {
-    if (!tableSearch.value) return views.value;
-    return views.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
-});
-
-const filteredStoredProcedures = computed(() => {
-    if (!tableSearch.value) return storedProcedures.value;
-    return storedProcedures.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
-});
-
-const filteredFunctions = computed(() => {
-    if (!tableSearch.value) return functions.value;
-    return functions.value.filter(v => v.toLowerCase().includes(tableSearch.value.toLowerCase()));
-});
 
 const selectView = (viewName: string) => {
     const existingTab = tabs.value.find(t => t.tableName === viewName && !t.isDesignView && !t.isERView);
@@ -2197,21 +2149,9 @@ const selectView = (viewName: string) => {
     }
 };
 
-const showViewContextMenu = ref(false);
-const contextMenuTargetView = ref('');
-
-const openViewContextMenu = (event: MouseEvent, view: string) => {
-    contextMenuTargetView.value = view;
-    const { clientX, clientY } = event;
-    contextMenuPosition.value = { x: clientX, y: clientY };
-    showViewContextMenu.value = true;
-    showContextMenu.value = false;
-    showRowContextMenu.value = false;
-};
-
 const handleSelectTop100View = () => {
-    if (contextMenuTargetView.value) {
-        selectView(contextMenuTargetView.value);
+    if (contextMenu.targetView) {
+        selectView(contextMenu.targetView);
         closeContextMenu();
     }
 };
@@ -2228,23 +2168,214 @@ FROM ExistingTable;`;
     closeContextMenu();
 };
 
-const showRoutineContextMenu = ref(false);
-const contextMenuTargetRoutine = ref('');
-const contextMenuTargetRoutineType = ref<'PROCEDURE' | 'FUNCTION'>('PROCEDURE');
+const handleDuplicateRoutine = async () => {
+    const routine = contextMenu.targetRoutine;
+    const type = contextMenu.targetRoutineType;
+    if (!routine) return;
+    
+    closeContextMenu();
 
-const openRoutineContextMenu = (event: MouseEvent, routine: string, type: 'PROCEDURE' | 'FUNCTION') => {
-    contextMenuTargetRoutine.value = routine;
-    contextMenuTargetRoutineType.value = type;
-    const { clientX, clientY } = event;
-    contextMenuPosition.value = { x: clientX, y: clientY };
-    showRoutineContextMenu.value = true;
-    showContextMenu.value = false;
-    showRowContextMenu.value = false;
-    showViewContextMenu.value = false;
+    try {
+        const definition = await GetRoutineDefinition(props.connectionId, routine, type);
+        if (definition.startsWith("Error: ")) {
+            if (toastRef.value) toastRef.value.error("Failed to fetch routine definition for duplication");
+            return;
+        }
+
+        addTab();
+        if (activeTab.value) {
+            const copyName = `${routine}_copy`;
+            // Attempt to replace the name in the definition (very simple replacement)
+            let newDefinition = definition.replace(new RegExp(routine, 'g'), copyName);
+            
+            activeTab.value.name = `New ${copyName}`;
+            activeTab.value.query = newDefinition;
+            activeTab.value.isRoutine = true;
+            activeTab.value.routineName = copyName;
+            activeTab.value.routineType = type;
+        }
+    } catch (e) {
+        console.error("Failed to duplicate routine", e);
+    }
+};
+
+const handleDeleteRoutine = async () => {
+    const routine = contextMenu.targetRoutine;
+    const type = contextMenu.targetRoutineType;
+    if (!routine) return;
+
+    if (!confirm(`Are you sure you want to delete ${type.toLowerCase()} '${routine}'?`)) {
+        closeContextMenu();
+        return;
+    }
+
+    closeContextMenu();
+
+    const dropSql = `DROP ${type} ${routine}`;
+    try {
+        const res = await ExecuteQuery(props.connectionId, dropSql, generateId());
+        if (res.error) {
+            if (toastRef.value) toastRef.value.error(`Failed to delete routine: ${res.error}`);
+        } else {
+            if (toastRef.value) toastRef.value.success(`${type} deleted successfully`);
+            // Refresh sidebar
+            if (type === 'PROCEDURE') {
+                refreshStoredProcedures();
+            } else {
+                refreshFunctions();
+            }
+        }
+    } catch (e) {
+        console.error("Error deleting routine", e);
+    }
+};
+
+const handleExecuteRoutine = () => {
+    const routine = contextMenu.targetRoutine;
+    const type = contextMenu.targetRoutineType;
+    if (!routine) return;
+
+    closeContextMenu();
+    addTab();
+
+    if (activeTab.value) {
+        activeTab.value.name = `Exec: ${routine}`;
+        const dbType = (props.dbType || '').toLowerCase();
+        
+        let template = '';
+        if (dbType.includes('postgres') || dbType.includes('greenplum')) {
+            if (type === 'FUNCTION') {
+                template = `SELECT ${routine}(/* parameters */);`;
+            } else {
+                template = `CALL ${routine}(/* parameters */);`;
+            }
+        } else if (dbType.includes('mysql') || dbType.includes('mariadb')) {
+            if (type === 'FUNCTION') {
+                template = `SELECT ${routine}(/* parameters */);`;
+            } else {
+                template = `CALL ${routine}(/* parameters */);`;
+            }
+        } else if (dbType.includes('mssql') || dbType.includes('sqlserver')) {
+            template = `EXEC ${routine} /* parameters */;`;
+        } else {
+            template = `-- Execution template for ${routine}
+-- ${type === 'PROCEDURE' ? 'CALL/EXEC' : 'SELECT'} ${routine}(...);`;
+        }
+
+        activeTab.value.query = template;
+    }
+};
+
+const handleSaveRoutine = async () => {
+    if (!activeTab.value || !activeTab.value.isRoutine) return;
+
+    activeTab.value.isLoading = true;
+    try {
+        const res = await ExecuteQuery(props.connectionId, activeTab.value.query, generateId());
+        if (res.error) {
+            activeTab.value.error = res.error;
+            if (toastRef.value) toastRef.value.error("Failed to save routine");
+        } else {
+            activeTab.value.queryExecuted = true;
+            activeTab.value.error = "";
+            if (toastRef.value) toastRef.value.success("Routine saved and updated successfully");
+            
+            // Refresh sidebar list
+            if (activeTab.value.routineType === 'PROCEDURE') {
+                refreshStoredProcedures();
+            } else {
+                refreshFunctions();
+            }
+        }
+    } catch (e) {
+        console.error("Error saving routine", e);
+        activeTab.value.error = "Failed to save routine";
+    } finally {
+        activeTab.value.isLoading = false;
+    }
+};
+
+const handleNewRoutine = (type: 'PROCEDURE' | 'FUNCTION') => {
+    closeContextMenu();
+    addTab();
+
+    if (activeTab.value) {
+        const dbType = (props.dbType || '').toLowerCase();
+        const placeholderName = type === 'PROCEDURE' ? 'new_procedure' : 'new_function';
+        activeTab.value.name = `New ${type.toLowerCase()}`;
+        activeTab.value.isRoutine = true;
+        activeTab.value.routineType = type;
+        activeTab.value.routineName = placeholderName;
+
+        let template = '';
+        if (dbType.includes('postgres') || dbType.includes('greenplum')) {
+            if (type === 'PROCEDURE') {
+                template = `CREATE OR REPLACE PROCEDURE ${placeholderName}(/* parameters */)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- procedure body
+END;
+$$;`;
+            } else {
+                template = `CREATE OR REPLACE FUNCTION ${placeholderName}(/* parameters */)
+RETURNS /* type */
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- function body
+    RETURN /* value */;
+END;
+$$;`;
+            }
+        } else if (dbType.includes('mysql') || dbType.includes('mariadb')) {
+            if (type === 'PROCEDURE') {
+                template = `DELIMITER //
+CREATE PROCEDURE ${placeholderName}(/* parameters */)
+BEGIN
+    -- procedure body
+END //
+DELIMITER ;`;
+            } else {
+                template = `CREATE FUNCTION ${placeholderName}(/* parameters */)
+RETURNS /* type */
+DETERMINISTIC
+BEGIN
+    -- function body
+    RETURN /* value */;
+END;`;
+            }
+        } else if (dbType.includes('mssql') || dbType.includes('sqlserver')) {
+            if (type === 'PROCEDURE') {
+                template = `CREATE PROCEDURE ${placeholderName}
+    /* @param1 type, @param2 type */
+AS
+BEGIN
+    SET NOCOUNT ON;
+    -- procedure body
+END;`;
+            } else {
+                template = `CREATE FUNCTION ${placeholderName}
+(
+    /* @param1 type, @param2 type */
+)
+RETURNS /* type */
+AS
+BEGIN
+    -- function body
+    RETURN /* value */
+END;`;
+            }
+        } else {
+            template = `CREATE ${type} ${placeholderName} ...`;
+        }
+
+        activeTab.value.query = template;
+    }
 };
 
 const handleScriptRoutine = () => {
-    const routine = contextMenuTargetRoutine.value;
+    const routine = contextMenu.targetRoutine;
     if (!routine) return;
 
     // We don't have a GetRoutineDefinition method yet, so placeholders for now,
@@ -2258,7 +2389,7 @@ const handleScriptRoutine = () => {
     addTab();
     if (activeTab.value) {
         activeTab.value.name = `Script: ${routine}`;
-        activeTab.value.query = `-- Scripting for ${routine} (${contextMenuTargetRoutineType.value})
+        activeTab.value.query = `-- Scripting for ${routine} (${contextMenu.targetRoutineType})
 -- Note: Provide a backend method 'GetRoutineDefinition' for better support.
 
 -- Postgres:
@@ -2280,7 +2411,7 @@ const handleScriptRoutine = () => {
             activeTab.value.query = `SELECT pg_get_functiondef('${routine}'::regproc)`;
             // This might fail if schema is needed or not in search path, but good attempt
         } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
-            activeTab.value.query = `SHOW CREATE ${contextMenuTargetRoutineType.value} ${routine}`;
+            activeTab.value.query = `SHOW CREATE ${contextMenu.targetRoutineType} ${routine}`;
             setTimeout(() => runQuery(), 50);
         } else if (type.includes('sqlite') || type.includes('libsql')) {
             activeTab.value.query = `SELECT sql FROM sqlite_master WHERE name = '${routine}'`;
@@ -2292,8 +2423,8 @@ const handleScriptRoutine = () => {
 };
 
 const handleSelectTop100 = () => {
-    if (contextMenuTargetTable.value) {
-        selectTable(contextMenuTargetTable.value);
+    if (contextMenu.targetTable) {
+        selectTable(contextMenu.targetTable);
         closeContextMenu();
     }
 };
@@ -2307,7 +2438,6 @@ const openERDiagramTab = async (tableName: string) => {
     }
 
     const newId = generateId();
-    tabCounter.value++;
 
     // Create tab
     const newTab: QueryTab = {
@@ -2327,7 +2457,8 @@ const openERDiagramTab = async (tableName: string) => {
         relationships: [],
         activeQueryIds: [],
         resultViewTab: 'data',
-        editorHeight: 256
+        editorHeight: 300,
+        columnWidths: {}
     };
 
     tabs.value.push(newTab);
@@ -2412,8 +2543,8 @@ const openERDiagramTab = async (tableName: string) => {
 };
 
 const handleViewERDiagram = () => {
-    if (contextMenuTargetTable.value) {
-        openERDiagramTab(contextMenuTargetTable.value);
+    if (contextMenu.targetTable) {
+        openERDiagramTab(contextMenu.targetTable);
         closeContextMenu();
     }
 };
@@ -2549,6 +2680,7 @@ const runQuery = async () => {
 
         const rsIdx = batch.resultSetIdx;
         const columns = batch.columns || [];
+        const columnTypes = batch.columnTypes || [];
         const batchRows = batch.rows || [];
 
         // Convert array rows to object rows
@@ -2558,12 +2690,21 @@ const runQuery = async () => {
 
         // Ensure result set exists at this index
         while (tab.resultSets.length <= rsIdx) {
-            tab.resultSets.push({ columns: [], rows: [] });
+            tab.resultSets.push({ columns: [], columnTypes: [], rows: [] });
         }
 
         const rs = tab.resultSets[rsIdx];
         if (columns.length > 0 && rs.columns.length === 0) {
             rs.columns = columns;
+            rs.columnTypes = columnTypes;
+
+            // Calculate initial widths if not already set
+            columns.forEach((col: string, i: number) => {
+                if (!tab.columnWidths[col]) {
+                    const meta = columnTypes[i];
+                    tab.columnWidths[col] = calculateInitialWidth(meta);
+                }
+            });
         }
         // Append rows
         rs.rows = markRaw(rs.rows.concat(mappedRows));
@@ -2574,6 +2715,37 @@ const runQuery = async () => {
             tab.resultViewTab = columns.length > 0 ? 'data' : 'messages';
         }
     });
+
+    const calculateInitialWidth = (meta: ColumnMetadata): number => {
+        if (!meta) return 150;
+
+        const type = (meta.type || '').toUpperCase();
+        const length = meta.length || 0;
+
+        // User's specific rule: max initial 300 for max, blob, long blob or very long fields
+        // In some drivers, -1 or very large numbers represent "MAX"
+        if (type.includes('BLOB') || length === -1 || length > 1000 || type === 'TEXT' || type === 'LONGTEXT') {
+            return 300;
+        }
+
+        if (type.includes('CHAR') || type.includes('TEXT') || type.includes('STRING')) {
+            if (length > 0) {
+                // Approx 8.5px per character + padding
+                return Math.min(300, Math.max(120, length * 8.5 + 32));
+            }
+            return 200; // Default for text without length
+        }
+
+        if (type.includes('INT') || type.includes('DECIMAL') || type.includes('NUMERIC') || type.includes('BIT')) {
+            return 120;
+        }
+
+        if (type.includes('DATE') || type.includes('TIME') || type.includes('TIMESTAMP')) {
+            return 180;
+        }
+
+        return 150; // Default
+    };
 
     EventsOn('query:done:' + reqId, () => {
         tab.isLoading = false;
@@ -2698,15 +2870,7 @@ const disconnect = async () => {
     }
 };
 
-// Editing Logic
-const isEditable = (col: string) => {
-    if (props.isReadOnly) return false;
-    if (!activeTab.value || !activeTab.value.tableName || activeTab.value.primaryKeys.length === 0) return false;
-    if (activeTab.value.isDesignView) return false; // Disable editing in design view
-    // Don't edit PKs for now to simplify
-    if (activeTab.value.primaryKeys.includes(col)) return false;
-    return true;
-};
+// Editing helpers moved to useRecordOperations
 
 const getRowId = (row: any, index: number) => {
     // Use index as fallback but strictly we need PKs for updates.
@@ -2753,76 +2917,7 @@ const saveCellEdit = async (item: any, col: string) => {
 };
 
 
-const filteredTables = computed(() => {
-    if (!tableSearch.value) return tables.value;
-    return tables.value.filter(t => t.toLowerCase().includes(tableSearch.value.toLowerCase()));
-});
-
-// ...
-
-const confirmUpdate = async () => {
-    if (!updateConfirmation.value || !activeTab.value) return;
-
-    const { tableName, column, newValue, item } = updateConfirmation.value;
-    const col = column;
-
-    // Prepare conditions (PKs)
-    const conditions: Record<string, any> = {};
-    for (const pk of activeTab.value.primaryKeys) {
-        conditions[pk] = item.data[pk];
-    }
-
-    const updates: Record<string, any> = {};
-    updates[col] = newValue;
-
-    try {
-        const result = await UpdateRecord(props.connectionId, tableName, updates, conditions);
-        if (result === "Success") {
-            const currentTab = activeTab.value;
-            if (!currentTab) return;
-
-            // Update local state
-            item.data[col] = newValue;
-            // Also update the original source array
-            // We assume editing is only on the first result set for now (Virtual List)
-            if (activeResultSet.value) {
-                const realIndex = activeResultSet.value.rows.findIndex(r => {
-                    for (const pk of currentTab.primaryKeys) {
-                        // Optimization: if we have index, check that first
-                        // But virtual list 'item' has 'index' which is the index in the filtered/sorted source?
-                        // Actually `item` in virtual list usually holds `index` which is index in `filteredResults`.
-                        // But `filteredResults` is derived from `activeResultSet.rows`.
-                        // If sorted/filtered, index might not match source index.
-                        // So we rely on PKs.
-                        if (r[pk] !== conditions[pk]) return false;
-                    }
-                    return true;
-                });
-                if (realIndex !== -1) {
-                    activeResultSet.value.rows[realIndex][col] = newValue;
-                }
-            }
-        } else {
-            console.error("Update failed:", result);
-            toastRef.value?.error('Update failed: ' + result);
-        }
-    } catch (e) {
-        console.error("Update error:", e);
-        toastRef.value?.error('Update error: ' + e);
-    } finally {
-        if (activeTab.value) {
-            activeTab.value.editingCell = null;
-        }
-        updateConfirmation.value = null; // Close modal
-    }
-};
-
-const cancelUpdate = () => {
-    if (activeTab.value) {
-        activeTab.value.editingCell = null;
-    }
-    updateConfirmation.value = null;
-};
+// Update functions moved to useRecordOperations
 
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -2850,11 +2945,27 @@ onMounted(() => {
     window.addEventListener('click', closeContextMenu);
 });
 
-import { onUnmounted } from 'vue';
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown, true);
     window.removeEventListener('click', closeContextMenu);
 });
+
+// Handlers for record operations (exposed for template)
+const handleSetNull = () => initiateQuickUpdate(null, contextMenu.targetRow, contextMenu.targetColumn);
+const handleSetEmpty = () => initiateQuickUpdate('', contextMenu.targetRow, contextMenu.targetColumn);
+const handleSetDefault = () => initiateQuickUpdate({ _quramate_sql_default: true }, contextMenu.targetRow, contextMenu.targetColumn);
+
+const formatValueForDisplay = (val: any) => {
+    if (val === null) return 'NULL';
+    if (typeof val === 'object' && val._quramate_sql_default) return '<DEFAULT>';
+    return String(val);
+};
+
+const getColDef = (col: string) => {
+    return insertRowModal.value?.columnDefs?.[col] || null;
+};
+
+// Watcher for connection changes
 
 watch(() => props.connectionId, (newId) => {
     if (newId) {

@@ -9,9 +9,13 @@ import (
 	"os"
 	"strings"
 
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/ianaindex"
+	"golang.org/x/text/transform"
+
 	"golang.org/x/crypto/ssh"
 
-	// _ "github.com/apache/arrow-go/v18/arrow/cdata"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -28,6 +32,7 @@ type DBConfig struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
+	Encoding string `json:"encoding,omitempty"`
 	ReadOnly bool   `json:"readOnly"`
 
 	// SSH Tunnel Config
@@ -45,6 +50,7 @@ type Database struct {
 	sshClient      *ssh.Client
 	sshListener    net.Listener
 	Type           string
+	Encoding       string
 	ReadOnly       bool
 }
 
@@ -204,8 +210,67 @@ func (d *Database) Connect(config DBConfig) error {
 	d.conn = conn
 	d.persistentConn = persistentConn
 	d.Type = config.Type
+	d.Encoding = config.Encoding
 	d.ReadOnly = config.ReadOnly
 	return nil
+}
+
+func decodeValue(val []byte, encodingName string) string {
+	if len(val) == 0 {
+		return ""
+	}
+
+	encodingName = strings.ToUpper(encodingName)
+
+	// If it's valid UTF-8, return as is (unless explicitly told otherwise)
+	if utf8.Valid(val) {
+		if encodingName == "" || encodingName == "UTF-8" {
+			return string(val)
+		}
+	}
+
+	// Dynamic detection if no encoding specified
+	if encodingName == "" || encodingName == "AUTO" {
+		// Check if it's likely Thai TIS-620
+		// Thai characters in TIS-620/Windows-874 are 0xA1-0xFB
+		thaiScore := 0
+		for _, b := range val {
+			if b >= 0xA1 && b <= 0xFB {
+				thaiScore++
+			}
+		}
+		if thaiScore > 0 {
+			encodingName = "TIS-620"
+		} else {
+			return string(val) // Fallback to raw string if no obvious encoding
+		}
+	}
+
+	// Use ianaindex to look up the encoding by name
+	e, err := ianaindex.IANA.Encoding(encodingName)
+	if err != nil || e == nil {
+		// Manual decoding for TIS-620/Windows-874
+		if encodingName == "TIS-620" || encodingName == "WINDOWS-874" {
+			runes := make([]rune, 0, len(val))
+			for _, b := range val {
+				if b <= 0x7F {
+					runes = append(runes, rune(b))
+				} else if b >= 0xA1 && b <= 0xFB {
+					runes = append(runes, rune(uint32(b)+0x0D60))
+				} else {
+					runes = append(runes, rune(b))
+				}
+			}
+			return string(runes)
+		}
+		return string(val)
+	}
+
+	decoded, _, err := transform.Bytes(e.NewDecoder(), val)
+	if err != nil {
+		return string(val)
+	}
+	return string(decoded)
 }
 
 func (d *Database) Disconnect() error {
@@ -246,8 +311,8 @@ func (d *Database) SetReadOnly(readOnly bool) {
 }
 
 func (d *Database) GetTables() ([]string, error) {
-	if d.persistentConn == nil {
-		return nil, fmt.Errorf("no database connection")
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
 	}
 
 	var query string
@@ -266,7 +331,7 @@ func (d *Database) GetTables() ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting tables")
 	}
 
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +349,8 @@ func (d *Database) GetTables() ([]string, error) {
 }
 
 func (d *Database) GetViews() ([]string, error) {
-	if d.persistentConn == nil {
-		return nil, fmt.Errorf("no database connection")
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
 	}
 
 	var query string
@@ -304,7 +369,7 @@ func (d *Database) GetViews() ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting views")
 	}
 
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -322,8 +387,8 @@ func (d *Database) GetViews() ([]string, error) {
 }
 
 func (d *Database) GetStoredProcedures() ([]string, error) {
-	if d.persistentConn == nil {
-		return nil, fmt.Errorf("no database connection")
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
 	}
 
 	var query string
@@ -340,7 +405,7 @@ func (d *Database) GetStoredProcedures() ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting stored procedures")
 	}
 
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -358,8 +423,8 @@ func (d *Database) GetStoredProcedures() ([]string, error) {
 }
 
 func (d *Database) GetFunctions() ([]string, error) {
-	if d.persistentConn == nil {
-		return nil, fmt.Errorf("no database connection")
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
 	}
 
 	var query string
@@ -376,7 +441,7 @@ func (d *Database) GetFunctions() ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type for getting functions")
 	}
 
-	rows, err := d.persistentConn.QueryContext(context.Background(), query)
+	rows, err := d.conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +456,69 @@ func (d *Database) GetFunctions() ([]string, error) {
 		funcs = append(funcs, fn)
 	}
 	return funcs, nil
+}
+
+func (d *Database) GetRoutineDefinition(name string, routineType string) (string, error) {
+	if d.conn == nil {
+		return "", fmt.Errorf("no database connection pool")
+	}
+
+	var query string
+	switch d.Type {
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		// PostgreSQL: routine_definition might be null for some functions (like internal ones),
+		// but for user-defined ones it should be there.
+		// Alternatively, pg_get_functiondef() is more reliable for Postgres.
+		query = fmt.Sprintf("SELECT pg_get_functiondef('%s'::regproc)", name)
+	case "mysql", "mariadb", "databend":
+		if routineType == "PROCEDURE" {
+			query = fmt.Sprintf("SHOW CREATE PROCEDURE `%s`", name)
+		} else {
+			query = fmt.Sprintf("SHOW CREATE FUNCTION `%s`", name)
+		}
+	case "mssql":
+		query = fmt.Sprintf("SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID('%s')", name)
+	default:
+		return "", fmt.Errorf("unsupported database type for getting routine definition")
+	}
+
+	rows, err := d.conn.QueryContext(context.Background(), query)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		if d.Type == "mysql" || d.Type == "mariadb" || d.Type == "databend" {
+			// MySQL's SHOW CREATE ... returns columns like (Procedure, sql_mode, Create Procedure, character_set_client, ...)
+			// The definition is in the 3rd column (index 2)
+			cols, _ := rows.Columns()
+			dest := make([]interface{}, len(cols))
+			for i := range dest {
+				var v interface{}
+				dest[i] = &v
+			}
+			if err := rows.Scan(dest...); err != nil {
+				return "", err
+			}
+			if len(dest) >= 3 {
+				val := *(dest[2].(*interface{}))
+				if b, ok := val.([]byte); ok {
+					return string(b), nil
+				}
+				return fmt.Sprintf("%v", val), nil
+			}
+			return "", fmt.Errorf("unexpected number of columns from SHOW CREATE")
+		}
+
+		var definition string
+		if err := rows.Scan(&definition); err != nil {
+			return "", err
+		}
+		return definition, nil
+	}
+
+	return "", fmt.Errorf("routine definition not found")
 }
 
 type ResultSet struct {
@@ -466,7 +594,7 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
-						row[i] = string(b)
+						row[i] = decodeValue(b, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -547,7 +675,7 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
-						row[i] = string(b)
+						row[i] = decodeValue(b, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -570,12 +698,21 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 	return resultSets, nil
 }
 
+// ColumnMetadata holds type information for a column
+type ColumnMetadata struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Length   int64  `json:"length"`
+	Nullable bool   `json:"nullable"`
+}
+
 // StreamBatch represents a batch of rows sent during streaming
 type StreamBatch struct {
-	Columns      []string        `json:"columns"`
-	Rows         [][]interface{} `json:"rows"`
-	ResultSetIdx int             `json:"resultSetIdx"`
-	BatchIndex   int             `json:"batchIndex"`
+	Columns      []string         `json:"columns"`
+	ColumnTypes  []ColumnMetadata `json:"columnTypes"`
+	Rows         [][]interface{}  `json:"rows"`
+	ResultSetIdx int              `json:"resultSetIdx"`
+	BatchIndex   int              `json:"batchIndex"`
 }
 
 // ExecuteQueryStream executes a query and streams results in batches via the onBatch callback.
@@ -599,6 +736,21 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 		}
 
 		columns, _ := rows.Columns()
+		colTypes, _ := rows.ColumnTypes()
+		var columnMetas []ColumnMetadata
+		if len(colTypes) > 0 {
+			columnMetas = make([]ColumnMetadata, len(colTypes))
+			for i, ct := range colTypes {
+				length, _ := ct.Length()
+				nullable, _ := ct.Nullable()
+				columnMetas[i] = ColumnMetadata{
+					Name:     ct.Name(),
+					Type:     ct.DatabaseTypeName(),
+					Length:   length,
+					Nullable: nullable,
+				}
+			}
+		}
 
 		if len(columns) > 0 {
 			nCols := len(columns)
@@ -625,7 +777,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
-						row[i] = string(b)
+						row[i] = decodeValue(b, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -635,6 +787,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 				if len(batch) >= batchSize {
 					onBatch(StreamBatch{
 						Columns:      columns,
+						ColumnTypes:  columnMetas,
 						Rows:         batch,
 						ResultSetIdx: resultSetIdx,
 						BatchIndex:   batchIndex,
@@ -647,6 +800,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 			// Emit remaining rows
 			onBatch(StreamBatch{
 				Columns:      columns,
+				ColumnTypes:  columnMetas,
 				Rows:         batch,
 				ResultSetIdx: resultSetIdx,
 				BatchIndex:   batchIndex,
@@ -655,6 +809,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 			// No-column result set (e.g., UPDATE/INSERT)
 			onBatch(StreamBatch{
 				Columns:      nil,
+				ColumnTypes:  nil,
 				Rows:         nil,
 				ResultSetIdx: resultSetIdx,
 				BatchIndex:   0,
