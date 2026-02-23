@@ -218,12 +218,13 @@ func (a *App) PerformUpdate(downloadURL string) error {
 
 	// Execute the installer using OS-specific launcher to handle elevation prompts (UAC on Windows)
 	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		// Run the installer normally (UI visible but automated via NSIS script)
 		cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		cmd = exec.Command("open", installerPath)
-	} else {
+	default:
 		cmd = exec.Command("xdg-open", installerPath)
 	}
 

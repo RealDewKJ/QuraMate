@@ -3,7 +3,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, watch, toRaw } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, toRaw, nextTick } from 'vue';
+import { useResizeObserver } from '@vueuse/core';
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
@@ -73,7 +74,7 @@ onMounted(() => {
             language: 'sql',
             theme: currentTheme,
             readOnly: props.readOnly || false,
-            automaticLayout: true,
+            automaticLayout: false, // Using useResizeObserver instead
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             fontSize: props.fontSize || 14,
@@ -81,6 +82,11 @@ onMounted(() => {
             padding: { top: 10, bottom: 10 },
             lineNumbers: 'on',
             renderLineHighlight: 'all',
+        });
+
+        // Use useResizeObserver for better performance than automaticLayout
+        useResizeObserver(editorContainer, () => {
+            editor?.layout();
         });
 
         // Handle content changes
@@ -116,10 +122,8 @@ watch(() => props.modelValue, (newValue) => {
     }
 });
 
-// Watch for tables changes to update autocomplete
-watch(() => props.tables, () => {
-    registerCompletionProvider();
-}, { deep: true });
+// No need to watch tables for re-registration anymore, the provider closure captures latest props.tables
+// The completion provider will automatically use the latest `props.tables` and `props.getColumns` due to closure.
 
 // Watch for explicit theme prop changes
 watch(() => props.theme, (newTheme) => {
@@ -139,13 +143,14 @@ watch(() => [props.fontFamily, props.fontSize], ([newFontFamily, newFontSize]) =
 });
 
 const registerCompletionProvider = () => {
-    // Dispose previous provider if exists
-    if (completionDisposable) {
-        completionDisposable.dispose();
-    }
+    // Only register once
+    if (completionDisposable) return;
 
     completionDisposable = monaco.languages.registerCompletionItemProvider('sql', {
         provideCompletionItems: (model, position) => {
+            // Ensure this provider only acts for THIS editor instance
+            if (editor?.getModel()?.id !== model.id) return { suggestions: [] };
+
             const word = model.getWordUntilPosition(position);
             const range = {
                 startLineNumber: position.lineNumber,
@@ -158,11 +163,12 @@ const registerCompletionProvider = () => {
 
             // SQL Keywords
             const keywords = [
-                'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'limit',
-                'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE', 'view',
+                'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'LIMIT',
+                'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE', 'VIEW',
                 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN', 'ON',
                 'AS', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN', 'HAVING',
-                'TOP', 'UNION', 'ALL', 'EXISTS', 'IN', 'LIKE', 'BETWEEN', 'NULL', 'IS'
+                'TOP', 'UNION', 'ALL', 'EXISTS', 'IN', 'LIKE', 'BETWEEN', 'NULL', 'IS',
+                'PROCEDURE', 'FUNCTION', 'INDEX', 'TRIGGER', 'DATABASE', 'SCHEMA'
             ];
 
             keywords.forEach(keyword => {
@@ -171,29 +177,26 @@ const registerCompletionProvider = () => {
                     kind: monaco.languages.CompletionItemKind.Keyword,
                     insertText: keyword,
                     range: range,
-                    sortText: '1_keywords' // Lower priority
+                    sortText: '1_keywords'
                 });
             });
 
-            // Table Names
+            // Table Names (uses current value of props.tables)
             if (props.tables) {
                 props.tables.forEach(table => {
                     suggestions.push({
                         label: table,
-                        kind: monaco.languages.CompletionItemKind.Class, // Use Class icon for tables
+                        kind: monaco.languages.CompletionItemKind.Class,
                         insertText: table,
                         range: range,
                         detail: 'Table',
-                        sortText: '0_tables' // Higher priority
+                        sortText: '0_tables'
                     });
                 });
             }
 
-            // Get the full text to facilitate looking ahead (e.g. for FROM clause after cursor)
             const fullText = model.getValue();
             const offset = model.getOffsetAt(position);
-
-            // Find the boundaries of the current statement (splitting by semicolon)
             const lastSemicolonIndex = fullText.lastIndexOf(';', offset - 1);
             const startOfStatement = lastSemicolonIndex !== -1 ? lastSemicolonIndex + 1 : 0;
 
@@ -203,17 +206,13 @@ const registerCompletionProvider = () => {
             const statement = fullText.substring(startOfStatement, endOfStatement);
             const relativeOffset = offset - startOfStatement;
 
-            // Find table in the current statement (support simple FROM logic)
-            // We use matchAll to be safe, but typically one FROM per statement (ignoring subqueries for now)
-            const fromMatch = statement.match(/FROM\s+([a-zA-Z0-9_\[\]]+)/i);
+            const fromMatch = statement.match(/FROM\s+([a-zA-Z0-9_\[\]\.]+)/i);
             const table = fromMatch ? fromMatch[1] : null;
 
             let suggestColumns = false;
 
             if (table) {
                 const fromIndex = fromMatch!.index!;
-
-                // Context 1: After WHERE
                 const whereMatch = statement.match(/WHERE\s+/i);
                 if (whereMatch) {
                     const whereIndex = whereMatch.index!;
@@ -222,49 +221,29 @@ const registerCompletionProvider = () => {
                     }
                 }
 
-                // Context 2: Between SELECT and FROM (The "Field List" context)
-                // If cursor is before the FROM clause, and we have a SELECT
                 if (!suggestColumns && relativeOffset < fromIndex) {
-                    // Find the CLOSEST SELECT before the FROM
-                    // matching /SELECT/g might find multiple? usually one per statement level.
-                    // Let's search for SELECT backwards from FROM or forwards from start.
-                    const selectMatch = statement.match(/SELECT\b/i); // Match SELECT word boundary, don't consume spaces with \s+
+                    const selectMatch = statement.match(/SELECT\b/i);
                     if (selectMatch) {
-                        // We just need to be after the "SELECT" keyword
                         const selectEnd = selectMatch.index! + selectMatch[0].length;
-                        // Check if we are strictly after SELECT and strictly before FROM
-                        // Also ensure there's at least one space/separator logically, but for intellisense 'SELECT|' might still be keyword completion
-                        // We want column completion if we are clearly in the space after SELECT.
                         if (relativeOffset >= selectEnd) {
                             suggestColumns = true;
                         }
                     }
                 }
-
-                // Context 3: AND/OR clauses (which might be after WHERE, covered roughly by check 1 if we just check for generic "after where" or we can be specific)
-                // Actually my previous "isWhereContext" logic was checking if "WHERE" exists *before* cursor.
-                // In this new full-statement parser:
-                // If cursor is > WHERE index, we are good.
-                // If explicit AND/OR check is needed for complex cases:
-                // (Already covered by "relativeOffset > whereIndex")
             }
 
             if (table && props.getColumns && suggestColumns) {
-                // Clean table name (remove brackets if useful, but usually matches raw)
                 const cleanTable = table.replace(/[\[\]]/g, '');
-
                 return props.getColumns(cleanTable).then(columns => {
-                    columns.forEach(col => {
-                        suggestions.push({
-                            label: col,
-                            kind: monaco.languages.CompletionItemKind.Field,
-                            insertText: col,
-                            range: range,
-                            detail: `Column (${cleanTable})`,
-                            sortText: '0_columns' // High priority
-                        });
-                    });
-                    return { suggestions };
+                    const columnSuggestions = columns.map(col => ({
+                        label: col,
+                        kind: monaco.languages.CompletionItemKind.Field,
+                        insertText: col,
+                        range: range,
+                        detail: `Column (${cleanTable})`,
+                        sortText: '0_columns'
+                    }));
+                    return { suggestions: [...suggestions, ...columnSuggestions] };
                 });
             }
 
