@@ -8,6 +8,8 @@ export function CancelQuery(arg1:string):Promise<string>;
 
 export function CheckForUpdates():Promise<main.UpdateInfo>;
 
+export function CheckPendingFile():Promise<string>;
+
 export function ClearAppLogs():Promise<string>;
 
 export function ClearQueryHistory():Promise<string>;
@@ -44,6 +46,8 @@ export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntr
 
 export function GetRoutineDefinition(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function GetStartupFile():Promise<string>;
+
 export function GetStoredProcedures(arg1:string):Promise<Array<string>>;
 
 export function GetTableDefinition(arg1:string,arg2:string):Promise<Array<main.ColumnDefinition>>;
@@ -58,13 +62,19 @@ export function Greet(arg1:string):Promise<string>;
 
 export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
 
+export function LoadSetting(arg1:string):Promise<string>;
+
 export function OpenDownloadURL(arg1:string):Promise<string>;
 
 export function PerformUpdate(arg1:string):Promise<void>;
 
+export function ReadTextFile(arg1:string):Promise<string>;
+
 export function SaveCredential(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SaveQueryHistory(arg1:string,arg2:string):Promise<string>;
+
+export function SaveSetting(arg1:string,arg2:string):Promise<string>;
 
 export function SelectExportFile(arg1:string):Promise<string>;
 

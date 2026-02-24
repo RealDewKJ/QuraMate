@@ -1,11 +1,115 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import DbConnection from './components/DbConnection.vue';
 import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 import { colorMode } from './composables/useTheme';
+import { LoadSetting, GetStartupFile, ReadTextFile, ConnectDB, CheckPendingFile } from '../wailsjs/go/main/App';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 
 const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
+const { locale } = useI18n({ useScope: 'global' });
+
+onMounted(async () => {
+  try {
+    const savedSettingsJson = await LoadSetting('user_settings');
+    if (savedSettingsJson) {
+      const parsed = JSON.parse(savedSettingsJson);
+      if (parsed.general && parsed.general.language) {
+        locale.value = parsed.general.language;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load global settings on mount", e);
+  }
+
+  // Handle Startup File
+  try {
+    const startupFile = await GetStartupFile();
+    if (startupFile) {
+      processStartupFile(startupFile);
+    }
+  } catch (e) {
+    console.error("Failed to fetch startup file", e);
+  }
+
+  // File-based IPC for second instance — poll for pending files
+  // Poll for pending files from second instances (file-based IPC fallback)
+  console.log("[OpenWith] Starting pending file poll (every 2s)");
+  pendingFileInterval = window.setInterval(async () => {
+    try {
+      const filePath = await CheckPendingFile();
+      console.log("[OpenWith] Poll tick, result:", filePath || "(empty)");
+      if (filePath) {
+        console.log("[OpenWith] Found pending file:", filePath);
+        processStartupFile(filePath);
+      }
+    } catch (e) {
+      console.error("[OpenWith] Poll error:", e);
+    }
+  }, 2000);
+});
+
+let pendingFileInterval: number | null = null;
+onUnmounted(() => {
+  if (pendingFileInterval) window.clearInterval(pendingFileInterval);
+});
+
+const processStartupFile = async (startupFile: string) => {
+  try {
+    console.log("Startup string from OS:", startupFile);
+    const ext = startupFile.split('.').pop()?.toLowerCase();
+
+    if (ext === 'db' || ext === 'sqlite' || ext === 'sqlite3') {
+      const payload = {
+        type: 'sqlite',
+        host: '',
+        port: 0,
+        user: '',
+        password: '',
+        database: startupFile,
+        readOnly: false,
+        sshEnabled: false,
+        sshHost: '',
+        sshPort: 22,
+        sshUser: '',
+        sshPassword: '',
+        sshKeyFile: '',
+        id: '',
+      };
+      const result = await ConnectDB(payload);
+      if (result && !result.error) {
+        const name = startupFile.replace(/^.*[\\/]/, '')
+        handleConnected({
+          id: result.id,
+          name: `${name} (SQLite)`,
+          config: payload
+        });
+      }
+    } else if (ext === 'sql') {
+      const content = await ReadTextFile(startupFile);
+      const fileName = startupFile.replace(/^.*[\\/]/, '');
+
+      // If there's an active connection, dispatch to it
+      if (connections.value.length > 0) {
+        const id = activeTabId.value || connections.value[0].id;
+        switchToTab(id);
+
+        window.dispatchEvent(new CustomEvent('open-sql-file', {
+          detail: { content, fileName, connectionId: id }
+        }));
+
+      } else {
+        // No connections open — store as pending and show connection screen
+        pendingSqlFile.value = { path: startupFile, name: fileName, content };
+        activeTabId.value = null; // ensure connection screen is visible
+      }
+    }
+  } catch (e) {
+    console.error("Failed to process startup file", e);
+  }
+};
 
 interface Connection {
   id: string;
@@ -13,12 +117,28 @@ interface Connection {
   config: any;
 }
 
+const pendingSqlFile = ref<{ path: string; name: string; content: string } | null>(null);
+
 const connections = ref<Connection[]>([]);
 const activeTabId = ref<string | null>(null);
 
 const handleConnected = (conn: Connection) => {
   connections.value.push(conn);
   activeTabId.value = conn.id;
+
+  // If there's a pending SQL file, dispatch it to the new connection
+  if (pendingSqlFile.value) {
+    const sqlContent = pendingSqlFile.value.content;
+    const sqlFileName = pendingSqlFile.value.name;
+    const connId = conn.id;
+    pendingSqlFile.value = null;
+
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-sql-file', {
+        detail: { content: sqlContent, fileName: sqlFileName, connectionId: connId }
+      }));
+    }, 300);
+  }
 };
 
 const handleDisconnect = (id: string) => {
@@ -141,7 +261,7 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
     <!-- Content Area -->
     <div class="flex-1 overflow-hidden relative z-10">
       <div v-show="activeTabId === null" class="h-full overflow-auto">
-        <DbConnection :activeConnections="connections" @connected="handleConnected"
+        <DbConnection :activeConnections="connections" :pendingSqlFile="pendingSqlFile" @connected="handleConnected"
           @connection-exists="handleConnectionExists" @connection-updated="handleConnectionUpdate" />
       </div>
 

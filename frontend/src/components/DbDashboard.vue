@@ -2,10 +2,8 @@
     <div class="flex h-full bg-background text-foreground font-sans">
         <!-- Sidebar -->
         <div class="w-64 border-r border-border bg-card flex flex-col transition-all duration-300">
-            <div 
-                class="p-4 border-b border-border flex items-center gap-2 cursor-pointer hover:bg-accent/50 transition-colors"
-                @contextmenu.prevent="openDbContextMenu($event)"
-            >
+            <div class="p-4 border-b border-border flex items-center gap-2 cursor-pointer hover:bg-accent/50 transition-colors"
+                @contextmenu.prevent="openDbContextMenu($event)">
                 <div class="h-6 w-6 rounded bg-primary flex items-center justify-center text-primary-foreground">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -15,7 +13,8 @@
                         <path d="M3 12A9 3 0 0 0 21 12" />
                     </svg>
                 </div>
-                <span class="font-semibold tracking-tight truncate flex-1" :title="connectionName || dbType || 'Database'">
+                <span class="font-semibold tracking-tight truncate flex-1"
+                    :title="connectionName || dbType || 'Database'">
                     {{ connectionName || dbType || 'Database' }}
                 </span>
             </div>
@@ -291,32 +290,42 @@
         <div class="flex-1 flex flex-col overflow-hidden bg-background">
             <!-- Tab Bar -->
             <div class="flex items-center border-b border-border bg-muted/20 px-1 pt-1 gap-1 overflow-x-auto">
-                <div v-for="tab in tabs" :key="tab.id" @click="activeTabId = tab.id"
-                    class="group relative flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium cursor-pointer rounded-t-lg transition-all select-none min-w-[140px] max-w-[240px] border-l border-r border-t border-transparent hover:bg-background/50"
-                    :class="{ 'bg-background text-foreground border-border shadow-sm mb-[-1px]': activeTabId === tab.id, 'text-muted-foreground hover:text-foreground': activeTabId !== tab.id }">
-                    <div class="flex items-center gap-2 truncate">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-terminal-square">
-                            <path d="m7 11 2-2-2-2" />
-                            <path d="M11 13h4" />
-                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                        </svg>
-                        <span class="truncate">{{ tab.name }}</span>
-                    </div>
-                    <button @click.stop="closeTab(tab.id)"
-                        class="rounded-sm p-0.5 hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-all opacity-0 group-hover:opacity-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-x">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                        </svg>
-                    </button>
-                    <!-- Active Indicator Line -->
-                    <div v-if="activeTabId === tab.id"
-                        class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
-                </div>
+                <TooltipProvider :delay-duration="300">
+                    <TooltipRoot v-for="tab in tabs" :key="tab.id">
+                        <TooltipTrigger as-child>
+                            <div @click="activeTabId = tab.id"
+                                class="group relative flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium cursor-pointer rounded-t-lg transition-all select-none min-w-[140px] max-w-[240px] border-l border-r border-t border-transparent hover:bg-background/50"
+                                :class="{ 'bg-background text-foreground border-border shadow-sm mb-[-1px]': activeTabId === tab.id, 'text-muted-foreground hover:text-foreground': activeTabId !== tab.id }">
+                                <div class="flex items-center gap-2 truncate">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-terminal-square">
+                                        <path d="m7 11 2-2-2-2" />
+                                        <path d="M11 13h4" />
+                                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                                    </svg>
+                                    <span class="truncate">{{ tab.name }}</span>
+                                </div>
+                                <button @click.stop="closeTab(tab.id)"
+                                    class="rounded-sm p-0.5 hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-all opacity-0 group-hover:opacity-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-x">
+                                        <path d="M18 6 6 18" />
+                                        <path d="m6 6 12 12" />
+                                    </svg>
+                                </button>
+                                <!-- Active Indicator Line -->
+                                <div v-if="activeTabId === tab.id"
+                                    class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" :side-offset="4"
+                            class="z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
+                            {{ tab.name }}
+                        </TooltipContent>
+                    </TooltipRoot>
+                </TooltipProvider>
 
                 <button @click="addTab"
                     class="flex items-center justify-center h-8 w-8 ml-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
@@ -392,7 +401,7 @@
                                         <polyline points="19 12 12 19 5 12" />
                                     </svg>
                                     <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
-                                    }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
                                 </span>
                             </div>
                         </div>
@@ -574,8 +583,8 @@
                                         <thead
                                             class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
                                             <tr>
-                                                <th v-for="col in activeTab.resultSets[0].columns" :key="col"
-                                                    scope="col"
+                                                <th v-for="(col, index) in activeTab.resultSets[0].columns"
+                                                    :key="index + '-' + col" scope="col"
                                                     class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     @click="toggleSort(col)">
@@ -628,7 +637,8 @@
                                                 class="transition-colors h-[37px] cursor-pointer"
                                                 :class="selectedRowIndex === item.index ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === item.index ? null : item.index">
-                                                <td v-for="col in activeTab.resultSets[0].columns" :key="col"
+                                                <td v-for="(col, index) in activeTab.resultSets[0].columns"
+                                                    :key="index + '-' + col"
                                                     class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
@@ -637,17 +647,36 @@
 
                                                     <div v-if="activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col"
                                                         class="absolute inset-0 p-0.5">
-                                                        <input :id="`edit-input-${item.index}-${col}`"
+                                                        <DatePicker
+                                                            v-if="getEditorType(col) === 'date' || getEditorType(col) === 'datetime-local'"
+                                                            :id="`edit-input-${item.index}-${col}`"
                                                             v-model="activeTab.editingCell.value"
+                                                            :type="getEditorType(col) as any"
+                                                            @confirm="saveCellEdit(item, col)"
+                                                            @cancel="activeTab.editingCell = null" />
+                                                        <input v-else :id="`edit-input-${item.index}-${col}`"
+                                                            v-model="activeTab.editingCell.value"
+                                                            :type="getEditorType(col)"
+                                                            :step="getEditorType(col) === 'number' ? 'any' : undefined"
                                                             class="w-full h-full px-2 bg-background text-foreground border border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-sm shadow-sm"
                                                             @blur="saveCellEdit(item, col)"
                                                             @keydown.enter="saveCellEdit(item, col)"
                                                             @keydown.esc="activeTab.editingCell = null" />
                                                     </div>
-                                                    <span v-else class="truncate block"
-                                                        :title="String(item.data[col])">
-                                                        {{ item.data[col] === null ? 'NULL' : item.data[col] }}
-                                                    </span>
+                                                    <div v-else
+                                                        class="flex items-center gap-2 overflow-hidden w-full h-full">
+                                                        <div v-if="isImageValue(item.data[col], col)"
+                                                            class="shrink-0 h-7 w-7 rounded border border-border overflow-hidden bg-muted flex items-center justify-center group/img relative"
+                                                            @click.stop="openImagePreview(item.data[col])"
+                                                            title="Click to view full image">
+                                                            <img :src="String(item.data[col])"
+                                                                class="h-full w-full object-contain cursor-pointer" />
+                                                        </div>
+                                                        <span class="truncate block flex-1"
+                                                            :title="String(item.data[col])">
+                                                            {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             <tr :style="{ height: `${padBottom}px` }"></tr>
@@ -693,7 +722,7 @@
                                         <thead
                                             class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
                                             <tr>
-                                                <th v-for="col in resultSet.columns" :key="col"
+                                                <th v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
                                                     class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] select-none relative group/th"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }">
                                                     {{ col }}
@@ -708,14 +737,22 @@
                                                 class="transition-colors cursor-pointer"
                                                 :class="selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? null : `sub-${rsIndex}-${rIndex}`">
-                                                <td v-for="col in resultSet.columns" :key="col"
+                                                <td v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
                                                     class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border overflow-hidden"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                                                     @contextmenu.prevent="handleRowContextMenu($event, row, col)">
-                                                    <span class="truncate block"
-                                                        :title="String(row[col])">
-                                                        {{ row[col] === null ? 'NULL' : row[col] }}
-                                                    </span>
+                                                    <div class="flex items-center gap-2 overflow-hidden w-full h-full">
+                                                        <div v-if="isImageValue(row[col], col)"
+                                                            class="shrink-0 h-7 w-7 rounded border border-border overflow-hidden bg-muted flex items-center justify-center group/img relative"
+                                                            @click.stop="openImagePreview(row[col])"
+                                                            title="Click to view full image">
+                                                            <img :src="String(row[col])"
+                                                                class="h-full w-full object-contain cursor-pointer" />
+                                                        </div>
+                                                        <span class="truncate block flex-1" :title="String(row[col])">
+                                                            {{ row[col] === null ? 'NULL' : row[col] }}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -987,18 +1024,35 @@
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="refreshDatabase"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-refresh-cw">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                </svg>
                 Refresh
             </button>
             <button @click="addTab"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal-square"><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-terminal-square">
+                    <path d="m7 11 2-2-2-2" />
+                    <path d="M11 13h4" />
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                </svg>
                 New Query
             </button>
             <div class="h-px bg-border my-1"></div>
             <button @click="disconnect"
                 class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-log-out">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" x2="9" y1="12" y2="12" />
+                </svg>
                 Disconnect
             </button>
         </div>
@@ -1058,25 +1112,50 @@
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleFolderRefresh"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-refresh-cw">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                </svg>
                 Refresh {{ contextMenu.targetFolder }}
             </button>
-            <div v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'" class="h-px bg-border my-1"></div>
-            <button v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'" @click="handleNewRoutine('PROCEDURE')"
+            <div v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'"
+                class="h-px bg-border my-1"></div>
+            <button
+                v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'"
+                @click="handleNewRoutine('PROCEDURE')"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-plus">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                </svg>
                 New Procedure
             </button>
-            <div v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'" class="h-px bg-border my-1"></div>
-            <button v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'" @click="handleNewRoutine('FUNCTION')"
+            <div v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'"
+                class="h-px bg-border my-1"></div>
+            <button v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'"
+                @click="handleNewRoutine('FUNCTION')"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-plus">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                </svg>
                 New Function
             </button>
             <div class="h-px bg-border my-1"></div>
             <button @click="handleFolderCollapse"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-closed"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-folder-closed">
+                    <path
+                        d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                </svg>
                 Collapse
             </button>
         </div>
@@ -1231,7 +1310,7 @@
 
                 <p class="text-sm text-muted-foreground">
                     Insert a new row into <span class="font-medium text-foreground">{{ insertRowModal.tableName
-                        }}</span>
+                    }}</span>
                 </p>
 
                 <div class="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -1375,6 +1454,31 @@
         <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
         <QueryHistory :is-open="isHistoryOpen" :connection-name="connectionName" @close="isHistoryOpen = false"
             @run-query="handleRunHistoryQuery" />
+
+        <!-- Image Preview Modal -->
+        <div v-if="imagePreviewUrl"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-10"
+            @click="imagePreviewUrl = null">
+            <div class="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200"
+                @click.stop>
+                <img :src="imagePreviewUrl"
+                    class="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain border-4 border-background bg-card" />
+                <button @click="imagePreviewUrl = null"
+                    class="absolute -top-4 -right-4 h-10 w-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-x">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
+                <div class="absolute -bottom-10 left-0 right-0 text-center">
+                    <a :href="imagePreviewUrl" target="_blank"
+                        class="text-white hover:text-primary transition-colors text-sm font-medium underline underline-offset-4">Open
+                        in browser</a>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -1392,6 +1496,8 @@ import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
+import DatePicker from './DatePicker.vue';
+import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 
 // Composables
 import { isDarkTheme } from '../composables/useTheme';
@@ -1406,6 +1512,44 @@ import { ColumnMetadata, ResultSet } from '../types/database';
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
+const imagePreviewUrl = ref<string | null>(null);
+
+const openImagePreview = (url: any) => {
+    if (url) imagePreviewUrl.value = String(url);
+};
+
+const isImageValue = (val: any, col: string) => {
+    if (val === null || val === undefined) return false;
+    const str = String(val).trim();
+    if (str.length < 5) return false;
+
+    // Check for common image extensions in URL/Path
+    const isUrl = str.startsWith('http://') || str.startsWith('https://');
+    const isBase64 = str.startsWith('data:image/');
+
+    // Check if it's a URL or if it looks like a path with image extension
+    const extensionMatch = str.split('?')[0].split('#')[0].toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i);
+    const hasImageExt = !!extensionMatch;
+
+    // Also check column names if they contain 'image', 'picture', 'avatar', 'logo', 'blob'
+    const colLower = (col || '').toLowerCase();
+    const isImageColumn = colLower.includes('image') ||
+        colLower.includes('picture') ||
+        colLower.includes('avatar') ||
+        colLower.includes('logo') ||
+        colLower.includes('photo') ||
+        colLower.includes('thumb') ||
+        colLower.includes('blob');
+
+    // If it's a URL and has image extension, or it's an image column and is a URL
+    if (isBase64) return true;
+    if (isUrl && (hasImageExt || isImageColumn)) return true;
+
+    // For local paths, we check if it has an image extension
+    if (hasImageExt && (str.includes('/') || str.includes('\\'))) return true;
+
+    return false;
+};
 
 const handleRunHistoryQuery = (query: string) => {
     isHistoryOpen.value = false;
@@ -1436,11 +1580,6 @@ const handleSettingsSave = (newSettings: any) => {
     if (newSettings && newSettings.editor) {
         editorSettings.value.fontFamily = newSettings.editor.fontFamily;
         editorSettings.value.fontSize = newSettings.editor.fontSize;
-    }
-
-    // Currently using toast. Eventually tie this to the backend
-    if (toastRef.value) {
-        toastRef.value.info('Settings saved! Note: Changes are currently local-only until backend is ready.', undefined, 3000);
     }
 };
 
@@ -2036,7 +2175,7 @@ const checkRowCount = async (tableName: string) => {
     activeTab.value.totalRowCount = undefined;
 
     const type = (props.dbType || '').toLowerCase();
-    
+
     let escapedTableName = tableName;
     if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
         escapedTableName = `"${tableName}"`;
@@ -2172,7 +2311,7 @@ const handleDuplicateRoutine = async () => {
     const routine = contextMenu.targetRoutine;
     const type = contextMenu.targetRoutineType;
     if (!routine) return;
-    
+
     closeContextMenu();
 
     try {
@@ -2187,7 +2326,7 @@ const handleDuplicateRoutine = async () => {
             const copyName = `${routine}_copy`;
             // Attempt to replace the name in the definition (very simple replacement)
             let newDefinition = definition.replace(new RegExp(routine, 'g'), copyName);
-            
+
             activeTab.value.name = `New ${copyName}`;
             activeTab.value.query = newDefinition;
             activeTab.value.isRoutine = true;
@@ -2241,7 +2380,7 @@ const handleExecuteRoutine = () => {
     if (activeTab.value) {
         activeTab.value.name = `Exec: ${routine}`;
         const dbType = (props.dbType || '').toLowerCase();
-        
+
         let template = '';
         if (dbType.includes('postgres') || dbType.includes('greenplum')) {
             if (type === 'FUNCTION') {
@@ -2279,7 +2418,7 @@ const handleSaveRoutine = async () => {
             activeTab.value.queryExecuted = true;
             activeTab.value.error = "";
             if (toastRef.value) toastRef.value.success("Routine saved and updated successfully");
-            
+
             // Refresh sidebar list
             if (activeTab.value.routineType === 'PROCEDURE') {
                 refreshStoredProcedures();
@@ -2683,7 +2822,10 @@ const runQuery = async () => {
         const columnTypes = batch.columnTypes || [];
         const batchRows = batch.rows || [];
 
-        // Convert array rows to object rows
+        // Convert array rows to object rows. 
+        // Note: If the query has duplicate column names (e.g., SELECT A, *), 
+        // Object.fromEntries will only keep the LAST occurrence in the object.
+        // However, the template uses columns array + index for keys, so it will still render correctly.
         const mappedRows = batchRows.map((row: any[]) =>
             Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]))
         );
@@ -2712,7 +2854,8 @@ const runQuery = async () => {
         // Show data as soon as first data batch arrives
         if (!tab.queryExecuted) {
             tab.queryExecuted = true;
-            tab.resultViewTab = columns.length > 0 ? 'data' : 'messages';
+            // Only switch to 'data' tab if we actually have rows
+            tab.resultViewTab = (columns.length > 0 && mappedRows.length > 0) ? 'data' : 'messages';
         }
     });
 
@@ -2752,8 +2895,8 @@ const runQuery = async () => {
         tab.completionTime = new Date().toLocaleString();
         if (!tab.queryExecuted) {
             tab.queryExecuted = true;
-            const hasDataResults = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0);
-            tab.resultViewTab = hasDataResults ? 'data' : 'messages';
+            const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
+            tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
         }
         if (!firstBatchReceived) {
             if (tab.executionTime === undefined) {
@@ -2873,24 +3016,67 @@ const disconnect = async () => {
 // Editing helpers moved to useRecordOperations
 
 const getRowId = (row: any, index: number) => {
-    // Use index as fallback but strictly we need PKs for updates.
-    // If we are editing, we must have PKs.
     return index;
 };
 
 const handleCellClick = (item: any, col: string) => {
     if (!isEditable(col)) return;
 
+    let value = item.data[col];
+    const editorType = getEditorType(col);
+
+    // Enhanced parsing for dates and datetimes
+    if ((editorType === 'datetime-local' || editorType === 'date') && value && typeof value === 'string') {
+        try {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) {
+                const pad = (n: number) => String(n).padStart(2, '0');
+                if (editorType === 'datetime-local') {
+                    // Local format: YYYY-MM-DDTHH:mm:ss
+                    value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                } else {
+                    // Date only format: YYYY-MM-DD
+                    value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to parse date for editor", value);
+        }
+    }
+
     activeTab.value!.editingCell = {
         rowId: item.index,
         col: col,
-        value: item.data[col]
+        value: value
     };
 
     nextTick(() => {
         const input = document.getElementById(`edit-input-${item.index}-${col}`);
         if (input) (input as HTMLInputElement).focus();
     });
+};
+
+const getEditorType = (col: string): string => {
+    if (!activeTab.value || !activeTab.value.resultSets || activeTab.value.resultSets.length === 0) return 'text';
+
+    const rs = activeTab.value.resultSets[0];
+    if (!rs.columnTypes || rs.columnTypes.length === 0) return 'text';
+
+    const colIndex = rs.columns.indexOf(col);
+    if (colIndex === -1) return 'text';
+
+    const meta = rs.columnTypes[colIndex];
+    if (!meta) return 'text';
+
+    const type = (meta.type || '').toUpperCase();
+
+    if (type.includes('DATE') && !type.includes('TIME')) return 'date';
+    if (type.includes('TIME') || type.includes('TIMESTAMP')) return 'datetime-local';
+    if (type.includes('INT') || type.includes('DECIMAL') || type.includes('NUMERIC') || type.includes('FLOAT') || type.includes('REAL') || type.includes('DOUBLE') || type.includes('BIT')) {
+        return 'number';
+    }
+
+    return 'text';
 };
 
 const saveCellEdit = async (item: any, col: string) => {
@@ -2943,12 +3129,40 @@ onMounted(() => {
     }
     window.addEventListener('keydown', handleKeydown, true);
     window.addEventListener('click', closeContextMenu);
+    window.addEventListener('open-sql-file', handleOpenSqlFile as EventListener);
 });
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown, true);
     window.removeEventListener('click', closeContextMenu);
+    window.removeEventListener('open-sql-file', handleOpenSqlFile as EventListener);
 });
+
+const handleOpenSqlFile = (e: CustomEvent) => {
+    const detail = e.detail;
+    if (detail && detail.connectionId === props.connectionId) {
+        let targetTab = activeTab.value;
+        const isPristine = targetTab &&
+            !targetTab.tableName &&
+            !targetTab.query &&
+            !targetTab.isDesignView &&
+            !targetTab.isERView &&
+            !targetTab.queryExecuted;
+
+        if (!isPristine) {
+            addTab();
+            targetTab = activeTab.value;
+        }
+
+        if (targetTab) {
+            targetTab.name = `File: ${detail.fileName || '.sql'}`;
+            targetTab.query = detail.content;
+
+            // Optionally run the query immediately (or let user do it)
+            // setTimeout(() => runQuery(), 50); 
+        }
+    }
+};
 
 // Handlers for record operations (exposed for template)
 const handleSetNull = () => initiateQuickUpdate(null, contextMenu.targetRow, contextMenu.targetColumn);
@@ -2973,5 +3187,13 @@ watch(() => props.connectionId, (newId) => {
         tabs.value = [];
         addTab();
     }
+});
+
+watch(activeTabId, () => {
+    // Clear selection when switching tabs to prevent runQuery from picking up previous tab's selection
+    // if the editor is shared and selection isn't automatically reset by setValue.
+    // We don't have a direct clearSelection on SqlEditor yet, but we could add it.
+    // For now, let's just reset the selectedRowIndex to be safe.
+    selectedRowIndex.value = null;
 });
 </script>

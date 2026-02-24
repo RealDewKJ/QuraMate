@@ -175,7 +175,7 @@
                                         <input type="range" v-model="settings.editor.fontSize" min="10" max="24"
                                             class="w-full accent-primary">
                                         <span class="text-sm font-mono w-12 text-right">{{ settings.editor.fontSize
-                                            }}px</span>
+                                        }}px</span>
                                     </div>
                                 </div>
 
@@ -406,7 +406,7 @@
                                             <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
                                             <path d="M2 12h20" />
                                         </svg>
-                                        <a href="#"
+                                        <a href="https://quramate.vercel.app" target="_blank"
                                             class="text-sm font-medium hover:underline hover:text-primary">Website</a>
                                     </div>
                                 </div>
@@ -436,7 +436,7 @@
 
 <script setup>
 import { ref, reactive, h, onMounted, watch } from 'vue';
-import { GetAppLogs, ClearAppLogs } from '../../wailsjs/go/main/App';
+import { GetAppLogs, ClearAppLogs, SaveSetting, LoadSetting } from '../../wailsjs/go/main/App';
 import Toast from './Toast.vue';
 import { colorMode } from '../composables/useTheme';
 import changelogData from '../data/changelog.json';
@@ -518,22 +518,48 @@ const settings = reactive({
     }
 });
 
+const loadSettings = async () => {
+    try {
+        const savedSettingsJson = await LoadSetting('user_settings');
+        if (savedSettingsJson) {
+            const parsed = JSON.parse(savedSettingsJson);
+            Object.assign(settings, parsed);
+        }
+    } catch (e) {
+        console.error("Failed to load settings from backend:", e);
+    }
+
+    settings.appearance.theme = colorMode.value === 'auto' ? 'system' : colorMode.value;
+};
+
 // Load actual theme on mount to show correct active state
 onMounted(() => {
-    settings.appearance.theme = colorMode.value === 'auto' ? 'system' : colorMode.value;
+    loadSettings();
+});
+
+watch(() => props.isOpen, (newVal) => {
+    if (newVal) {
+        loadSettings();
+    }
 });
 
 const close = () => {
     emit('close');
 };
 
-const save = () => {
+const save = async () => {
     // Apply theme immediately on save
     colorMode.value = settings.appearance.theme === 'system' ? 'auto' : (settings.appearance.theme || 'auto');
 
-    // TODO: Save to localStorage or backend
-    toastRef.value?.success('Settings saved successfully!');
-    emit('save', { ...settings });
+    try {
+        await SaveSetting('user_settings', JSON.stringify(settings));
+        // Also save preferred language directly if needed by other systems early
+        localStorage.setItem('language', settings.general.language); // Keep this just in case for early load fallback
+        toastRef.value?.success('Settings saved successfully!');
+        emit('save', { ...settings });
+    } catch (e) {
+        toastRef.value?.error('Failed to save settings: ' + e);
+    }
 };
 
 const setTheme = (theme) => {

@@ -13,6 +13,7 @@
     "@vueuse/core": "^14.2.1",
     "mermaid": "^11.12.2",
     "monaco-editor": "^0.55.1",
+    "radix-vue": "^1.9.17",
     "sql-formatter": "^15.7.1",
     "vue": "^3.2.37",
     "vue-i18n": "^9.14.5"

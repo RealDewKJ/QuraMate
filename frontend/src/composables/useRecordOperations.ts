@@ -97,7 +97,25 @@ export function useRecordOperations(
         }
 
         const updates: Record<string, any> = {};
-        updates[col] = newValue;
+        let processedValue = newValue;
+        
+        // Advanced formatting based on common DB expectations and original format
+        if (typeof processedValue === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(processedValue)) {
+            const originalValue = updateConfirmation.value.originalValue;
+            if (typeof originalValue === 'string') {
+                if (originalValue.includes('Z')) {
+                    // If original had Z, add it back (assuming UTC)
+                    if (!processedValue.includes('Z')) processedValue += 'Z';
+                } else if (!originalValue.includes('T') && originalValue.includes(' ')) {
+                    // If original had space instead of T, swap it back
+                    processedValue = processedValue.replace('T', ' ');
+                }
+            } else {
+                // Default fallback for datetime: swap T for space
+                processedValue = processedValue.replace('T', ' ');
+            }
+        }
+        updates[col] = processedValue;
 
         try {
             const result = await UpdateRecord(connectionId, tableName, updates, conditions);
@@ -208,10 +226,16 @@ export function useRecordOperations(
                 const def = columnDefs[col];
                 const inputType = def ? getInputTypeForColumn(def.type) : 'text';
 
+                let processedVal = val;
+                if (inputType === 'datetime-local' && processedVal && processedVal.includes('T')) {
+                    // Default for insert: swap T for space
+                    processedVal = processedVal.replace('T', ' ');
+                }
+
                 if (inputType === 'number' || inputType === 'checkbox') {
-                    insertVals.push(val || '0');
+                    insertVals.push(processedVal || '0');
                 } else {
-                    const escaped = val.replace(/'/g, "''");
+                    const escaped = processedVal.replace(/'/g, "''");
                     insertVals.push(`'${escaped}'`);
                 }
             }

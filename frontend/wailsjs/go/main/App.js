@@ -14,6 +14,10 @@ export function CheckForUpdates() {
   return window['go']['main']['App']['CheckForUpdates']();
 }
 
+export function CheckPendingFile() {
+  return window['go']['main']['App']['CheckPendingFile']();
+}
+
 export function ClearAppLogs() {
   return window['go']['main']['App']['ClearAppLogs']();
 }
@@ -86,6 +90,10 @@ export function GetRoutineDefinition(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetRoutineDefinition'](arg1, arg2, arg3);
 }
 
+export function GetStartupFile() {
+  return window['go']['main']['App']['GetStartupFile']();
+}
+
 export function GetStoredProcedures(arg1) {
   return window['go']['main']['App']['GetStoredProcedures'](arg1);
 }
@@ -114,6 +122,10 @@ export function ImportTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ImportTable'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function LoadSetting(arg1) {
+  return window['go']['main']['App']['LoadSetting'](arg1);
+}
+
 export function OpenDownloadURL(arg1) {
   return window['go']['main']['App']['OpenDownloadURL'](arg1);
 }
@@ -122,12 +134,20 @@ export function PerformUpdate(arg1) {
   return window['go']['main']['App']['PerformUpdate'](arg1);
 }
 
+export function ReadTextFile(arg1) {
+  return window['go']['main']['App']['ReadTextFile'](arg1);
+}
+
 export function SaveCredential(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveCredential'](arg1, arg2, arg3);
 }
 
 export function SaveQueryHistory(arg1, arg2) {
   return window['go']['main']['App']['SaveQueryHistory'](arg1, arg2);
+}
+
+export function SaveSetting(arg1, arg2) {
+  return window['go']['main']['App']['SaveSetting'](arg1, arg2);
 }
 
 export function SelectExportFile(arg1) {

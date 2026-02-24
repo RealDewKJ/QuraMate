@@ -28,6 +28,10 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId:               "quramate-8d3b-4f22",
+			OnSecondInstanceLaunch: app.onSecondInstanceLaunch,
+		},
 	})
 
 	if err != nil {

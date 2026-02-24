@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/xuri/excelize/v2"
 	"github.com/zalando/go-keyring"
@@ -27,7 +29,7 @@ type App struct {
 	muQueries        sync.Mutex
 	appLogs          []LogEntry
 	muLogs           sync.Mutex
-	historyDB        *HistoryDB
+	localDB          *LocalDB
 }
 
 type LogEntry struct {
@@ -37,15 +39,15 @@ type LogEntry struct {
 }
 
 func NewApp() *App {
-	hdb, err := NewHistoryDB()
+	ldb, err := NewLocalDB()
 	if err != nil {
-		fmt.Printf("Failed to initialize HistoryDB: %v\n", err)
+		fmt.Printf("Failed to initialize LocalDB: %v\n", err)
 	}
 
 	return &App{
 		dbs:              make(map[string]*Database),
 		queryCancelFuncs: make(map[string]context.CancelFunc),
-		historyDB:        hdb,
+		localDB:          ldb,
 	}
 }
 
@@ -476,6 +478,8 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 						val := *scanPtrs[i]
 						if b, ok := val.([]byte); ok {
 							row[i] = decodeValue(b, db.Encoding)
+						} else if s, ok := val.(string); ok {
+							row[i] = decodeStringValue(s, db.Encoding)
 						} else {
 							row[i] = val
 						}
@@ -535,26 +539,39 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 				fetchDuration := totalDuration - executionDuration
 
 				if !isStreaming {
+					// Final stats for this result set
 					runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
 						"rows":      len(buffer),
 						"time":      executionDuration,
-						"fetchTime": fetchDuration,
+						"fetchTime": time.Since(startTime).Milliseconds() - executionDuration,
 						"partial":   false,
 						"phase":     "fetch",
 					})
 
-					for i := 0; i < len(buffer); i += batchSize {
-						end := i + batchSize
-						if end > len(buffer) {
-							end = len(buffer)
-						}
+					// Even if buffer is empty, we must send at least one batch if we have columns
+					// to let the frontend know this is a data result set.
+					if len(buffer) == 0 {
 						runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
 							Columns:      columns,
 							ColumnTypes:  columnMetas,
-							Rows:         buffer[i:end],
+							Rows:         [][]interface{}{},
 							ResultSetIdx: resultSetIdx,
-							BatchIndex:   i / batchSize,
+							BatchIndex:   0,
 						})
+					} else {
+						for i := 0; i < len(buffer); i += batchSize {
+							end := i + batchSize
+							if end > len(buffer) {
+								end = len(buffer)
+							}
+							runtime.EventsEmit(a.ctx, "query:batch:"+queryID, StreamBatch{
+								Columns:      columns,
+								ColumnTypes:  columnMetas,
+								Rows:         buffer[i:end],
+								ResultSetIdx: resultSetIdx,
+								BatchIndex:   i / batchSize,
+							})
+						}
 					}
 				} else {
 					if len(buffer) > 0 {
@@ -809,16 +826,179 @@ func (a *App) exportToExcel(data [][]interface{}, columns []string, filePath str
 	// Write data
 	for i, row := range data {
 		for j := range columns {
-			var val interface{}
-			if j < len(row) {
-				val = row[j]
-			}
 			cell, _ := excelize.CoordinatesToCellName(j+1, i+2)
-			f.SetCellValue(sheetName, cell, val)
+			if j < len(row) {
+				f.SetCellValue(sheetName, cell, row[j])
+			}
 		}
 	}
 
 	return f.SaveAs(filePath)
+}
+
+// ==== Startup Arguments ====
+
+func (a *App) debugLog(msg string) {
+	execPath, err := os.Executable()
+	logDir := "."
+	if err == nil {
+		logDir = filepath.Dir(execPath)
+	}
+	logFile := filepath.Join(logDir, "debug_open.log")
+	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("15:04:05.000"), msg)
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(line)
+}
+
+func (a *App) GetStartupFile() string {
+	a.debugLog(fmt.Sprintf("GetStartupFile called, os.Args=%v", os.Args))
+	if len(os.Args) > 1 {
+		arg := os.Args[1]
+		if _, err := os.Stat(arg); err == nil {
+			a.debugLog(fmt.Sprintf("GetStartupFile returning: %s", arg))
+			return arg
+		}
+		a.debugLog(fmt.Sprintf("GetStartupFile arg not a file: %s", arg))
+	}
+	a.debugLog("GetStartupFile returning empty")
+	return ""
+}
+
+func (a *App) onSecondInstanceLaunch(secondInstanceData options.SecondInstanceData) {
+	a.debugLog(fmt.Sprintf("onSecondInstanceLaunch called with args: %v", secondInstanceData.Args))
+
+	// Bring window to front
+	runtime.WindowUnminimise(a.ctx)
+	runtime.WindowShow(a.ctx)
+	runtime.WindowSetAlwaysOnTop(a.ctx, true)
+	runtime.WindowSetAlwaysOnTop(a.ctx, false)
+	a.debugLog("Window brought to front")
+
+	if len(secondInstanceData.Args) > 0 {
+		for _, arg := range secondInstanceData.Args {
+			a.debugLog(fmt.Sprintf("Checking arg: %s", arg))
+			if _, err := os.Stat(arg); err == nil {
+				// Write to pending file for the running instance to pick up
+				pendingPath := a.getPendingFilePath()
+				writeErr := os.WriteFile(pendingPath, []byte(arg), 0644)
+				a.debugLog(fmt.Sprintf("Wrote pending file: %s -> %s (err=%v)", arg, pendingPath, writeErr))
+				break
+			}
+		}
+	} else {
+		a.debugLog("No file arg in second instance args")
+	}
+}
+
+func (a *App) getPendingFilePath() string {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "pending_open.txt"
+	}
+	appDir := filepath.Dir(execPath)
+	if strings.Contains(appDir, "Temp") || strings.Contains(appDir, "tmp") {
+		appDir, _ = os.Getwd()
+	}
+	return filepath.Join(appDir, "pending_open.txt")
+}
+
+func (a *App) CheckPendingFile() string {
+	pendingPath := a.getPendingFilePath()
+	content, err := os.ReadFile(pendingPath)
+	if err != nil {
+		return ""
+	}
+	// Delete immediately after reading
+	os.Remove(pendingPath)
+	filePath := strings.TrimSpace(string(content))
+	if filePath == "" {
+		a.debugLog("CheckPendingFile: file was empty")
+		return ""
+	}
+	// Verify file exists
+	if _, err := os.Stat(filePath); err != nil {
+		a.debugLog(fmt.Sprintf("CheckPendingFile: file not found: %s", filePath))
+		return ""
+	}
+	a.debugLog(fmt.Sprintf("CheckPendingFile: returning %s", filePath))
+	return filePath
+}
+
+func (a *App) ReadTextFile(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Detect UTF-16 LE BOM (FF FE) or BE BOM (FE FF)
+	if len(content) >= 2 {
+		if content[0] == 0xFF && content[1] == 0xFE {
+			// UTF-16 LE
+			return decodeUTF16(content[2:], false), nil
+		} else if content[0] == 0xFE && content[1] == 0xFF {
+			// UTF-16 BE
+			return decodeUTF16(content[2:], true), nil
+		}
+	}
+
+	// Also check if there's an overwhelming amount of NULL bytes (UTF-16 without BOM)
+	// Just sample the first few bytes. Wait, safer to just return as string for UTF-8 normally.
+	// We'll strip UTF-8 BOM if present
+	if len(content) >= 3 && content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF {
+		return string(content[3:]), nil
+	}
+
+	return string(content), nil
+}
+
+func decodeUTF16(b []byte, isBE bool) string {
+	if len(b)%2 != 0 {
+		// Just append a null byte to make it even
+		b = append(b, 0)
+	}
+	u16s := make([]uint16, len(b)/2)
+	for i := 0; i < len(u16s); i++ {
+		if isBE {
+			u16s[i] = uint16(b[i*2])<<8 | uint16(b[i*2+1])
+		} else {
+			u16s[i] = uint16(b[i*2+1])<<8 | uint16(b[i*2])
+		}
+	}
+	// Convert array of uint16 to string by casting it to a slice of runes
+	runes := make([]rune, len(u16s))
+	for i, v := range u16s {
+		runes[i] = rune(v)
+	}
+	return string(runes)
+}
+
+// ==== Settings Wails Bindings ====
+
+func (a *App) SaveSetting(key string, value string) string {
+	if a.localDB == nil {
+		return "Error: LocalDB is not initialized"
+	}
+	err := a.localDB.SaveSetting(key, value)
+	if err != nil {
+		return fmt.Sprintf("Error saving setting: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) LoadSetting(key string) string {
+	if a.localDB == nil {
+		return ""
+	}
+	value, err := a.localDB.LoadSetting(key)
+	if err != nil {
+		fmt.Printf("Error loading setting %s: %v\n", key, err)
+		return ""
+	}
+	return value
 }
 
 // ImportTable imports data from a file to a table
@@ -1110,10 +1290,10 @@ func (a *App) AlterTable(connectionID string, tableName string, changes TableCha
 // --- Query History Methods ---
 
 func (a *App) SaveQueryHistory(query string, dbType string) string {
-	if a.historyDB == nil {
-		return "HistoryDB not initialized"
+	if a.localDB == nil {
+		return "LocalDB not initialized"
 	}
-	err := a.historyDB.SaveQuery(query, dbType)
+	err := a.localDB.SaveQuery(query, dbType)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
@@ -1121,10 +1301,10 @@ func (a *App) SaveQueryHistory(query string, dbType string) string {
 }
 
 func (a *App) GetQueryHistory(dbType string) []QueryHistoryEntry {
-	if a.historyDB == nil {
+	if a.localDB == nil {
 		return []QueryHistoryEntry{}
 	}
-	entries, err := a.historyDB.GetQueries(dbType)
+	entries, err := a.localDB.GetQueries(dbType)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Failed to get query history: %v", err))
 		return []QueryHistoryEntry{}
@@ -1133,10 +1313,10 @@ func (a *App) GetQueryHistory(dbType string) []QueryHistoryEntry {
 }
 
 func (a *App) ToggleFavoriteQuery(id int, isFavorite bool) string {
-	if a.historyDB == nil {
-		return "HistoryDB not initialized"
+	if a.localDB == nil {
+		return "LocalDB not initialized"
 	}
-	err := a.historyDB.ToggleFavorite(id, isFavorite)
+	err := a.localDB.ToggleFavorite(id, isFavorite)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
@@ -1144,10 +1324,10 @@ func (a *App) ToggleFavoriteQuery(id int, isFavorite bool) string {
 }
 
 func (a *App) DeleteQueryHistory(id int) string {
-	if a.historyDB == nil {
-		return "HistoryDB not initialized"
+	if a.localDB == nil {
+		return "LocalDB not initialized"
 	}
-	err := a.historyDB.DeleteQuery(id)
+	err := a.localDB.DeleteQuery(id)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
@@ -1155,10 +1335,10 @@ func (a *App) DeleteQueryHistory(id int) string {
 }
 
 func (a *App) ClearQueryHistory() string {
-	if a.historyDB == nil {
-		return "HistoryDB not initialized"
+	if a.localDB == nil {
+		return "LocalDB not initialized"
 	}
-	_, err := a.historyDB.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0`)
+	_, err := a.localDB.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0`)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}
