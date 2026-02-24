@@ -1,5 +1,39 @@
 [
   {
+    "version": "v1.1.0",
+    "date": "2026-02-24",
+    "changes": [
+      {
+        "type": "feat",
+        "text": "Added Single Instance locking and second instance launch handling"
+      },
+      {
+        "type": "feat",
+        "text": "Improved Thai character decoding for database values and control characters"
+      },
+      {
+        "type": "feat",
+        "text": "Added full lifecycle management for Stored Routines/Functions with advanced UI"
+      },
+      {
+        "type": "feat",
+        "text": "Integrated SQL Editor font settings (Family & Size) and Settings Dialog"
+      },
+      {
+        "type": "feat",
+        "text": "Enhanced Query History with favorites and persistence"
+      },
+      {
+        "type": "feat",
+        "text": "Added Thai (i18n) language support(Developing...)"
+      },
+      {
+        "type": "refactor",
+        "text": "Decoupled dashboard logic into optimized composables and components"
+      }
+    ]
+  },
+  {
     "version": "v1.0.0",
     "date": "2026-02-22",
     "changes": [
