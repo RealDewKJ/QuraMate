@@ -74,12 +74,10 @@ QuraMate supports **11 database engines** out of the box — no plugins, no exte
 
 Pre-built binaries are available on the [Releases](https://github.com/RealDewKJ/QuraMate/releases/latest) page.
 
-| Platform | Architecture          | Download                                                                          |
-| -------- | --------------------- | --------------------------------------------------------------------------------- |
-| Windows  | x64                   | [QuraMate.exe](https://github.com/RealDewKJ/QuraMate/releases/latest)             |
-| macOS    | Apple Silicon (arm64) | [QuraMate-macOS-arm64.zip](https://github.com/RealDewKJ/QuraMate/releases/latest) |
-
-> **Note:** Windows and Linux builds coming soon. You can build from source for any platform Wails supports.
+| Platform | Architecture | Download                                                                              |
+| -------- | ------------ | ------------------------------------------------------------------------------------- |
+| Windows  | x64          | [QuraMate-amd64-installer.exe](https://github.com/RealDewKJ/QuraMate/releases/latest) |
+| macOS    | Universal    | [QuraMate-macOS-universal.zip](https://github.com/RealDewKJ/QuraMate/releases/latest) |
 
 ## Build from Source
 

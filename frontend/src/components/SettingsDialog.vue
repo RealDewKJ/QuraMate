@@ -436,7 +436,7 @@
 
 <script setup>
 import { ref, reactive, h, onMounted, watch } from 'vue';
-import { GetAppLogs, ClearAppLogs, SaveSetting, LoadSetting } from '../../wailsjs/go/main/App';
+import { GetAppLogs, ClearAppLogs, SaveSetting, LoadSetting, GetCurrentVersion } from '../../wailsjs/go/main/App';
 import Toast from './Toast.vue';
 import { colorMode } from '../composables/useTheme';
 import changelogData from '../data/changelog.json';
@@ -464,7 +464,7 @@ const tabs = [
 
 const activeTab = ref('general');
 const showAiKey = ref(false);
-const appVersion = ref('1.0.0-alpha'); // Hardcoded until we get Wails backend hooked up
+const appVersion = ref('');
 
 const appLogs = ref([]);
 const changelogs = changelogData;
@@ -533,8 +533,14 @@ const loadSettings = async () => {
 };
 
 // Load actual theme on mount to show correct active state
-onMounted(() => {
+onMounted(async () => {
     loadSettings();
+    try {
+        appVersion.value = await GetCurrentVersion();
+    } catch (e) {
+        console.error("Failed to fetch app version:", e);
+        appVersion.value = '1.1.0'; // Fallback
+    }
 });
 
 watch(() => props.isOpen, (newVal) => {

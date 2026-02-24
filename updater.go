@@ -14,7 +14,7 @@ import (
 
 // AppVersion is the current version of the application.
 // Update this on each release.
-const AppVersion = "1.0.0"
+const AppVersion = "1.1.0"
 
 // GitHubRepo is the GitHub repository for update checks.
 const GitHubRepo = "RealDewKJ/QuraMate"
