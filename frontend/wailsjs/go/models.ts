@@ -109,6 +109,28 @@ export namespace main {
 	        this.sshKeyFile = source["sshKeyFile"];
 	    }
 	}
+	export class DatabaseInfo {
+	    size: string;
+	    tableCount: number;
+	    viewCount: number;
+	    routineCount: number;
+	    dbName: string;
+	    version: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DatabaseInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.size = source["size"];
+	        this.tableCount = source["tableCount"];
+	        this.viewCount = source["viewCount"];
+	        this.routineCount = source["routineCount"];
+	        this.dbName = source["dbName"];
+	        this.version = source["version"];
+	    }
+	}
 	export class ForeignKey {
 	    table: string;
 	    column: string;

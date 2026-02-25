@@ -680,6 +680,34 @@ func (a *App) GetForeignKeys(connectionID string, tableName string) []ForeignKey
 	return fks
 }
 
+func (a *App) GetDatabaseInfo(connectionID string) (DatabaseInfo, error) {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return DatabaseInfo{}, fmt.Errorf("no database connection")
+	}
+
+	return db.GetDatabaseInfo()
+}
+
+func (a *App) DropDatabase(connectionID string, dbName string) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "no database connection"
+	}
+
+	err := db.DropDatabase(dbName)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // ExportTable exports a table to a file
 func (a *App) ExportTable(connectionID string, tableName string, format string, filePath string) string {
 	a.mu.Lock()
@@ -718,6 +746,40 @@ func (a *App) ExportTable(connectionID string, tableName string, format string, 
 
 	if exportErr != nil {
 		return fmt.Sprintf("Error exporting: %s", exportErr.Error())
+	}
+
+	return "Success"
+}
+
+// ExportDatabase exports all tables in a database to a folder
+func (a *App) ExportDatabase(connectionID string, format string, folderPath string) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	tables, err := db.GetTables()
+	if err != nil {
+		return fmt.Sprintf("Error fetching tables: %s", err.Error())
+	}
+
+	// Create folder if it doesn't exist
+	if err := os.MkdirAll(folderPath, 0755); err != nil {
+		return fmt.Sprintf("Error creating folder: %s", err.Error())
+	}
+
+	for _, table := range tables {
+		fileName := fmt.Sprintf("%s.%s", table, strings.ToLower(format))
+		// For SQL, we might want to append to a single file instead?
+		// But for now, separate files is easier.
+		filePath := filepath.Join(folderPath, fileName)
+		res := a.ExportTable(connectionID, table, format, filePath)
+		if res != "Success" {
+			return fmt.Sprintf("Error exporting table %s: %s", table, res)
+		}
 	}
 
 	return "Success"
@@ -1223,6 +1285,17 @@ func (a *App) SelectSqliteFile() string {
 	return selection
 }
 
+// SelectFolder opens a directory dialog and returns the selected path
+func (a *App) SelectFolder() string {
+	selection, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Folder",
+	})
+	if err != nil {
+		return ""
+	}
+	return selection
+}
+
 func (a *App) ExplainQuery(connectionID string, query string) string {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]
@@ -1281,6 +1354,22 @@ func (a *App) AlterTable(connectionID string, tableName string, changes TableCha
 	}
 
 	err := db.AlterTable(tableName, changes)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) CreateTable(connectionID string, tableName string, columns []ColumnDefinition) string {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return "Connection not found"
+	}
+
+	err := db.CreateTable(tableName, columns)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error())
 	}

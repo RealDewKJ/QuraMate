@@ -69,7 +69,7 @@ export function useRecordOperations(
         if (!activeTab.value || !activeTab.value.tableName) return;
 
         if (!isEditable(col)) {
-            toast?.error("This column cannot be edited (Primary Key or Read Only).");
+            toast.value?.error("This column cannot be edited (Primary Key or Read Only).");
             return;
         }
 
@@ -133,10 +133,10 @@ export function useRecordOperations(
                     }
                 }
             } else {
-                toast?.error('Update failed: ' + result);
+                toast.value?.error('Update failed: ' + result);
             }
         } catch (e: any) {
-            toast?.error('Update error: ' + e);
+            toast.value?.error('Update error: ' + e);
         } finally {
             if (activeTab.value) {
                 activeTab.value.editingCell = null;
@@ -217,10 +217,7 @@ export function useRecordOperations(
         const insertVals: string[] = [];
 
         for (const col of columns) {
-            if (nullColumns[col]) {
-                insertCols.push(col);
-                insertVals.push('NULL');
-            } else {
+            if (!nullColumns[col]) {
                 insertCols.push(col);
                 const val = values[col];
                 const def = columnDefs[col];
@@ -252,7 +249,7 @@ export function useRecordOperations(
             }
 
             insertRowModal.value = null;
-            toast?.success('Row inserted successfully!');
+            toast.value?.success('Row inserted successfully!');
             runQuery();
         } catch (e: any) {
             if (insertRowModal.value) {

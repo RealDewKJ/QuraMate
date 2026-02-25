@@ -9,3 +9,4 @@ agent/
 .agent/skills
 .skills-lock.json
 AGENTS.md
+FRONTEND_CODE_REVIEW.md

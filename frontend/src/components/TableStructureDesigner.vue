@@ -10,7 +10,11 @@
                     <path d="M12 6 2 16v6h6l10-10" />
                     <path d="m9 9 5 5" />
                 </svg>
-                Design: {{ tableName }}
+                <template v-if="!isCreateMode">Design: {{ tableName }}</template>
+                <template v-else>
+                    Create Table: <input v-model="inputTableName" placeholder="Table Name"
+                        class="ml-2 bg-transparent border-b border-border focus:border-primary focus:outline-none text-lg font-semibold px-1" />
+                </template>
             </h2>
             <div class="flex gap-2">
                 <button @click="$emit('close')"
@@ -76,10 +80,19 @@
                                             :disabled="col.status === 'deleted'" placeholder="Column Name" />
                                     </td>
                                     <td class="p-2">
-                                        <input v-model="col.type"
-                                            class="w-full bg-transparent px-2 py-1 rounded border border-transparent focus:border-primary focus:outline-none"
-                                            :disabled="col.status === 'deleted'"
-                                            placeholder="Type (e.g. VARCHAR(255))" />
+                                        <div class="flex items-center gap-1">
+                                            <select v-model="col.baseType"
+                                                class="bg-transparent px-1 py-1 rounded border border-transparent focus:border-primary focus:outline-none text-xs"
+                                                :disabled="col.status === 'deleted'">
+                                                <option v-for="t in commonTypes" :key="t" :value="t">{{ t }}</option>
+                                                <option v-if="!commonTypes.includes(col.baseType)"
+                                                    :value="col.baseType">{{
+                                                        col.baseType }}</option>
+                                            </select>
+                                            <input v-if="typesWithLength.includes(col.baseType)" v-model="col.length"
+                                                class="w-12 bg-transparent px-1 py-1 rounded border border-border focus:border-primary focus:outline-none text-xs"
+                                                :disabled="col.status === 'deleted'" placeholder="255" />
+                                        </div>
                                     </td>
                                     <td class="p-2 text-center">
                                         <input type="checkbox" v-model="col.nullable"
@@ -244,14 +257,38 @@ import Toast from './Toast.vue';
 const toastRef = ref(null);
 const props = defineProps({
     tableName: String,
-    connectionId: String
+    connectionId: String,
+    dbType: String
 });
 
-const emit = defineEmits(['close', 'refresh']);
+const emit = defineEmits(['close', 'refresh', 'success']);
+
+const inputTableName = ref(props.tableName || '');
+const isCreateMode = computed(() => !props.tableName);
 
 const activeTab = ref('Columns');
 const isLoading = ref(true);
 const isSaving = ref(false);
+
+const commonTypes = [
+    'VARCHAR', 'NVARCHAR', 'TEXT', 'INT', 'BIGINT', 'SMALLINT', 'TINYINT',
+    'BOOLEAN', 'BIT', 'DATE', 'DATETIME', 'TIMESTAMP', 'DECIMAL', 'NUMERIC',
+    'REAL', 'DOUBLE', 'FLOAT', 'BLOB', 'JSON'
+];
+
+const typesWithLength = ['VARCHAR', 'NVARCHAR', 'CHAR', 'NCHAR', 'DECIMAL', 'NUMERIC', 'VARBINARY', 'BINARY'];
+
+function parseType(fullType) {
+    if (!fullType) return { base: 'VARCHAR', length: '255' };
+    const match = fullType.match(/^([^(]+)(?:\(([^)]+)\))?$/);
+    if (match) {
+        return {
+            base: match[1].trim().toUpperCase(),
+            length: match[2] || ''
+        };
+    }
+    return { base: fullType.toUpperCase(), length: '' };
+}
 
 const originalColumns = ref([]);
 const localColumns = ref([]);
@@ -264,6 +301,10 @@ onMounted(async () => {
 });
 
 async function fetchData() {
+    if (isCreateMode.value) {
+        isLoading.value = false;
+        return;
+    }
     isLoading.value = true;
     try {
         if (window.go && window.go.main && window.go.main.App) {
@@ -271,7 +312,16 @@ async function fetchData() {
             const cols = await window.go.main.App.GetTableDefinition(props.connectionId, props.tableName);
             originalColumns.value = JSON.parse(JSON.stringify(cols));
             // Store originalName to track renames
-            localColumns.value = cols.map(c => ({ ...c, originalName: c.name, status: 'existing' }));
+            localColumns.value = cols.map(c => {
+                const { base, length } = parseType(c.type);
+                return {
+                    ...c,
+                    originalName: c.name,
+                    status: 'existing',
+                    baseType: base,
+                    length: length
+                };
+            });
 
             // Fetch Indexes
             const indexes = await window.go.main.App.GetTableIndexes(props.connectionId, props.tableName);
@@ -290,6 +340,8 @@ function addColumn() {
     localColumns.value.push({
         name: 'new_column',
         type: 'VARCHAR(255)',
+        baseType: 'VARCHAR',
+        length: '255',
         nullable: true,
         primaryKey: false,
         autoIncrement: false,
@@ -335,6 +387,11 @@ function updateIndexColumns(idx) {
 
 // Change Detection
 const hasChanges = computed(() => {
+    // In Create Mode, we need at least a table name and one valid column
+    if (isCreateMode.value) {
+        return !!inputTableName.value && localColumns.value.some(c => c.status === 'new' && c.name && c.type);
+    }
+
     // Check Columns
     for (const col of localColumns.value) {
         if (col.status === 'new' || col.status === 'deleted') return true;
@@ -344,7 +401,8 @@ const hasChanges = computed(() => {
             // Compare other fields
             const orig = originalColumns.value.find(c => c.name === col.originalName);
             if (orig) {
-                if (col.type !== orig.type) return true;
+                if (col.baseType !== parseType(orig.type).base) return true;
+                if (col.length !== parseType(orig.type).length) return true;
                 if (col.nullable !== orig.nullable) return true;
                 if (col.defaultValue != orig.defaultValue) return true;
                 if (col.primaryKey !== orig.primaryKey) return true;
@@ -373,6 +431,44 @@ const hasChanges = computed(() => {
 async function saveChanges() {
     isSaving.value = true;
     try {
+        // Construct full type string for each column
+        localColumns.value.forEach(col => {
+            if (typesWithLength.includes(col.baseType)) {
+                let len = col.length;
+                if (!len || len.trim() === '') {
+                    len = '255'; // Default to 255 if empty
+                }
+                col.type = `${col.baseType}(${len})`;
+            } else {
+                col.type = col.baseType;
+            }
+        });
+
+        if (isCreateMode.value) {
+            const columnsToCreate = localColumns.value
+                .filter(c => c.status === 'new')
+                .map(c => ({
+                    name: c.name,
+                    type: c.type,
+                    nullable: c.nullable,
+                    defaultValue: c.defaultValue,
+                    primaryKey: c.primaryKey,
+                    autoIncrement: c.autoIncrement
+                }));
+
+            if (window.go && window.go.main && window.go.main.App) {
+                const result = await window.go.main.App.CreateTable(props.connectionId, inputTableName.value, columnsToCreate);
+                if (result === "Success") {
+                    emit('refresh');
+                    emit('success', 'Table created successfully!');
+                    emit('close');
+                } else {
+                    toastRef.value?.error('Error creating table: ' + result);
+                }
+            }
+            return;
+        }
+
         const changes = {
             renameTable: "",
             addColumns: [],
@@ -467,8 +563,7 @@ async function saveChanges() {
                 // Refresh data
                 await fetchData();
                 emit('refresh');
-                // Maybe close or show success toast
-                toastRef.value?.success('Changes saved successfully!');
+                emit('success', 'Changes saved successfully!');
             } else {
                 toastRef.value?.error('Error saving: ' + result);
             }
@@ -481,4 +576,15 @@ async function saveChanges() {
         isSaving.value = false;
     }
 }
+
+// Auto-fill default length when type changes
+watch(localColumns, (newCols) => {
+    newCols.forEach(col => {
+        if (typesWithLength.includes(col.baseType) && (!col.length || col.length.trim() === '')) {
+            if (col.baseType === 'VARCHAR' || col.baseType === 'NVARCHAR') {
+                col.length = '255';
+            }
+        }
+    });
+}, { deep: true });
 </script>

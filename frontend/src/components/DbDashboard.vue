@@ -442,7 +442,7 @@
                                         <polyline points="19 12 12 19 5 12" />
                                     </svg>
                                     <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...'
-                                        }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
+                                    }}{{ activeTab.isLoading ? '...' : 'ms' }}</span>
                                 </span>
                             </div>
                         </div>
@@ -931,7 +931,8 @@
                 <!-- Table Designer View -->
                 <div v-if="activeTab.isDesignView" class="flex-1 overflow-hidden bg-background">
                     <TableStructureDesigner :key="activeTab.id" :table-name="activeTab.tableName || ''"
-                        :connection-id="props.connectionId" @close="closeTab(activeTab.id)" @refresh="loadTables" />
+                        :connection-id="props.connectionId" :db-type="props.dbType" @close="closeTab(activeTab.id)"
+                        @refresh="loadTables" @success="handleDesignerSuccess" />
                 </div>
 
             </div>
@@ -1091,6 +1092,121 @@
                 New Query
             </button>
             <div class="h-px bg-border my-1"></div>
+            <button @click="handleBackupExport"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-archive">
+                    <rect width="20" height="5" x="2" y="3" rx="1" />
+                    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                    <path d="M10 12h4" />
+                </svg>
+                Backup / Export
+            </button>
+            <button @click="handleGenerateDatabaseERDiagram"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-network">
+                    <rect x="16" y="16" width="6" height="6" rx="1" />
+                    <rect x="2" y="16" width="6" height="6" rx="1" />
+                    <rect x="9" y="2" width="6" height="6" rx="1" />
+                    <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
+                    <path d="M12 12V8" />
+                </svg>
+                Generate ER Diagram
+            </button>
+            <button @click="handleDatabaseInfo"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-info">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4" />
+                    <path d="M12 8h.01" />
+                </svg>
+                Database Info
+            </button>
+            <div class="h-px bg-border my-1"></div>
+            <div class="relative group">
+                <button
+                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2 transition-colors">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-plus-circle">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M8 12h8" />
+                            <path d="M12 8v8" />
+                        </svg>
+                        Create New...
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-chevron-right">
+                        <path d="m9 18 6-6-6-6" />
+                    </svg>
+                </button>
+                <div
+                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[140px] hidden group-hover:block animate-in fade-in slide-in-from-left-1 duration-150">
+                    <button @click="handleNewTable"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-table">
+                            <path d="M12 3v18" />
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                            <path d="M3 9h18" />
+                            <path d="M3 15h18" />
+                        </svg>
+                        Table
+                    </button>
+                    <button @click="handleNewView"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-eye text-green-500">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        View
+                    </button>
+                    <button @click="handleNewRoutine('PROCEDURE')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-scroll text-blue-400">
+                            <path d="M8 17a5 5 0 0 1 5-5c1.1 0 2 .9 2 2v6a2 2 0 0 1-4 0v-6.5" />
+                            <path d="M12 2H8a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9a5 5 0 0 0-5-5Z" />
+                        </svg>
+                        Procedure
+                    </button>
+                    <button @click="handleNewRoutine('FUNCTION')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-function-square text-purple-400">
+                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                            <path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3" />
+                            <path d="M9 11.2h5.7" />
+                        </svg>
+                        Function
+                    </button>
+                </div>
+            </div>
+            <div class="h-px bg-border my-1"></div>
+            <button @click="handleDropDatabase"
+                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-trash-2">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+                Drop Database
+            </button>
+            <div class="h-px bg-border my-1"></div>
             <button @click="disconnect"
                 class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -1166,6 +1282,17 @@
                     <path d="M3 3v5h5" />
                 </svg>
                 Refresh {{ contextMenu.targetFolder }}
+            </button>
+            <div v-if="contextMenu.targetFolder === 'Tables'" class="h-px bg-border my-1"></div>
+            <button v-if="contextMenu.targetFolder === 'Tables'" @click="handleNewTable"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-plus">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                </svg>
+                Create Table
             </button>
             <div v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'"
                 class="h-px bg-border my-1"></div>
@@ -1450,7 +1577,7 @@
 
                 <p class="text-sm text-muted-foreground">
                     Insert a new row into <span class="font-medium text-foreground">{{ insertRowModal.tableName
-                    }}</span>
+                        }}</span>
                 </p>
 
                 <div class="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -1590,6 +1717,188 @@
                 </div>
             </div>
         </div>
+        <!-- Database Info Modal -->
+        <div v-if="dbInfoModal.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground">Database Info</h3>
+                    <button @click="dbInfoModal.isOpen = false" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div v-if="dbInfoModal.isLoading" class="flex flex-col items-center justify-center py-10 gap-3">
+                    <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                    <span class="text-sm text-muted-foreground">Gathering statistics...</span>
+                </div>
+
+                <div v-else-if="dbInfoModal.info" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Database</label>
+                            <p class="text-sm font-semibold truncate">{{ dbInfoModal.info.dbName }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Version</label>
+                            <p class="text-sm font-semibold truncate" :title="dbInfoModal.info.version">{{
+                                dbInfoModal.info.version }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total
+                                Size</label>
+                            <p class="text-sm font-semibold">{{ dbInfoModal.info.size }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tables</label>
+                            <p class="text-sm font-semibold">{{ dbInfoModal.info.tableCount }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Views</label>
+                            <p class="text-sm font-semibold">{{ dbInfoModal.info.viewCount }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Routines</label>
+                            <p class="text-sm font-semibold">{{ dbInfoModal.info.routineCount }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button @click="dbInfoModal.isOpen = false"
+                        class="px-5 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drop Database Confirmation -->
+        <div v-if="dropDbConfirmation.isOpen"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+            <div
+                class="bg-card w-full max-w-sm rounded-lg shadow-2xl border border-destructive/50 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center gap-3 text-destructive">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-alert-triangle">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                    </svg>
+                    <h3 class="text-lg font-bold uppercase tracking-tight">Drop Database</h3>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-sm text-muted-foreground leading-relaxed">
+                        Are you sure you want to drop the database <span class="font-bold text-foreground">"{{
+                            dropDbConfirmation.dbName }}"</span>?
+                        This action is irreversible.
+                    </p>
+
+                    <div class="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                        <p class="text-xs text-destructive font-bold uppercase mb-1">Critical Warning</p>
+                        <p class="text-[11px] text-destructive/90 leading-normal">
+                            Drops all tables, views, and data within this database permanently.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-2">
+                    <button @click="confirmDropDatabase" :disabled="dropDbConfirmation.isLoading"
+                        class="w-full h-10 flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm disabled:opacity-50">
+                        <template v-if="dropDbConfirmation.isLoading">
+                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent">
+                            </div>
+                            Dropping...
+                        </template>
+                        <template v-else>
+                            Yes, Drop It Permanently
+                        </template>
+                    </button>
+                    <button @click="dropDbConfirmation.isOpen = false" :disabled="dropDbConfirmation.isLoading"
+                        class="w-full h-10 px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent transition-colors disabled:opacity-50">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup / Export Modal -->
+        <div v-if="exportDbModal.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-left">
+            <div
+                class="bg-card w-full max-w-sm rounded-lg shadow-lg border border-border p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground tracking-tight">Backup Database</h3>
+                    <button @click="exportDbModal.isOpen = false" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Format</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button v-for="fmt in ['SQL', 'CSV', 'JSON', 'Excel']" :key="fmt"
+                                @click="exportDbModal.format = fmt"
+                                class="px-3 py-2 text-xs font-bold rounded-md border transition-all"
+                                :class="exportDbModal.format === fmt ? 'bg-primary border-primary text-primary-foreground shadow-sm' : 'border-input bg-background hover:bg-accent text-muted-foreground'">
+                                {{ fmt }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label
+                            class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Destination</label>
+                        <div class="p-2.5 bg-muted/60 rounded-md border border-border">
+                            <p class="text-[11px] truncate font-mono text-muted-foreground italic"
+                                :title="exportDbModal.folderPath">{{ exportDbModal.folderPath }}</p>
+                        </div>
+                        <p class="text-[10px] text-muted-foreground leading-relaxed">
+                            Each table will be saved as an individual file.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="exportDbModal.isOpen = false"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="confirmExportDb" :disabled="exportDbModal.isLoading"
+                        class="flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 h-10">
+                        <template v-if="exportDbModal.isLoading">
+                            <div
+                                class="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent">
+                            </div>
+                            Processing...
+                        </template>
+                        <template v-else>
+                            Export Now
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <Toast ref="toastRef" />
         <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
         <QueryHistory :is-open="isHistoryOpen" :connection-name="connectionName" @close="isHistoryOpen = false"
@@ -1624,7 +1933,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory, LoadSetting } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory, LoadSetting, GetDatabaseInfo, DropDatabase, ExportDatabase, SelectFolder } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -1916,6 +2225,104 @@ const contextMenu = reactive({
     targetRoutineType: 'PROCEDURE' as 'PROCEDURE' | 'FUNCTION'
 });
 
+const dbInfoModal = reactive({
+    isOpen: false,
+    info: null as any,
+    isLoading: false
+});
+
+const dropDbConfirmation = reactive({
+    isOpen: false,
+    dbName: '',
+    isLoading: false
+});
+
+const exportDbModal = reactive({
+    isOpen: false,
+    folderPath: '',
+    format: 'SQL',
+    isLoading: false
+});
+
+const handleBackupExport = async () => {
+    closeContextMenu();
+    const folder = await SelectFolder();
+    if (folder) {
+        exportDbModal.isOpen = true;
+        exportDbModal.folderPath = folder;
+    }
+};
+
+const confirmExportDb = async () => {
+    exportDbModal.isLoading = true;
+    try {
+        const res = await ExportDatabase(props.connectionId, exportDbModal.format, exportDbModal.folderPath);
+        if (res === "Success") {
+            toastRef.value?.success("Backup successful!");
+            exportDbModal.isOpen = false;
+        } else {
+            toastRef.value?.error(res);
+        }
+    } catch (e) {
+        toastRef.value?.error("Export failed: " + e);
+    } finally {
+        exportDbModal.isLoading = false;
+    }
+};
+
+const handleGenerateDatabaseERDiagram = () => {
+    closeContextMenu();
+    addTab();
+    if (activeTab.value) {
+        activeTab.value.name = 'ER Diagram';
+        activeTab.value.isERView = true;
+    }
+};
+
+const handleDatabaseInfo = async () => {
+    closeContextMenu();
+    dbInfoModal.isOpen = true;
+    dbInfoModal.isLoading = true;
+    try {
+        dbInfoModal.info = await GetDatabaseInfo(props.connectionId);
+    } catch (e) {
+        toastRef.value?.error("Failed to fetch database info");
+    } finally {
+        dbInfoModal.isLoading = false;
+    }
+};
+
+const handleDropDatabase = async () => {
+    closeContextMenu();
+    try {
+        const info = await GetDatabaseInfo(props.connectionId);
+        dropDbConfirmation.dbName = info.dbName;
+        dropDbConfirmation.isOpen = true;
+    } catch (e) {
+        toastRef.value?.error("Could not fetch database name");
+    }
+};
+
+const confirmDropDatabase = async () => {
+    dropDbConfirmation.isLoading = true;
+    try {
+        const res = await DropDatabase(props.connectionId, dropDbConfirmation.dbName);
+        if (!res) {
+            toastRef.value?.success("Database dropped successfully.");
+            dropDbConfirmation.isOpen = false;
+            emit('disconnect'); // Disconnect since DB is gone
+        } else {
+            toastRef.value?.error(res);
+        }
+    } catch (e) {
+        toastRef.value?.error("Failed to drop database: " + e);
+    } finally {
+        dropDbConfirmation.isLoading = false;
+    }
+};
+
+// Redundant handleNewView and handleNewRoutine removed as they are defined later in the file.
+
 const openDbContextMenu = (event: MouseEvent) => {
     closeContextMenu();
     contextMenu.position = { x: event.clientX, y: event.clientY };
@@ -1935,6 +2342,22 @@ const openFolderContextMenu = (event: MouseEvent, folderName: string) => {
     contextMenu.targetFolder = folderName;
     contextMenu.position = { x: event.clientX, y: event.clientY };
     contextMenu.showFolder = true;
+};
+
+const handleDesignerSuccess = (message: string) => {
+    if (toastRef.value) {
+        toastRef.value.success(message);
+    }
+};
+
+const handleNewTable = () => {
+    closeContextMenu();
+    addTab();
+    if (activeTab.value) {
+        activeTab.value.name = 'New Table';
+        activeTab.value.tableName = '';
+        activeTab.value.isDesignView = true;
+    }
 };
 
 const handleFolderRefresh = async () => {

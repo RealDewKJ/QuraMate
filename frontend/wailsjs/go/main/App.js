@@ -30,6 +30,10 @@ export function ConnectDB(arg1) {
   return window['go']['main']['App']['ConnectDB'](arg1);
 }
 
+export function CreateTable(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateTable'](arg1, arg2, arg3);
+}
+
 export function DeleteCredential(arg1) {
   return window['go']['main']['App']['DeleteCredential'](arg1);
 }
@@ -40,6 +44,10 @@ export function DeleteQueryHistory(arg1) {
 
 export function DisconnectDB(arg1) {
   return window['go']['main']['App']['DisconnectDB'](arg1);
+}
+
+export function DropDatabase(arg1, arg2) {
+  return window['go']['main']['App']['DropDatabase'](arg1, arg2);
 }
 
 export function ExecuteQuery(arg1, arg2, arg3) {
@@ -58,6 +66,10 @@ export function ExplainQuery(arg1, arg2) {
   return window['go']['main']['App']['ExplainQuery'](arg1, arg2);
 }
 
+export function ExportDatabase(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportDatabase'](arg1, arg2, arg3);
+}
+
 export function ExportTable(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTable'](arg1, arg2, arg3, arg4);
 }
@@ -68,6 +80,10 @@ export function GetAppLogs() {
 
 export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
+}
+
+export function GetDatabaseInfo(arg1) {
+  return window['go']['main']['App']['GetDatabaseInfo'](arg1);
 }
 
 export function GetForeignKeys(arg1, arg2) {
@@ -152,6 +168,10 @@ export function SaveSetting(arg1, arg2) {
 
 export function SelectExportFile(arg1) {
   return window['go']['main']['App']['SelectExportFile'](arg1);
+}
+
+export function SelectFolder() {
+  return window['go']['main']['App']['SelectFolder']();
 }
 
 export function SelectImportFile() {

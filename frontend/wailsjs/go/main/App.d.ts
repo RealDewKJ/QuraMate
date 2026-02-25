@@ -16,11 +16,15 @@ export function ClearQueryHistory():Promise<string>;
 
 export function ConnectDB(arg1:main.DBConfig):Promise<main.ConnectResult>;
 
+export function CreateTable(arg1:string,arg2:string,arg3:Array<main.ColumnDefinition>):Promise<string>;
+
 export function DeleteCredential(arg1:string):Promise<void>;
 
 export function DeleteQueryHistory(arg1:number):Promise<string>;
 
 export function DisconnectDB(arg1:string):Promise<string>;
+
+export function DropDatabase(arg1:string,arg2:string):Promise<string>;
 
 export function ExecuteQuery(arg1:string,arg2:string,arg3:string):Promise<main.QueryResult>;
 
@@ -30,11 +34,15 @@ export function ExecuteTransientQuery(arg1:string,arg2:string):Promise<main.Quer
 
 export function ExplainQuery(arg1:string,arg2:string):Promise<string>;
 
+export function ExportDatabase(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GetAppLogs():Promise<Array<main.LogEntry>>;
 
 export function GetCurrentVersion():Promise<string>;
+
+export function GetDatabaseInfo(arg1:string):Promise<main.DatabaseInfo>;
 
 export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<main.ForeignKey>>;
 
@@ -77,6 +85,8 @@ export function SaveQueryHistory(arg1:string,arg2:string):Promise<string>;
 export function SaveSetting(arg1:string,arg2:string):Promise<string>;
 
 export function SelectExportFile(arg1:string):Promise<string>;
+
+export function SelectFolder():Promise<string>;
 
 export function SelectImportFile():Promise<string>;
 
