@@ -3,6 +3,9 @@ import { GetTables, GetViews, GetStoredProcedures, GetFunctions } from '../../wa
 
 export function useSidebar(connectionId: string) {
     const tableSearch = ref('');
+    const viewSearch = ref('');
+    const storedProcedureSearch = ref('');
+    const functionSearch = ref('');
     const tables = ref<string[]>([]);
     const views = ref<string[]>([]);
     const storedProcedures = ref<string[]>([]);
@@ -17,16 +20,16 @@ export function useSidebar(connectionId: string) {
         }
     };
 
-    const filteredItems = (items: string[]) => {
-        if (!tableSearch.value) return items;
-        const search = tableSearch.value.toLowerCase();
+    const filteredItems = (items: string[], searchRef: any) => {
+        if (!searchRef.value) return items;
+        const search = searchRef.value.toLowerCase();
         return items.filter(v => v.toLowerCase().includes(search));
     };
 
-    const filteredTables = computed(() => filteredItems(tables.value));
-    const filteredViews = computed(() => filteredItems(views.value));
-    const filteredStoredProcedures = computed(() => filteredItems(storedProcedures.value));
-    const filteredFunctions = computed(() => filteredItems(functions.value));
+    const filteredTables = computed(() => filteredItems(tables.value, tableSearch));
+    const filteredViews = computed(() => filteredItems(views.value, viewSearch));
+    const filteredStoredProcedures = computed(() => filteredItems(storedProcedures.value, storedProcedureSearch));
+    const filteredFunctions = computed(() => filteredItems(functions.value, functionSearch));
 
     const refreshTables = async () => {
         if (!connectionId) return;
@@ -79,6 +82,9 @@ export function useSidebar(connectionId: string) {
 
     return {
         tableSearch,
+        viewSearch,
+        storedProcedureSearch,
+        functionSearch,
         tables,
         views,
         storedProcedures,

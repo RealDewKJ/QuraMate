@@ -102,6 +102,19 @@
                             <span>Views</span>
                         </div>
                         <div v-show="openFolders.includes('Views')" class="ml-4 mt-1 border-l border-border pl-2">
+                            <div class="mb-2 pr-2">
+                                <div class="relative">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="lucide lucide-search absolute left-2 top-2 text-muted-foreground">
+                                        <circle cx="11" cy="11" r="8" />
+                                        <path d="m21 21-4.3-4.3" />
+                                    </svg>
+                                    <input v-model="viewSearch" type="text" placeholder="Filter views..."
+                                        class="w-full h-8 pl-7 pr-2 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                </div>
+                            </div>
                             <ul class="space-y-0.5">
                                 <li v-for="view in filteredViews" :key="view"
                                     class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
@@ -168,6 +181,20 @@
                                 </div>
                                 <div v-show="openFolders.includes('Stored Procedures')"
                                     class="ml-4 border-l border-border pl-2">
+                                    <div class="mb-2 pr-2 mt-1">
+                                        <div class="relative">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-search absolute left-2 top-2 text-muted-foreground">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.3-4.3" />
+                                            </svg>
+                                            <input v-model="storedProcedureSearch" type="text"
+                                                placeholder="Filter procedures..."
+                                                class="w-full h-8 pl-7 pr-2 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                        </div>
+                                    </div>
                                     <ul class="space-y-0.5">
                                         <li v-for="sp in filteredStoredProcedures" :key="sp"
                                             class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
@@ -214,6 +241,20 @@
                                 </div>
                                 <div v-show="openFolders.includes('Functions')"
                                     class="ml-4 border-l border-border pl-2">
+                                    <div class="mb-2 pr-2 mt-1">
+                                        <div class="relative">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-search absolute left-2 top-2 text-muted-foreground">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.3-4.3" />
+                                            </svg>
+                                            <input v-model="functionSearch" type="text"
+                                                placeholder="Filter functions..."
+                                                class="w-full h-8 pl-7 pr-2 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                        </div>
+                                    </div>
                                     <ul class="space-y-0.5">
                                         <li v-for="fn in filteredFunctions" :key="fn"
                                             class="flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors truncate"
@@ -473,7 +514,7 @@
                             Stop
                         </button>
 
-                        <button v-else @click="runQuery"
+                        <button v-else @click="() => runQuery()"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -493,7 +534,7 @@
                 </div>
 
                 <!-- Results Area -->
-                <div v-if="!activeTab.isERView && !activeTab.isDesignView"
+                <div v-if="!activeTab.isERView && !activeTab.isDesignView" ref="resultsContainerRef"
                     class="flex-1 overflow-hidden bg-muted/10 flex flex-col">
 
                     <!-- Data/Messages Sub-Tabs -->
@@ -641,7 +682,11 @@
                                                     :key="index + '-' + col"
                                                     class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
-                                                    :class="{ 'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col }"
+                                                    :class="{
+                                                        'bg-accent/50': activeTab.editingCell && activeTab.editingCell.rowId === item.index && activeTab.editingCell.col === col,
+                                                        'ring-1 ring-inset ring-primary z-10': selectedRowIndex === item.index && selectedColumn === col && !activeTab.editingCell
+                                                    }"
+                                                    @click.stop="selectedRowIndex = item.index; selectedColumn = col"
                                                     @dblclick="handleCellClick(item, col)"
                                                     @contextmenu.prevent="handleRowContextMenu($event, item.data, col)">
 
@@ -738,8 +783,10 @@
                                                 :class="selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
                                                 @click="selectedRowIndex = selectedRowIndex === `sub-${rsIndex}-${rIndex}` ? null : `sub-${rsIndex}-${rIndex}`">
                                                 <td v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
-                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border overflow-hidden"
+                                                    class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border overflow-hidden cursor-pointer relative"
                                                     :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
+                                                    :class="{ 'ring-1 ring-inset ring-primary z-10': selectedRowIndex === `sub-${rsIndex}-${rIndex}` && selectedColumn === col }"
+                                                    @click.stop="selectedRowIndex = `sub-${rsIndex}-${rIndex}`; selectedColumn = col"
                                                     @contextmenu.prevent="handleRowContextMenu($event, row, col)">
                                                     <div class="flex items-center gap-2 overflow-hidden w-full h-full">
                                                         <div v-if="isImageValue(row[col], col)"
@@ -917,7 +964,7 @@
         </div>
         <!-- Context Menu for Tables -->
         <div v-if="contextMenu.show"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
@@ -993,7 +1040,7 @@
 
         <!-- View Context Menu -->
         <div v-if="contextMenu.showView"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100View"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
@@ -1020,7 +1067,7 @@
 
         <!-- Database Context Menu -->
         <div v-if="contextMenu.showDb"
-            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100"
+            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="refreshDatabase"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
@@ -1059,7 +1106,7 @@
 
         <!-- Routine Context Menu -->
         <div v-if="contextMenu.showRoutine"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleScriptRoutine"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
@@ -1108,7 +1155,7 @@
 
         <!-- Folder Context Menu -->
         <div v-if="contextMenu.showFolder"
-            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100"
+            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleFolderRefresh"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
@@ -1162,27 +1209,69 @@
 
         <!-- Row Context Menu -->
         <div v-if="contextMenu.showRow"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px]"
+            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleCopyRow"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-copy">
-                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                </svg>
-                Copy Row
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-copy">
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                    </svg>
+                    Copy Row
+                </div>
+                <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + Shift + C</Kbd>
+            </button>
+            <button @click="handleCopyRowWithHeader"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-copy-plus">
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                        <path d="M15 15h6" />
+                        <path d="M18 12v6" />
+                    </svg>
+                    Copy Row With Header
+                </div>
             </button>
             <button @click="handleCopyCellValue"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-clipboard-copy">
+                        <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    </svg>
+                    Copy Cell Value
+                </div>
+                <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + C</Kbd>
+            </button>
+            <button @click="handleCopyCellValueWithHeader"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-clipboard-copy">
+                    class="lucide lucide-clipboard-type">
                     <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <path d="M9 12v2h6v-2" />
+                    <path d="M12 12v7" />
                 </svg>
-                Copy Cell Value
+                Copy Cell Value With Header
+            </button>
+            <div class="border-t border-border my-1"></div>
+            <button @click="handleAddWhereToCondition"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-filter">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                Add Where To Condition
             </button>
             <div class="border-t border-border my-1"></div>
             <div class="relative group">
@@ -1217,6 +1306,57 @@
                     <button @click="handleSetDefault"
                         class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
                         Set to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Safe Mode Confirmation Modal -->
+        <div v-if="safeModeConfirmation && safeModeConfirmation.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-destructive flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-alert-triangle">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                            <path d="M12 9v4" />
+                            <path d="M12 17h.01" />
+                        </svg>
+                        Safe Mode Warning
+                    </h3>
+                    <button @click="cancelSafeModeQuery" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <p class="text-sm text-foreground">
+                    You are about to execute an <strong>UPDATE</strong> or <strong>DELETE</strong> query without a WHERE
+                    clause.
+                </p>
+                <div
+                    class="bg-destructive/10 border border-destructive/20 rounded p-3 text-xs font-mono text-destructive max-h-32 overflow-y-auto break-all whitespace-pre-wrap">
+                    {{ safeModeConfirmation.queryToRun }}
+                </div>
+                <p class="text-sm flex font-medium text-destructive">
+                    This will affect all rows potentially causing data loss. Are you sure you want to proceed?
+                </p>
+
+                <div class="flex justify-end gap-3 pt-4">
+                    <button @click="cancelSafeModeQuery"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="confirmSafeModeQuery"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm">
+                        Run Query
                     </button>
                 </div>
             </div>
@@ -1484,7 +1624,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory, LoadSetting } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -1497,6 +1637,7 @@ import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
 import DatePicker from './DatePicker.vue';
+import { Kbd } from './ui/kbd';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 
 // Composables
@@ -1509,10 +1650,32 @@ import { useRecordOperations } from '../composables/useRecordOperations';
 import { QueryTab, ContextMenuState } from '../types/dashboard';
 import { ColumnMetadata, ResultSet } from '../types/database';
 
+const resultsContainerRef = ref<HTMLElement | null>(null);
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
 const imagePreviewUrl = ref<string | null>(null);
+
+const globalSettings = ref<any>({});
+const safeModeEnabled = computed(() => {
+    return globalSettings.value?.general?.enableSafeMode !== false;
+});
+const safeModeConfirmation = reactive({
+    isOpen: false,
+    queryToRun: ''
+});
+
+const confirmSafeModeQuery = () => {
+    safeModeConfirmation.isOpen = false;
+    runQuery(true);
+};
+
+const cancelSafeModeQuery = () => {
+    safeModeConfirmation.isOpen = false;
+    if (activeTab.value) {
+        activeTab.value.isLoading = false;
+    }
+};
 
 const openImagePreview = (url: any) => {
     if (url) imagePreviewUrl.value = String(url);
@@ -1606,6 +1769,9 @@ const {
 // --- Composable: Sidebar ---
 const {
     tableSearch,
+    viewSearch,
+    storedProcedureSearch,
+    functionSearch,
     tables,
     views,
     storedProcedures,
@@ -1648,6 +1814,7 @@ const {
 // Other local state
 const sqlEditorRef = ref<any>(null);
 const selectedRowIndex = ref<number | string | null>(null);
+const selectedColumn = ref<string | null>(null);
 const tableSchemas = ref<Record<string, string[]>>({});
 
 
@@ -1836,6 +2003,22 @@ const closeContextMenu = () => {
     contextMenu.showRoutine = false;
 };
 
+const handleGlobalClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+
+    // First check if click is inside the results container or any context menu
+    const isInsideResults = resultsContainerRef.value?.contains(target);
+    const isInsideContextMenu = target.closest('.context-menu-fixed');
+
+    // Deselect if outside both
+    if (!isInsideResults && !isInsideContextMenu) {
+        selectedRowIndex.value = null;
+        selectedColumn.value = null;
+    }
+
+    closeContextMenu();
+};
+
 const handleCopyRow = () => {
     if (contextMenu.targetRow) {
         const values = Object.values(contextMenu.targetRow).map(v => v === null ? 'NULL' : String(v)).join('\t');
@@ -1850,6 +2033,135 @@ const handleCopyCellValue = () => {
         const str = val === null ? 'NULL' : String(val);
         navigator.clipboard.writeText(str);
         closeContextMenu();
+    }
+};
+
+const handleCopyRowWithHeader = () => {
+    if (contextMenu.targetRow && activeTab.value && activeTab.value.resultSets && activeTab.value.resultSets.length > 0) {
+        const rs = activeTab.value.resultSets[0];
+        const columns = rs.columns;
+        const row = contextMenu.targetRow;
+
+        const headerLine = columns.join('\t');
+        const valueLine = columns.map(col => {
+            const val = row[col];
+            return val === null ? 'NULL' : String(val);
+        }).join('\t');
+
+        navigator.clipboard.writeText(`${headerLine}\n${valueLine}`);
+        closeContextMenu();
+    }
+};
+
+const handleCopyCellValueWithHeader = () => {
+    if (contextMenu.targetRow && contextMenu.targetColumn) {
+        const col = contextMenu.targetColumn;
+        const val = contextMenu.targetRow[col];
+        const str = val === null ? 'NULL' : String(val);
+        navigator.clipboard.writeText(`${col}: ${str}`);
+        closeContextMenu();
+    }
+};
+
+const handleAddWhereToCondition = () => {
+    if (contextMenu.targetRow && contextMenu.targetColumn && activeTab.value) {
+        const col = contextMenu.targetColumn;
+        const val = contextMenu.targetRow[col];
+        const tab = activeTab.value;
+
+        const type = (props.dbType || '').toLowerCase();
+        let escapedCol = col;
+
+        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
+            escapedCol = `"${col}"`;
+        } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+            escapedCol = `\`${col}\``;
+        } else if (type.includes('mssql') || type.includes('sqlserver')) {
+            escapedCol = `[${col}]`;
+        }
+
+        let formattedVal = val;
+        if (val === null) {
+            formattedVal = 'IS NULL';
+        } else if (typeof val === 'number') {
+            formattedVal = `= ${val}`;
+        } else {
+            // Escape single quotes for SQL
+            const escapedStr = String(val).replace(/'/g, "''");
+            formattedVal = `= '${escapedStr}'`;
+        }
+
+        const conditionKeyword = /\bWHERE\b/i.test(tab.query) ? 'AND' : 'WHERE';
+        const condition = `\n${conditionKeyword} ${escapedCol} ${formattedVal}`;
+        tab.query += condition;
+
+        if (toastRef.value) {
+            toastRef.value.success(`Added ${conditionKeyword} condition for ${col}`);
+        }
+        closeContextMenu();
+    }
+};
+
+const copySelectedCell = () => {
+    if (selectedRowIndex.value !== null && selectedColumn.value && activeTab.value) {
+        let rowData: any = null;
+        if (typeof selectedRowIndex.value === 'number') {
+            // Primary result set - use filteredResults to account for sorting/filtering
+            rowData = filteredResults.value[selectedRowIndex.value];
+        } else if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
+            // Subsequent result sets
+            const parts = selectedRowIndex.value.split('-');
+            const rsIdx = parseInt(parts[1]) + 1; // +1 because we slice(1) in template
+            const rIdx = parseInt(parts[2]);
+            if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
+                rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
+            }
+        }
+
+        if (rowData) {
+            const val = rowData[selectedColumn.value];
+            const str = val === null ? 'NULL' : String(val);
+            navigator.clipboard.writeText(str);
+            if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
+        }
+    }
+};
+
+const copySelectedRow = (withHeader: boolean = false) => {
+    if (selectedRowIndex.value !== null && activeTab.value) {
+        let rowData: any = null;
+        let columns: string[] = [];
+        if (typeof selectedRowIndex.value === 'number') {
+            // Primary result set - use filteredResults to account for sorting/filtering
+            rowData = filteredResults.value[selectedRowIndex.value];
+            if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
+                columns = activeTab.value.resultSets[0].columns;
+            }
+        } else if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
+            const parts = selectedRowIndex.value.split('-');
+            const rsIdx = parseInt(parts[1]) + 1;
+            const rIdx = parseInt(parts[2]);
+            if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
+                rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
+                columns = activeTab.value.resultSets[rsIdx].columns;
+            }
+        }
+
+        if (rowData && columns.length > 0) {
+            const valueLine = columns.map(col => {
+                const val = rowData[col];
+                return val === null ? 'NULL' : String(val);
+            }).join('\t');
+
+            if (withHeader) {
+                const headerLine = columns.join('\t');
+                navigator.clipboard.writeText(`${headerLine}\n${valueLine}`);
+                if (toastRef.value) toastRef.value.success('Row with header copied to clipboard');
+            } else {
+                navigator.clipboard.writeText(valueLine);
+                if (toastRef.value) toastRef.value.success('Row copied to clipboard');
+            }
+        }
     }
 };
 
@@ -2743,7 +3055,7 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
 
 
 
-const runQuery = async () => {
+const runQuery = async (forceBypassSafeMode: boolean = false) => {
 
     if (!activeTab.value) return;
 
@@ -2770,6 +3082,20 @@ const runQuery = async () => {
         const selection = sqlEditorRef.value.getSelection();
         if (selection && selection.trim()) {
             queryToRun = selection;
+        }
+    }
+
+    if (!forceBypassSafeMode && safeModeEnabled.value) {
+        let normalizedQuery = queryToRun.replace(/\/\*[\s\S]*?\*\//g, '');
+        normalizedQuery = normalizedQuery.replace(/--.*$/gm, '');
+        normalizedQuery = normalizedQuery.trim();
+
+        const isRisky = /^(update|delete)\b/i.test(normalizedQuery) && !/\bwhere\b/i.test(normalizedQuery);
+        if (isRisky) {
+            safeModeConfirmation.queryToRun = queryToRun;
+            safeModeConfirmation.isOpen = true;
+            tab.isLoading = false;
+            return;
         }
     }
 
@@ -3107,6 +3433,10 @@ const saveCellEdit = async (item: any, col: string) => {
 
 
 const handleKeydown = (e: KeyboardEvent) => {
+    // Check if user is typing in an input or textarea
+    const target = e.target as HTMLElement;
+    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         runQuery();
     }
@@ -3120,21 +3450,48 @@ const handleKeydown = (e: KeyboardEvent) => {
         e.preventDefault();
         beautifyQuery();
     }
+
+    // Datatable Copy Keybindings
+    if (!isInput && (e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+        if (selectedRowIndex.value !== null) {
+            e.preventDefault();
+            if (e.shiftKey) {
+                copySelectedRow(true);
+            } else {
+                // If a column is selected, copy cell. Otherwise copy row? 
+                // Standard behavior: Ctrl+C copies selected cell if active.
+                if (selectedColumn.value) {
+                    copySelectedCell();
+                } else {
+                    handleCopyRow();
+                }
+            }
+        }
+    }
 };
 
-onMounted(() => {
+onMounted(async () => {
+    try {
+        const savedSettingsJson = await LoadSetting('user_settings');
+        if (savedSettingsJson) {
+            globalSettings.value = JSON.parse(savedSettingsJson);
+        }
+    } catch (e) {
+        console.error("Failed to load global settings in dashboard", e);
+    }
+
     if (props.connectionId) {
         loadTables();
         addTab();
     }
     window.addEventListener('keydown', handleKeydown, true);
-    window.addEventListener('click', closeContextMenu);
+    window.addEventListener('click', handleGlobalClick);
     window.addEventListener('open-sql-file', handleOpenSqlFile as EventListener);
 });
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown, true);
-    window.removeEventListener('click', closeContextMenu);
+    window.removeEventListener('click', handleGlobalClick);
     window.removeEventListener('open-sql-file', handleOpenSqlFile as EventListener);
 });
 
@@ -3195,5 +3552,6 @@ watch(activeTabId, () => {
     // We don't have a direct clearSelection on SqlEditor yet, but we could add it.
     // For now, let's just reset the selectedRowIndex to be safe.
     selectedRowIndex.value = null;
+    selectedColumn.value = null;
 });
 </script>

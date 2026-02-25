@@ -60,6 +60,27 @@
                                         <option value="th">Thai (Coming Soon)</option>
                                     </select>
                                 </div>
+
+                                <div class="grid gap-2 pt-4 border-t border-border">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Safe Mode
+                                    </label>
+                                    <div class="flex items-center space-x-2">
+                                        <button type="button" role="switch"
+                                            :aria-checked="settings.general.enableSafeMode"
+                                            @click="settings.general.enableSafeMode = !settings.general.enableSafeMode"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.enableSafeMode ? 'bg-primary' : 'bg-input'">
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.enableSafeMode ? 'translate-x-5' : 'translate-x-0'">
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Warn before executing UPDATE or
+                                            DELETE queries without a WHERE clause</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -139,6 +160,21 @@
                                         </button>
                                     </div>
                                 </div>
+
+                                <div class="grid gap-2 mt-4 pt-4 border-t border-border">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        App Font
+                                    </label>
+                                    <select v-model="settings.appearance.appFont"
+                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm">
+                                        <option value="system-ui, sans-serif">System UI (Default)</option>
+                                        <option value="'Sarabun', sans-serif">Sarabun</option>
+                                        <option value="'Inter', sans-serif">Inter</option>
+                                        <option value="'Roboto', sans-serif">Roboto</option>
+                                        <option value="'Open Sans', sans-serif">Open Sans</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -175,7 +211,7 @@
                                         <input type="range" v-model="settings.editor.fontSize" min="10" max="24"
                                             class="w-full accent-primary">
                                         <span class="text-sm font-mono w-12 text-right">{{ settings.editor.fontSize
-                                        }}px</span>
+                                            }}px</span>
                                     </div>
                                 </div>
 
@@ -503,10 +539,12 @@ const toggleVersion = (version) => {
 // Deep copy of settings for the form
 const settings = reactive({
     general: {
-        language: 'en'
+        language: 'en',
+        enableSafeMode: true
     },
     appearance: {
-        theme: 'system'
+        theme: 'system',
+        appFont: "system-ui, sans-serif"
     },
     editor: {
         fontFamily: "'JetBrains Mono', monospace",
@@ -530,6 +568,14 @@ const loadSettings = async () => {
     }
 
     settings.appearance.theme = colorMode.value === 'auto' ? 'system' : colorMode.value;
+    if (!settings.appearance.appFont) {
+        settings.appearance.appFont = "system-ui, sans-serif";
+    }
+
+    // Default safe mode to true if undefined
+    if (settings.general.enableSafeMode === undefined) {
+        settings.general.enableSafeMode = true;
+    }
 };
 
 // Load actual theme on mount to show correct active state
@@ -556,6 +602,11 @@ const close = () => {
 const save = async () => {
     // Apply theme immediately on save
     colorMode.value = settings.appearance.theme === 'system' ? 'auto' : (settings.appearance.theme || 'auto');
+
+    // Apply font immediately on save
+    if (settings.appearance.appFont) {
+        document.documentElement.style.fontFamily = settings.appearance.appFont;
+    }
 
     try {
         await SaveSetting('user_settings', JSON.stringify(settings));

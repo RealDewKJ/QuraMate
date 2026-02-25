@@ -11,15 +11,21 @@
   "dependencies": {
     "@qdrant/js-client-rest": "^1.17.0",
     "@vueuse/core": "^14.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-vue-next": "^0.575.0",
     "mermaid": "^11.12.2",
     "monaco-editor": "^0.55.1",
     "radix-vue": "^1.9.17",
     "sql-formatter": "^15.7.1",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss-animate": "^1.0.7",
     "vue": "^3.2.37",
     "vue-i18n": "^9.14.5"
   },
   "devDependencies": {
     "@babel/types": "^7.18.10",
+    "@types/node": "^25.3.0",
     "@vitejs/plugin-vue": "^3.0.3",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",

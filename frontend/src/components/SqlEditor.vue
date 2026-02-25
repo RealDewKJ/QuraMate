@@ -62,8 +62,8 @@ onMounted(() => {
             inherit: true,
             rules: [],
             colors: {
-                'editor.background': '#161b22', // Matches GitHub Dark style background for cards
-                'editor.lineHighlightBackground': '#1f242c', // Matches accent hover
+                'editor.background': '#0a0a0a', // Matches project background
+                'editor.lineHighlightBackground': '#1a1a1a', // Subtle highlight
             }
         });
 
