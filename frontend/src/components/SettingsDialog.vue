@@ -265,10 +265,10 @@
                                     </label>
                                     <select v-model="settings.ai.provider"
                                         class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm">
-                                        <option value="openai">OpenAI (ChatGPT)</option>
-                                        <option value="anthropic">Anthropic (Claude)</option>
-                                        <option value="google">Google (Gemini)</option>
-                                        <option value="local">Local (Ollama / Llama.cpp)</option>
+                                        <option v-for="provider in aiProviders" :key="provider.value"
+                                            :value="provider.value">
+                                            {{ provider.label }}
+                                        </option>
                                     </select>
                                 </div>
 
@@ -278,7 +278,7 @@
                                         API Key
                                     </label>
                                     <div class="relative max-w-md">
-                                        <input :type="showAiKey ? 'text' : 'password'" v-model="settings.ai.apiKey"
+                                        <input :type="showAiKey ? 'text' : 'password'" v-model="currentProviderApiKey"
                                             placeholder="sk-..."
                                             class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10">
                                         <button @click="showAiKey = !showAiKey"
@@ -303,8 +303,80 @@
                                             </svg>
                                         </button>
                                     </div>
-                                    <p class="text-[10px] text-muted-foreground">Your API key is stored locally and
-                                        securely.</p>
+                                    <p class="text-[10px] text-muted-foreground">
+                                        API key จะถูกเก็บแยกตาม provider ใน OS Keychain/Credential Vault ของเครื่องนี้
+                                        และจะไม่ถูกบันทึกลงไฟล์ settings database.
+                                    </p>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Base URL
+                                    </label>
+                                    <input v-model="currentProviderBaseURL" placeholder="https://api.example.com/v1"
+                                        class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <p class="text-[10px] text-muted-foreground">
+                                        ใช้ endpoint เฉพาะ provider นี้เท่านั้น (แก้ได้แยกกันทุก provider)
+                                    </p>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Model
+                                    </label>
+                                    <select v-model="selectedProviderModelOption"
+                                        class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <option v-for="model in currentProviderModelOptions" :key="model" :value="model">
+                                            {{ model }}
+                                        </option>
+                                        <option :value="CUSTOM_MODEL_OPTION_VALUE">Custom model...</option>
+                                    </select>
+                                    <input v-if="selectedProviderModelOption === CUSTOM_MODEL_OPTION_VALUE"
+                                        v-model="currentProviderCustomModel"
+                                        placeholder="custom-model-id"
+                                        class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <p class="text-[10px] text-muted-foreground">
+                                        รายการ model จะเปลี่ยนตาม provider ที่เลือก และรองรับ custom model
+                                    </p>
+                                </div>
+
+                                <div class="pt-2 flex flex-col gap-2">
+                                    <button @click="testProviderConnection" :disabled="!canTestProvider"
+                                        class="inline-flex w-fit items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">
+                                        <svg v-if="isTestingProvider" class="animate-spin mr-2 h-4 w-4"
+                                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z">
+                                            </path>
+                                        </svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plug mr-2">
+                                            <path d="M12 22v-5" />
+                                            <path d="M9 8V2" />
+                                            <path d="M15 8V2" />
+                                            <path d="M18 8a6 6 0 0 1-12 0h12Z" />
+                                        </svg>
+                                        {{ isTestingProvider ? 'Testing...' : 'Test Provider Connection' }}
+                                    </button>
+
+                                    <div v-if="providerTestResult" class="rounded-md border p-3 text-xs"
+                                        :class="providerTestResult.ok
+                                            ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                            : 'border-red-400/40 bg-red-500/10 text-red-700 dark:text-red-300'">
+                                        <p class="font-semibold">
+                                            {{ providerTestResult.ok ? 'Connection Successful' : 'Connection Failed' }}
+                                            <span class="ml-2 opacity-80">({{ providerTestResult.latencyMs }}ms)</span>
+                                        </p>
+                                        <p class="mt-1 break-all">{{ providerTestResult.message }}</p>
+                                        <p v-if="providerTestResult.details" class="mt-1 opacity-90 break-all">
+                                            {{ providerTestResult.details }}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -417,7 +489,7 @@
                                     Vue 3, Tailwind CSS, and Go.
                                 </p>
 
-                                <div class="grid grid-cols-2 gap-4 w-full">
+                                <div class="grid grid-cols-2 gap-4 w-full mb-6">
                                     <div
                                         class="flex flex-col items-center p-3 rounded-lg bg-muted/30 border border-border border-dashed">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
@@ -428,7 +500,7 @@
                                                 d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
                                             <path d="M9 18c-4.51 2-5-2-7-2" />
                                         </svg>
-                                        <a href="https://github.com/RealDewKJ/QuraMate" target="_blank"
+                                        <a href="https://github.com/RealDewKJ/QuraMate" target="_blank" rel="noopener noreferrer"
                                             class="text-sm font-medium hover:underline hover:text-primary">Source
                                             Code</a>
                                     </div>
@@ -442,8 +514,42 @@
                                             <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
                                             <path d="M2 12h20" />
                                         </svg>
-                                        <a href="https://quramate.vercel.app" target="_blank"
+                                        <a href="https://quramate.vercel.app" target="_blank" rel="noopener noreferrer"
                                             class="text-sm font-medium hover:underline hover:text-primary">Website</a>
+                                    </div>
+                                </div>
+
+                                <div class="w-full space-y-3">
+                                    <div class="p-4 rounded-lg bg-muted/30 border border-border text-left">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                            License
+                                        </p>
+                                        <p class="text-sm text-foreground">
+                                            MIT License
+                                            <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE"
+                                                target="_blank" rel="noopener noreferrer"
+                                                class="ml-2 font-medium text-primary hover:underline">
+                                                View License
+                                            </a>
+                                        </p>
+                                    </div>
+
+                                    <div class="p-4 rounded-lg bg-muted/30 border border-border text-left">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                            Third-party Licenses
+                                        </p>
+                                        <a href="https://github.com/RealDewKJ/QuraMate/blob/main/THIRD_PARTY_LICENSES.md"
+                                            target="_blank" rel="noopener noreferrer"
+                                            class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 py-2">
+                                            View Open Source Libraries
+                                        </a>
+                                    </div>
+
+                                    <div class="p-4 rounded-lg bg-muted/30 border border-border text-left">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                            Copyright Notice
+                                        </p>
+                                        <p class="text-sm text-foreground">© 2026 QuraMate Team. All rights reserved.</p>
                                     </div>
                                 </div>
                             </div>
@@ -471,11 +577,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, h, onMounted, watch } from 'vue';
-import { GetAppLogs, ClearAppLogs, SaveSetting, LoadSetting, GetCurrentVersion } from '../../wailsjs/go/main/App';
+import { ref, reactive, h, onMounted, watch, computed } from 'vue';
+import {
+    GetAppLogs,
+    ClearAppLogs,
+    SaveSetting,
+    LoadSetting,
+    GetCurrentVersion,
+    SaveAIProviderKey,
+    LoadAIProviderKey,
+    DeleteAIProviderKey
+} from '../../wailsjs/go/main/App';
 import Toast from './Toast.vue';
 import { colorMode } from '../composables/useTheme';
 import changelogData from '../data/changelog.json';
+import { AI_PROVIDER_DEFINITIONS, AI_PROVIDER_DEFAULT_CONFIGS } from '../lib/ai/config';
+import { completeWithProvider } from '../lib/ai/client';
 
 const props = defineProps({
     isOpen: {
@@ -500,7 +617,30 @@ const tabs = [
 
 const activeTab = ref('general');
 const showAiKey = ref(false);
+const isTestingProvider = ref(false);
+const providerTestResult = ref(null);
 const appVersion = ref('');
+const aiProviders = AI_PROVIDER_DEFINITIONS;
+const aiProviderValues = aiProviders.map((provider) => provider.value);
+const CUSTOM_MODEL_OPTION_VALUE = '__custom_model__';
+const defaultAiApiKeys = Object.freeze(aiProviderValues.reduce((acc, providerId) => {
+    acc[providerId] = '';
+    return acc;
+}, {}));
+const providerModelOptions = Object.freeze(aiProviders.reduce((acc, provider) => {
+    acc[provider.value] = provider.modelOptions || [provider.defaultModel];
+    return acc;
+}, {}));
+const defaultAiProviderConfigs = Object.freeze(JSON.parse(JSON.stringify(AI_PROVIDER_DEFAULT_CONFIGS)));
+const providerApiKeys = reactive({ ...defaultAiApiKeys });
+const customProviderModels = reactive(aiProviderValues.reduce((acc, providerId) => {
+    acc[providerId] = '';
+    return acc;
+}, {}));
+const touchedProviderApiKeys = reactive(aiProviderValues.reduce((acc, providerId) => {
+    acc[providerId] = false;
+    return acc;
+}, {}));
 
 const appLogs = ref([]);
 const changelogs = changelogData;
@@ -552,19 +692,330 @@ const settings = reactive({
     },
     ai: {
         provider: 'openai',
-        apiKey: ''
+        providerConfigs: JSON.parse(JSON.stringify(defaultAiProviderConfigs))
     }
 });
 
+const extractLegacyAiApiKeys = (parsedSettings) => {
+    const legacyApiKeys = { ...defaultAiApiKeys };
+    if (!parsedSettings?.ai || typeof parsedSettings.ai !== 'object') {
+        return legacyApiKeys;
+    }
+
+    const legacyProvider = typeof parsedSettings.ai.provider === 'string' ? parsedSettings.ai.provider : 'openai';
+
+    if (typeof parsedSettings.ai.apiKey === 'string' && parsedSettings.ai.apiKey.trim() !== '') {
+        if (aiProviderValues.includes(legacyProvider)) {
+            legacyApiKeys[legacyProvider] = parsedSettings.ai.apiKey.trim();
+        }
+    }
+
+    if (parsedSettings.ai.apiKeys && typeof parsedSettings.ai.apiKeys === 'object') {
+        aiProviderValues.forEach((provider) => {
+            const value = parsedSettings.ai.apiKeys[provider];
+            if (typeof value === 'string' && value.trim() !== '') {
+                legacyApiKeys[provider] = value.trim();
+            }
+        });
+    }
+
+    return legacyApiKeys;
+};
+
+const extractLegacyAiProviderConfigs = (parsedSettings) => {
+    const legacyConfigs = JSON.parse(JSON.stringify(defaultAiProviderConfigs));
+    if (!parsedSettings?.ai || typeof parsedSettings.ai !== 'object') {
+        return legacyConfigs;
+    }
+
+    const selectedProvider = typeof parsedSettings.ai.provider === 'string' ? parsedSettings.ai.provider : 'openai';
+    if (aiProviderValues.includes(selectedProvider)) {
+        if (typeof parsedSettings.ai.baseURL === 'string' && parsedSettings.ai.baseURL.trim() !== '') {
+            legacyConfigs[selectedProvider].baseURL = parsedSettings.ai.baseURL.trim();
+        }
+        if (typeof parsedSettings.ai.model === 'string' && parsedSettings.ai.model.trim() !== '') {
+            legacyConfigs[selectedProvider].model = parsedSettings.ai.model.trim();
+        }
+    }
+
+    if (parsedSettings.ai.providerConfigs && typeof parsedSettings.ai.providerConfigs === 'object') {
+        aiProviderValues.forEach((providerId) => {
+            const providerConfig = parsedSettings.ai.providerConfigs[providerId];
+            if (!providerConfig || typeof providerConfig !== 'object') {
+                return;
+            }
+            if (typeof providerConfig.baseURL === 'string' && providerConfig.baseURL.trim() !== '') {
+                legacyConfigs[providerId].baseURL = providerConfig.baseURL.trim();
+            }
+            if (typeof providerConfig.model === 'string' && providerConfig.model.trim() !== '') {
+                legacyConfigs[providerId].model = providerConfig.model.trim();
+            }
+        });
+    }
+
+    return legacyConfigs;
+};
+
+const normalizeAiSettings = () => {
+    if (!settings.ai || typeof settings.ai !== 'object') {
+        settings.ai = {
+            provider: 'openai',
+            providerConfigs: JSON.parse(JSON.stringify(defaultAiProviderConfigs))
+        };
+    }
+
+    const isValidProvider = aiProviderValues.includes(settings.ai.provider);
+    settings.ai.provider = isValidProvider ? settings.ai.provider : 'openai';
+
+    const currentProviderConfigs = settings.ai.providerConfigs && typeof settings.ai.providerConfigs === 'object'
+        ? settings.ai.providerConfigs
+        : {};
+    const mergedProviderConfigs = JSON.parse(JSON.stringify(defaultAiProviderConfigs));
+    aiProviderValues.forEach((providerId) => {
+        const existingConfig = currentProviderConfigs[providerId];
+        if (!existingConfig || typeof existingConfig !== 'object') {
+            return;
+        }
+        if (typeof existingConfig.baseURL === 'string' && existingConfig.baseURL.trim() !== '') {
+            mergedProviderConfigs[providerId].baseURL = existingConfig.baseURL.trim();
+        }
+        if (typeof existingConfig.model === 'string' && existingConfig.model.trim() !== '') {
+            mergedProviderConfigs[providerId].model = existingConfig.model.trim();
+        }
+    });
+    settings.ai.providerConfigs = mergedProviderConfigs;
+
+    if ('baseURL' in settings.ai) {
+        delete settings.ai.baseURL;
+    }
+    if ('model' in settings.ai) {
+        delete settings.ai.model;
+    }
+    if ('apiKeys' in settings.ai) {
+        delete settings.ai.apiKeys;
+    }
+    if ('apiKey' in settings.ai) {
+        delete settings.ai.apiKey;
+    }
+};
+
+const currentProviderApiKey = computed({
+    get() {
+        return providerApiKeys[settings.ai.provider] || '';
+    },
+    set(value) {
+        providerApiKeys[settings.ai.provider] = value || '';
+        touchedProviderApiKeys[settings.ai.provider] = true;
+    }
+});
+
+const currentProviderBaseURL = computed({
+    get() {
+        const providerConfig = settings.ai.providerConfigs?.[settings.ai.provider];
+        return providerConfig?.baseURL || '';
+    },
+    set(value) {
+        const trimmed = (value || '').trim();
+        if (!settings.ai.providerConfigs[settings.ai.provider]) {
+            settings.ai.providerConfigs[settings.ai.provider] = { ...defaultAiProviderConfigs[settings.ai.provider] };
+        }
+        settings.ai.providerConfigs[settings.ai.provider].baseURL = trimmed;
+    }
+});
+
+const currentProviderModel = computed({
+    get() {
+        const providerConfig = settings.ai.providerConfigs?.[settings.ai.provider];
+        return providerConfig?.model || '';
+    },
+    set(value) {
+        const trimmed = (value || '').trim();
+        if (!settings.ai.providerConfigs[settings.ai.provider]) {
+            settings.ai.providerConfigs[settings.ai.provider] = { ...defaultAiProviderConfigs[settings.ai.provider] };
+        }
+        settings.ai.providerConfigs[settings.ai.provider].model = trimmed;
+    }
+});
+
+const currentProviderModelOptions = computed(() => {
+    return providerModelOptions[settings.ai.provider] || [];
+});
+
+const selectedProviderModelOption = computed({
+    get() {
+        const currentModel = (currentProviderModel.value || '').trim();
+        const options = currentProviderModelOptions.value;
+        if (!currentModel) {
+            return options[0] || CUSTOM_MODEL_OPTION_VALUE;
+        }
+        if (options.includes(currentModel)) {
+            return currentModel;
+        }
+        if (!customProviderModels[settings.ai.provider]) {
+            customProviderModels[settings.ai.provider] = currentModel;
+        }
+        return CUSTOM_MODEL_OPTION_VALUE;
+    },
+    set(value) {
+        if (value === CUSTOM_MODEL_OPTION_VALUE) {
+            if (!customProviderModels[settings.ai.provider]) {
+                customProviderModels[settings.ai.provider] = currentProviderModel.value || '';
+            }
+            currentProviderModel.value = customProviderModels[settings.ai.provider] || '';
+            return;
+        }
+        currentProviderModel.value = value;
+    }
+});
+
+const currentProviderCustomModel = computed({
+    get() {
+        return customProviderModels[settings.ai.provider] || '';
+    },
+    set(value) {
+        customProviderModels[settings.ai.provider] = value || '';
+        currentProviderModel.value = value || '';
+    }
+});
+
+const canTestProvider = computed(() => {
+    const providerId = settings.ai.provider;
+    const providerConfig = settings.ai.providerConfigs?.[providerId];
+    const hasBaseURL = !!providerConfig?.baseURL?.trim();
+    const hasModel = !!providerConfig?.model?.trim();
+    const hasApiKey = providerId === 'local' ? true : !!providerApiKeys[providerId]?.trim();
+    return hasBaseURL && hasModel && hasApiKey && !isTestingProvider.value;
+});
+
+const testProviderConnection = async () => {
+    if (!canTestProvider.value) {
+        toastRef.value?.error('Please fill API key, Base URL, and Model before testing');
+        return;
+    }
+
+    const providerId = settings.ai.provider;
+    const providerConfig = settings.ai.providerConfigs?.[providerId];
+    const startedAt = performance.now();
+    isTestingProvider.value = true;
+    providerTestResult.value = null;
+
+    try {
+        const result = await completeWithProvider({
+            provider: providerId,
+            apiKey: (providerApiKeys[providerId] || '').trim(),
+            baseURL: providerConfig.baseURL,
+            model: providerConfig.model,
+            messages: [
+                {
+                    role: 'user',
+                    content: 'Reply with exactly: CONNECTION_OK'
+                }
+            ],
+            temperature: 0,
+            maxTokens: 12
+        });
+
+        const latencyMs = Math.round(performance.now() - startedAt);
+        providerTestResult.value = {
+            ok: true,
+            latencyMs,
+            message: result.text || 'Connected successfully'
+        };
+        toastRef.value?.success(`Provider reachable (${latencyMs}ms)`);
+    } catch (e) {
+        const latencyMs = Math.round(performance.now() - startedAt);
+        const details = e?.details ? JSON.stringify(e.details).slice(0, 500) : '';
+        const message = e?.message || String(e);
+        providerTestResult.value = {
+            ok: false,
+            latencyMs,
+            message,
+            details
+        };
+        toastRef.value?.error(`Provider test failed: ${message}`);
+    } finally {
+        isTestingProvider.value = false;
+    }
+};
+
+watch(() => settings.ai.provider, () => {
+    providerTestResult.value = null;
+});
+
+const loadProviderApiKeys = async () => {
+    await Promise.all(aiProviders.map(async (provider) => {
+        const key = await LoadAIProviderKey(provider.value);
+        providerApiKeys[provider.value] = key || '';
+    }));
+};
+
+const saveProviderApiKeys = async () => {
+    await Promise.all(aiProviders.map(async (provider) => {
+        if (!touchedProviderApiKeys[provider.value]) {
+            return;
+        }
+
+        const value = (providerApiKeys[provider.value] || '').trim();
+        const result = value
+            ? await SaveAIProviderKey(provider.value, value)
+            : await DeleteAIProviderKey(provider.value);
+        if (result !== 'Success') {
+            throw new Error(`Failed to save key for ${provider.label}: ${result}`);
+        }
+        touchedProviderApiKeys[provider.value] = false;
+    }));
+};
+
+const migrateLegacyAiKeysToKeychain = async (legacyApiKeys) => {
+    let hasMigrated = false;
+    await Promise.all(aiProviders.map(async (provider) => {
+        const providerId = provider.value;
+        const legacyValue = (legacyApiKeys[providerId] || '').trim();
+        if (!legacyValue) {
+            return;
+        }
+
+        const existingValue = (providerApiKeys[providerId] || '').trim();
+        if (existingValue) {
+            return;
+        }
+
+        const result = await SaveAIProviderKey(providerId, legacyValue);
+        if (result !== 'Success') {
+            throw new Error(`Failed to migrate legacy key for ${provider.label}: ${result}`);
+        }
+        providerApiKeys[providerId] = legacyValue;
+        hasMigrated = true;
+    }));
+    return hasMigrated;
+};
+
 const loadSettings = async () => {
+    let parsed = null;
     try {
         const savedSettingsJson = await LoadSetting('user_settings');
         if (savedSettingsJson) {
-            const parsed = JSON.parse(savedSettingsJson);
+            parsed = JSON.parse(savedSettingsJson);
             Object.assign(settings, parsed);
         }
     } catch (e) {
         console.error("Failed to load settings from backend:", e);
+    }
+
+    const legacyApiKeys = extractLegacyAiApiKeys(parsed);
+    const legacyProviderConfigs = extractLegacyAiProviderConfigs(parsed);
+    normalizeAiSettings();
+    settings.ai.providerConfigs = legacyProviderConfigs;
+    await loadProviderApiKeys();
+
+    try {
+        const migrated = await migrateLegacyAiKeysToKeychain(legacyApiKeys);
+        if (migrated) {
+            await SaveSetting('user_settings', JSON.stringify(settings));
+        }
+    } catch (e) {
+        console.error("Failed to migrate AI API keys to secure storage:", e);
+        toastRef.value?.error('Some AI keys could not be migrated to secure storage');
     }
 
     settings.appearance.theme = colorMode.value === 'auto' ? 'system' : colorMode.value;
@@ -609,6 +1060,7 @@ const save = async () => {
     }
 
     try {
+        await saveProviderApiKeys();
         await SaveSetting('user_settings', JSON.stringify(settings));
         // Also save preferred language directly if needed by other systems early
         localStorage.setItem('language', settings.general.language); // Keep this just in case for early load fallback

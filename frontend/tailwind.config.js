@@ -56,14 +56,14 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Sarabun',
-  				'ui-sans-serif',
   				'system-ui',
+  				'ui-sans-serif',
   				'-apple-system',
   				'BlinkMacSystemFont',
-  				'Segoe UI"',
+  				'"Segoe UI"',
   				'Roboto',
-  				'Helvetica Neue"',
+  				'"Helvetica Neue"',
+  				'Sarabun',
   				'Arial',
   				'sans-serif'
   			]

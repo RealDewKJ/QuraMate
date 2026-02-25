@@ -19,6 +19,55 @@
                 </span>
             </div>
 
+            <div class="px-3 py-2 border-b border-border/70 bg-muted/20">
+                <div class="flex items-center justify-end gap-1">
+                    <button @click="isHistoryOpen = true" title="History"
+                        class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-history">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                            <path d="M12 7v5l4 2" />
+                        </svg>
+                    </button>
+                    <button @click="isActivityMonitorOpen = true" title="Activity Monitor"
+                        class="relative h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-activity">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                        <span v-if="activityTaskCount > 0"
+                            class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
+                            {{ activityTaskCount }}
+                        </span>
+                    </button>
+                    <button @click="openAiCopilot()" title="AI Copilot"
+                        class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-sparkles">
+                            <path d="M12 3l1.912 5.813L20 10.5l-6.088 1.688L12 18l-1.912-5.813L4 10.5l6.088-1.687z" />
+                            <path d="M5 3v4" />
+                            <path d="M19 17v4" />
+                            <path d="M3 5h4" />
+                            <path d="M17 19h4" />
+                        </svg>
+                    </button>
+                    <button @click="isSettingsOpen = true" title="Settings"
+                        class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-settings">
+                            <path
+                                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
             <!-- Removed top search bar, moved inside Tables folder -->
 
             <div class="flex-1 overflow-y-auto px-2 py-2">
@@ -289,30 +338,8 @@
                 </div>
             </div>
 
-            <!-- Settings and Disconnect Buttons -->
-            <div class="p-4 border-t border-border flex flex-col gap-2">
-                <button @click="isHistoryOpen = true"
-                    class="w-full flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="lucide lucide-history">
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                        <path d="M3 3v5h5" />
-                        <path d="M12 7v5l4 2" />
-                    </svg>
-                    History
-                </button>
-                <button @click="isSettingsOpen = true"
-                    class="w-full flex items-center justify-center gap-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="lucide lucide-settings">
-                        <path
-                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    Settings
-                </button>
+            <!-- Disconnect -->
+            <div class="p-4 border-t border-border">
                 <button @click="disconnect"
                     class="w-full flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive text-sm font-medium py-2 px-4 rounded-md transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -379,8 +406,167 @@
                 </button>
             </div>
 
+            <!-- Activity Monitor Workspace -->
+            <div v-if="isActivityMonitorOpen" class="flex-1 overflow-hidden p-4 bg-background">
+                <div class="h-full border border-border rounded-lg bg-card shadow-sm flex flex-col overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border flex items-center justify-between">
+                        <h3 class="text-base font-semibold flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-activity text-primary">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                            </svg>
+                            Activity Monitor
+                            <span class="text-sm text-muted-foreground font-normal">({{ activityTaskCount }} running)</span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-muted-foreground">Refresh</label>
+                            <select v-model="monitorRefreshRate"
+                                class="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                                <option :value="3">3s</option>
+                                <option :value="5">5s</option>
+                            </select>
+                            <button v-if="activityTaskCount > 1" @click="killAllActivityTasks"
+                                class="px-3 py-1.5 text-xs font-medium rounded-md border border-destructive text-destructive hover:bg-destructive/10 transition-colors">
+                                Kill All
+                            </button>
+                            <button @click="isActivityMonitorOpen = false"
+                                class="px-3 py-1.5 text-xs font-medium rounded-md border border-input bg-background hover:bg-accent transition-colors">
+                                Back to Query
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border-b border-border bg-muted/10">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div class="rounded-md border border-border bg-background p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Connection Count (Real-time)</p>
+                                    <span class="text-sm font-semibold">{{ latestMonitorSample.activeConnections }}</span>
+                                </div>
+                                <svg width="100%" height="120" viewBox="0 0 360 110" preserveAspectRatio="none">
+                                    <polyline points="0,110 360,110" fill="none" stroke="hsl(var(--border))" stroke-width="1" />
+                                    <polyline :points="connectionChartPoints" fill="none" stroke="hsl(var(--primary))" stroke-width="2.5" />
+                                </svg>
+                            </div>
+
+                            <div class="rounded-md border border-border bg-background p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Query per Second (QPS)</p>
+                                    <span class="text-xs text-muted-foreground">Read {{ latestMonitorSample.readQps }} / Write {{ latestMonitorSample.writeQps }}</span>
+                                </div>
+                                <svg width="100%" height="120" viewBox="0 0 360 110" preserveAspectRatio="none">
+                                    <polyline points="0,110 360,110" fill="none" stroke="hsl(var(--border))" stroke-width="1" />
+                                    <polyline :points="readQpsChartPoints" fill="none" stroke="#3b82f6" stroke-width="2.5" />
+                                    <polyline :points="writeQpsChartPoints" fill="none" stroke="#ef4444" stroke-width="2.5" />
+                                </svg>
+                                <div class="mt-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+                                    <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-blue-500"></span>Read</span>
+                                    <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-red-500"></span>Write</span>
+                                </div>
+                            </div>
+
+                            <div class="rounded-md border border-border bg-background p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">CPU & Memory Usage</p>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1">
+                                            <span>CPU</span>
+                                            <span>{{ latestMonitorSample.cpuUsage }}%</span>
+                                        </div>
+                                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                                            <div class="h-full bg-orange-500 transition-all duration-500"
+                                                :style="{ width: `${latestMonitorSample.cpuUsage}%` }"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1">
+                                            <span>Memory</span>
+                                            <span>{{ latestMonitorSample.memoryUsage }}%</span>
+                                        </div>
+                                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                                            <div class="h-full bg-emerald-500 transition-all duration-500"
+                                                :style="{ width: `${latestMonitorSample.memoryUsage}%` }"></div>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] text-muted-foreground">Estimated from active query load and local runtime telemetry.</p>
+                                </div>
+                            </div>
+
+                            <div class="rounded-md border border-border bg-background p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Long-running Queries Distribution</p>
+                                <div class="space-y-2">
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>0-1s</span><span>{{ latestMonitorSample.bucket0to1 }}</span></div>
+                                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                                            <div class="h-full bg-sky-500 transition-all duration-500"
+                                                :style="{ width: `${(latestMonitorSample.bucket0to1 / longRunningTotal) * 100}%` }"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>1-5s</span><span>{{ latestMonitorSample.bucket1to5 }}</span></div>
+                                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                                            <div class="h-full bg-amber-500 transition-all duration-500"
+                                                :style="{ width: `${(latestMonitorSample.bucket1to5 / longRunningTotal) * 100}%` }"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>>5s</span><span>{{ latestMonitorSample.bucketGt5 }}</span></div>
+                                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                                            <div class="h-full bg-red-500 transition-all duration-500"
+                                                :style="{ width: `${(latestMonitorSample.bucketGt5 / longRunningTotal) * 100}%` }"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-muted/40 text-muted-foreground sticky top-0">
+                                <tr>
+                                    <th class="text-left px-3 py-2 font-medium">Task</th>
+                                    <th class="text-left px-3 py-2 font-medium">Tab</th>
+                                    <th class="text-left px-3 py-2 font-medium">Head Block</th>
+                                    <th class="text-left px-3 py-2 font-medium">Started</th>
+                                    <th class="text-right px-3 py-2 font-medium">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="task in activityTasksList" :key="task.id"
+                                    class="border-t border-border hover:bg-muted/30 cursor-pointer"
+                                    @click="focusActivityTask(task)">
+                                    <td class="px-3 py-2 align-top">
+                                        <div class="font-mono text-xs">{{ task.id.slice(0, 8) }}</div>
+                                        <div class="text-[11px] text-muted-foreground">{{ task.source }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 align-top">{{ task.tabName }}</td>
+                                    <td class="px-3 py-2 align-top">
+                                        <pre
+                                            class="whitespace-pre-wrap break-words text-[11px] leading-relaxed font-mono text-foreground">{{ task.headBlock }}</pre>
+                                    </td>
+                                    <td class="px-3 py-2 align-top text-xs text-muted-foreground">{{ formatActivityTime(task.startedAt) }}</td>
+                                    <td class="px-3 py-2 align-top text-right">
+                                        <button @click.stop="killActivityTask(task.id)"
+                                            class="inline-flex items-center justify-center rounded-md text-xs font-medium px-2.5 py-1.5 border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+                                            :disabled="task.status === 'canceling'">
+                                            {{ task.status === 'canceling' ? 'Canceling...' : 'Kill' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div v-if="activityTasksList.length === 0"
+                            class="py-10 text-center text-sm text-muted-foreground border-t border-border">
+                            No active queries.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Query Area -->
-            <div v-if="activeTab" class="flex flex-col h-full overflow-hidden query-area-container">
+            <div v-else-if="activeTab" class="flex flex-col h-full overflow-hidden query-area-container">
                 <div v-if="!activeTab.isERView && !activeTab.isDesignView"
                     class="flex flex-col border-b border-border bg-card p-4 gap-3 relative shrink-0 min-h-[0px]"
                     :style="{ height: activeTab.editorHeight + 'px' }">
@@ -491,6 +677,23 @@
                             Beautify
                         </button>
 
+                        <button @click="explainWithAI"
+                            :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
+                            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
+                            title="Explain SQL with configured AI provider">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-bot mr-2">
+                                <path d="M12 8V4H8" />
+                                <rect width="16" height="12" x="4" y="8" rx="2" />
+                                <path d="M2 14h2" />
+                                <path d="M20 14h2" />
+                                <path d="M15 13v2" />
+                                <path d="M9 13v2" />
+                            </svg>
+                            {{ activeTab.isAiExplaining ? 'AI Explaining...' : 'Explain with AI' }}
+                        </button>
+
                         <button v-if="activeTab.isRoutine" @click="handleSaveRoutine" :disabled="activeTab.isLoading"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 h-9 px-4 py-2 shadow-sm"
                             title="Save / Update Routine">
@@ -571,7 +774,7 @@
                             <div v-if="activeTab.resultViewTab === 'messages'"
                                 class="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
                         </button>
-                        <button @click="activeTab.resultViewTab = 'analysis'" v-if="activeTab.explanation"
+                        <button @click="activeTab.resultViewTab = 'analysis'" v-if="activeTab.explanation || activeTab.aiExplanation"
                             class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
                             :class="activeTab.resultViewTab === 'analysis' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
                             <div class="flex items-center gap-1.5">
@@ -605,16 +808,29 @@
                                 <path d="M12 9v4" />
                                 <path d="M12 17h.01" />
                             </svg>
-                            <div class="flex-1 text-sm font-medium break-all font-mono">{{ activeTab.error }}</div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium break-all font-mono">{{ activeTab.error }}</div>
+                                <div class="mt-3">
+                                    <button @click="openAiCopilot('fix_error')"
+                                        class="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-background/60 px-2.5 py-1 text-xs font-medium hover:bg-background">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 3l1.912 5.813L20 10.5l-6.088 1.688L12 18l-1.912-5.813L4 10.5l6.088-1.687z" />
+                                        </svg>
+                                        Fix Error with AI
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Results List (Multiple Sets) -->
                         <div v-else-if="activeTab.resultSets && activeTab.resultSets.length > 0"
-                            class="flex flex-col gap-4 h-full">
+                            class="flex flex-col gap-4 min-h-0">
 
                             <!-- Primary Result Set (Virtual List) -->
                             <div v-if="activeTab.resultSets[0]"
-                                class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+                                class="border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[220px] overflow-hidden"
+                                :style="getResultSetCardStyle(activeTab.resultSets[0], 0)">
 
                                 <!-- Virtual Table Container -->
                                 <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
@@ -738,6 +954,22 @@
                                             activeTab.resultSets[0].rows.length : 0) }}
                                         total)</span>
                                     <div class="flex items-center gap-3">
+                                        <button v-if="activeTab.tableName && !props.isReadOnly"
+                                            @click="openMockDataModal"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="lucide lucide-flask-conical">
+                                                <path d="M10 2v7.31" />
+                                                <path d="M14 9.3V2" />
+                                                <path
+                                                    d="M8.5 2h7" />
+                                                <path
+                                                    d="M14 9.3a5 5 0 0 1 .6 2.4V19a3 3 0 0 1-3 3h-1.2a3 3 0 0 1-3-3v-7.3a5 5 0 0 1 .6-2.4L10 6h4Z" />
+                                            </svg>
+                                            Mock Data
+                                        </button>
                                         <button
                                             v-if="activeTab.tableName && !props.isReadOnly && activeTab.primaryKeys.length > 0"
                                             @click="openInsertRowModal"
@@ -754,11 +986,16 @@
                                         <span class="font-mono text-[10px] opacity-70">Double-click to edit</span>
                                     </div>
                                 </div>
+                                <div
+                                    class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors"
+                                    title="Drag to resize this query result"
+                                    @mousedown="startResultSetResize($event, 0, activeTab.resultSets[0])"></div>
                             </div>
 
                             <!-- Subsequent Result Sets (Standard Tables) -->
                             <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="rsIndex + 1"
-                                class="flex-1 border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[0px] overflow-hidden">
+                                class="border border-border rounded-lg shadow-sm bg-card flex flex-col min-h-[220px] overflow-hidden"
+                                :style="getResultSetCardStyle(resultSet, rsIndex + 1)">
 
                                 <!-- Standard Table for subsequent result sets -->
                                 <div v-if="resultSet.columns && resultSet.columns.length > 0"
@@ -810,6 +1047,10 @@
                                     class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center">
                                     <span>{{ resultSet.rows ? resultSet.rows.length : 0 }} rows</span>
                                 </div>
+                                <div
+                                    class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors"
+                                    title="Drag to resize this query result"
+                                    @mousedown="startResultSetResize($event, rsIndex + 1, resultSet)"></div>
                             </div>
                         </div>
 
@@ -894,9 +1135,9 @@
                         </div>
                     </div>
                     <!-- Analysis Tab Content -->
-                    <div v-if="activeTab.resultViewTab === 'analysis' && activeTab.explanation"
+                    <div v-if="activeTab.resultViewTab === 'analysis' && (activeTab.explanation || activeTab.aiExplanation || activeTab.isAiExplaining)"
                         class="flex-1 overflow-auto p-4">
-                        <div
+                        <div v-if="activeTab.explanation"
                             class="border border-border rounded-lg shadow-sm bg-card overflow-hidden h-full flex flex-col">
                             <div
                                 class="bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground uppercase border-b border-border flex justify-between items-center">
@@ -915,6 +1156,28 @@
                             </div>
                             <div class="p-4 font-mono text-xs text-foreground overflow-auto whitespace-pre flex-1">
                                 {{ activeTab.explanation }}
+                            </div>
+                        </div>
+                        <div v-if="activeTab.aiExplanation || activeTab.isAiExplaining"
+                            class="border border-border rounded-lg shadow-sm bg-card overflow-hidden h-full flex flex-col"
+                            :class="activeTab.explanation ? 'mt-4' : ''">
+                            <div
+                                class="bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground uppercase border-b border-border flex justify-between items-center">
+                                <span>AI Query Explanation</span>
+                                <span v-if="activeTab.isAiExplaining" class="flex items-center gap-2 text-primary">
+                                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
+                                        </path>
+                                    </svg>
+                                    Explaining...
+                                </span>
+                            </div>
+                            <div class="p-4 text-sm text-foreground overflow-auto whitespace-pre-wrap flex-1">
+                                {{ activeTab.aiExplanation || 'Analyzing with AI...' }}
                             </div>
                         </div>
                     </div>
@@ -1013,6 +1276,96 @@
                     <path d="m9 9 5 5" />
                 </svg>
                 Design Table
+            </button>
+            <div class="border-t border-border my-1"></div>
+            <div class="relative group">
+                <button
+                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" class="lucide lucide-file-code-2">
+                            <path d="M16 22H4a2 2 0 0 1-2-2V8.5L8.5 2H16a2 2 0 0 1 2 2v4.5" />
+                            <polyline points="14 2 14 8 8 8" />
+                            <path d="m20 14-2 2 2 2" />
+                            <path d="m24 14 2 2-2 2" />
+                            <path d="m22 12-2 8" />
+                        </svg>
+                        Script Table as...
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-chevron-right">
+                        <path d="m9 18 6-6-6-6" />
+                    </svg>
+                </button>
+                <div
+                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[150px] hidden group-hover:block">
+                    <button @click="handleScriptTableAs('SELECT')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        SELECT
+                    </button>
+                    <button @click="handleScriptTableAs('INSERT')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        INSERT
+                    </button>
+                    <button @click="handleScriptTableAs('UPDATE')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        UPDATE
+                    </button>
+                    <button @click="handleScriptTableAs('DELETE')"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        DELETE
+                    </button>
+                </div>
+            </div>
+            <button @click="handleGenerateCreateStatement"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-file-code-2">
+                    <path d="M16 22H4a2 2 0 0 1-2-2V8.5L8.5 2H16a2 2 0 0 1 2 2v4.5" />
+                    <polyline points="14 2 14 8 8 8" />
+                    <path d="m20 14-2 2 2 2" />
+                    <path d="m24 14 2 2-2 2" />
+                    <path d="m22 12-2 8" />
+                </svg>
+                Generate Create Statement
+            </button>
+            <button @click="handleCopyTableName"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-copy">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                Copy Name
+            </button>
+            <div class="border-t border-border my-1"></div>
+            <button @click="handleTruncateTable"
+                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-eraser">
+                    <path d="m7 21-4.3-4.3a2 2 0 0 1 0-2.8l9.6-9.6a2 2 0 0 1 2.8 0l6.2 6.2a2 2 0 0 1 0 2.8L14 21" />
+                    <path d="M22 21H7" />
+                    <path d="m5 11 9 9" />
+                </svg>
+                Truncate Table
+            </button>
+            <button @click="handleDropTable"
+                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-trash-2">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    <line x1="10" x2="10" y1="11" y2="17" />
+                    <line x1="14" x2="14" y1="11" y2="17" />
+                </svg>
+                Drop Table
             </button>
             <div class="border-t border-border my-1"></div>
             <button @click="handleExport"
@@ -1666,6 +2019,105 @@
             </div>
         </div>
 
+        <!-- Mock Data Generator Modal -->
+        <div v-if="mockDataModal.isOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @mousedown.self="mockDataModal.isOpen = false">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-flask-conical text-primary">
+                            <path d="M10 2v7.31" />
+                            <path d="M14 9.3V2" />
+                            <path d="M8.5 2h7" />
+                            <path
+                                d="M14 9.3a5 5 0 0 1 .6 2.4V19a3 3 0 0 1-3 3h-1.2a3 3 0 0 1-3-3v-7.3a5 5 0 0 1 .6-2.4L10 6h4Z" />
+                        </svg>
+                        Mock Data Generator
+                    </h3>
+                    <button @click="mockDataModal.isOpen = false" class="text-muted-foreground hover:text-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-x">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <p class="text-sm text-muted-foreground">
+                    Generate mock rows for table <span class="font-semibold text-foreground">{{ mockDataModal.tableName }}</span>
+                </p>
+
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">Rows to generate</label>
+                    <input v-model.number="mockDataModal.rowCount" type="number" min="1" max="500"
+                        class="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        placeholder="e.g. 50" />
+                    <p class="text-xs text-muted-foreground">Allowed range: 1 - 500 rows</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="mockDataModal.isOpen = false"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="openMockDataConfirm"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mock Data Confirmation Modal -->
+        <div v-if="mockDataConfirm.isOpen"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+            <div
+                class="bg-card w-full max-w-sm rounded-lg shadow-2xl border border-destructive/40 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center gap-3 text-destructive">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-alert-triangle">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                    </svg>
+                    <h3 class="text-lg font-bold">Confirm Mock Insert</h3>
+                </div>
+
+                <p class="text-sm text-muted-foreground leading-relaxed">
+                    Insert <span class="font-bold text-foreground">{{ mockDataConfirm.rowCount }}</span> mock rows
+                    into table <span class="font-bold text-foreground">"{{ mockDataConfirm.tableName }}"</span>?
+                </p>
+
+                <div class="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-[11px] text-destructive/90">
+                    This action writes real data to the table.
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button @click="mockDataConfirm.isOpen = false" :disabled="mockDataConfirm.isLoading"
+                        class="px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent transition-colors disabled:opacity-50">
+                        Cancel
+                    </button>
+                    <button @click="confirmMockDataInsert" :disabled="mockDataConfirm.isLoading"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm disabled:opacity-50 inline-flex items-center gap-2">
+                        <template v-if="mockDataConfirm.isLoading">
+                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent">
+                            </div>
+                            Inserting...
+                        </template>
+                        <template v-else>
+                            Confirm Insert
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
+
 
 
         <!-- Import Options Modal -->
@@ -1835,6 +2287,66 @@
             </div>
         </div>
 
+        <!-- Table Action Confirmation -->
+        <div v-if="tableActionConfirmation.isOpen"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+            <div
+                class="bg-card w-full max-w-sm rounded-lg shadow-2xl border border-destructive/50 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex items-center gap-3 text-destructive">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-alert-triangle">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                    </svg>
+                    <h3 class="text-lg font-bold uppercase tracking-tight">
+                        {{ tableActionConfirmation.action === 'TRUNCATE' ? 'Truncate Table' : 'Drop Table' }}
+                    </h3>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-sm text-muted-foreground leading-relaxed">
+                        Are you sure you want to
+                        <span class="font-bold text-foreground">
+                            {{ tableActionConfirmation.action === 'TRUNCATE' ? 'truncate' : 'drop' }}
+                        </span>
+                        table <span class="font-bold text-foreground">"{{ tableActionConfirmation.tableName }}"</span>?
+                    </p>
+
+                    <div class="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                        <p class="text-xs text-destructive font-bold uppercase mb-1">Critical Warning</p>
+                        <p class="text-[11px] text-destructive/90 leading-normal">
+                            <template v-if="tableActionConfirmation.action === 'TRUNCATE'">
+                                This will remove all rows in this table, but keep the table structure.
+                            </template>
+                            <template v-else>
+                                This will permanently remove both data and table structure.
+                            </template>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-2">
+                    <button @click="confirmTableAction" :disabled="tableActionConfirmation.isLoading"
+                        class="w-full h-10 flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm disabled:opacity-50">
+                        <template v-if="tableActionConfirmation.isLoading">
+                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent">
+                            </div>
+                            Processing...
+                        </template>
+                        <template v-else>
+                            Confirm {{ tableActionConfirmation.action === 'TRUNCATE' ? 'Truncate' : 'Drop' }}
+                        </template>
+                    </button>
+                    <button @click="tableActionConfirmation.isOpen = false" :disabled="tableActionConfirmation.isLoading"
+                        class="w-full h-10 px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent transition-colors disabled:opacity-50">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Backup / Export Modal -->
         <div v-if="exportDbModal.isOpen"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-left">
@@ -1928,12 +2440,31 @@
                 </div>
             </div>
         </div>
+
+        <AICopilotModal
+            :is-open="aiCopilot.isOpen"
+            :mode="aiCopilot.mode"
+            :mode-options="aiCopilotModeOptions"
+            :prompt="aiCopilot.prompt"
+            :backend-language="aiCopilot.backendLanguage"
+            :is-loading="aiCopilot.isLoading"
+            :result="aiCopilot.result"
+            :error="aiCopilot.error"
+            :latency-ms="aiCopilot.latencyMs"
+            :has-suggested-sql="!!aiCopilot.suggestedSQL"
+            @close="aiCopilot.isOpen = false"
+            @run="runAiCopilot"
+            @apply-sql="applyAiSqlToEditor"
+            @update:mode="setAiCopilotMode"
+            @update:prompt="aiCopilot.prompt = $event"
+            @update:backend-language="aiCopilot.backendLanguage = $event"
+        />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory, LoadSetting, GetDatabaseInfo, DropDatabase, ExportDatabase, SelectFolder } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions, ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, UpdateRecord, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteQueryStream, ExplainQuery, ExecuteTransientQuery, GetTableDefinition, SaveQueryHistory, LoadSetting, GetDatabaseInfo, DropDatabase, ExportDatabase, SelectFolder, GetQueryHistory } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { format } from 'sql-formatter';
 import { useVirtualList } from '@vueuse/core';
@@ -1946,14 +2477,17 @@ import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
 import DatePicker from './DatePicker.vue';
+import AICopilotModal from './AICopilotModal.vue';
 import { Kbd } from './ui/kbd';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
+import { completeWithSavedProvider } from '../composables/useAiProvider';
 
 // Composables
 import { isDarkTheme } from '../composables/useTheme';
 import { useTabs } from '../composables/useTabs';
 import { useSidebar } from '../composables/useSidebar';
 import { useRecordOperations } from '../composables/useRecordOperations';
+import { useAiCopilot } from '../composables/useAiCopilot';
 
 // Types
 import { QueryTab, ContextMenuState } from '../types/dashboard';
@@ -1963,7 +2497,76 @@ const resultsContainerRef = ref<HTMLElement | null>(null);
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
+const isActivityMonitorOpen = ref(false);
 const imagePreviewUrl = ref<string | null>(null);
+
+interface ActivityTask {
+    id: string;
+    tabId: string;
+    tabName: string;
+    query: string;
+    headBlock: string;
+    startedAt: number;
+    source: string;
+    status: 'running' | 'canceling';
+}
+
+const activityTasks = reactive<Record<string, ActivityTask>>({});
+const activityTasksList = computed(() =>
+    Object.values(activityTasks).sort((a, b) => b.startedAt - a.startedAt)
+);
+const activityTaskCount = computed(() => activityTasksList.value.length);
+
+type QueryKind = 'read' | 'write' | 'other';
+interface QueryEvent {
+    timestamp: number;
+    kind: QueryKind;
+}
+interface MonitorSample {
+    timestamp: number;
+    activeConnections: number;
+    readQps: number;
+    writeQps: number;
+    cpuUsage: number;
+    memoryUsage: number;
+    bucket0to1: number;
+    bucket1to5: number;
+    bucketGt5: number;
+}
+
+const monitorRefreshRate = ref<3 | 5>(3);
+const queryEvents = ref<QueryEvent[]>([]);
+const monitorHistory = ref<MonitorSample[]>([]);
+let monitorTimer: number | null = null;
+
+const getQueryKind = (query: string): QueryKind => {
+    const keyword = (query || '').trim().split(/\s+/)[0]?.toUpperCase();
+    if (keyword === 'SELECT' || keyword === 'WITH' || keyword === 'SHOW' || keyword === 'DESCRIBE' || keyword === 'EXPLAIN') {
+        return 'read';
+    }
+    if (keyword === 'INSERT' || keyword === 'UPDATE' || keyword === 'DELETE' || keyword === 'MERGE' || keyword === 'REPLACE' || keyword === 'TRUNCATE' || keyword === 'DROP' || keyword === 'ALTER' || keyword === 'CREATE') {
+        return 'write';
+    }
+    return 'other';
+};
+
+const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+
+const makeEmptySample = (): MonitorSample => ({
+    timestamp: Date.now(),
+    activeConnections: 0,
+    readQps: 0,
+    writeQps: 0,
+    cpuUsage: 0,
+    memoryUsage: 0,
+    bucket0to1: 0,
+    bucket1to5: 0,
+    bucketGt5: 0
+});
+
+const latestMonitorSample = computed(() =>
+    monitorHistory.value.length > 0 ? monitorHistory.value[monitorHistory.value.length - 1] : makeEmptySample()
+);
 
 const globalSettings = ref<any>({});
 const safeModeEnabled = computed(() => {
@@ -2022,6 +2625,169 @@ const isImageValue = (val: any, col: string) => {
 
     return false;
 };
+
+const toHeadBlock = (query: string) => {
+    const normalized = (query || '').trim();
+    if (!normalized) return '(empty query)';
+    return normalized.split('\n').slice(0, 3).join('\n').slice(0, 220);
+};
+
+const registerActivityTask = (task: {
+    id: string;
+    tabId: string;
+    tabName: string;
+    query: string;
+    source: string;
+}) => {
+    activityTasks[task.id] = {
+        id: task.id,
+        tabId: task.tabId,
+        tabName: task.tabName,
+        query: task.query,
+        headBlock: toHeadBlock(task.query),
+        startedAt: Date.now(),
+        source: task.source,
+        status: 'running'
+    };
+    queryEvents.value.push({
+        timestamp: Date.now(),
+        kind: getQueryKind(task.query)
+    });
+};
+
+const unregisterActivityTask = (id: string) => {
+    if (activityTasks[id]) {
+        delete activityTasks[id];
+    }
+};
+
+const formatActivityTime = (time: number) => {
+    return new Date(time).toLocaleTimeString();
+};
+
+const collectMonitorSample = () => {
+    const now = Date.now();
+    const windowMs = monitorRefreshRate.value * 1000;
+
+    // Keep event history bounded to 10 minutes for rolling analytics
+    queryEvents.value = queryEvents.value.filter(ev => now - ev.timestamp <= 10 * 60 * 1000);
+    const recentEvents = queryEvents.value.filter(ev => now - ev.timestamp <= windowMs);
+
+    const readCount = recentEvents.filter(ev => ev.kind === 'read').length;
+    const writeCount = recentEvents.filter(ev => ev.kind === 'write').length;
+
+    const readQps = Number((readCount / monitorRefreshRate.value).toFixed(2));
+    const writeQps = Number((writeCount / monitorRefreshRate.value).toFixed(2));
+
+    const durationsSec = activityTasksList.value.map(task => (now - task.startedAt) / 1000);
+    const bucket0to1 = durationsSec.filter(sec => sec <= 1).length;
+    const bucket1to5 = durationsSec.filter(sec => sec > 1 && sec <= 5).length;
+    const bucketGt5 = durationsSec.filter(sec => sec > 5).length;
+
+    const cpuUsage = clamp(Math.round(activityTaskCount.value * 18 + (readQps + writeQps) * 22 + (bucketGt5 > 0 ? 15 : 0)), 0, 100);
+
+    let memoryUsage = clamp(Math.round(30 + activityTaskCount.value * 8 + bucketGt5 * 5), 0, 100);
+    const perfAny = performance as any;
+    if (perfAny && perfAny.memory && perfAny.memory.jsHeapSizeLimit > 0) {
+        memoryUsage = clamp(
+            Math.round((perfAny.memory.usedJSHeapSize / perfAny.memory.jsHeapSizeLimit) * 100),
+            0,
+            100
+        );
+    }
+
+    const sample: MonitorSample = {
+        timestamp: now,
+        activeConnections: activityTaskCount.value,
+        readQps,
+        writeQps,
+        cpuUsage,
+        memoryUsage,
+        bucket0to1,
+        bucket1to5,
+        bucketGt5
+    };
+
+    monitorHistory.value.push(sample);
+    if (monitorHistory.value.length > 60) {
+        monitorHistory.value.shift();
+    }
+};
+
+const startMonitorTimer = () => {
+    if (monitorTimer) {
+        window.clearInterval(monitorTimer);
+    }
+    collectMonitorSample();
+    monitorTimer = window.setInterval(() => {
+        collectMonitorSample();
+    }, monitorRefreshRate.value * 1000);
+};
+
+const stopMonitorTimer = () => {
+    if (monitorTimer) {
+        window.clearInterval(monitorTimer);
+        monitorTimer = null;
+    }
+};
+
+const toPolylinePoints = (values: number[], width: number, height: number, maxValue: number) => {
+    if (!values.length) return '';
+    const safeMax = Math.max(maxValue, 1);
+    const step = values.length > 1 ? width / (values.length - 1) : 0;
+    return values
+        .map((value, index) => {
+            const x = Math.round(index * step);
+            const y = Math.round(height - (value / safeMax) * height);
+            return `${x},${y}`;
+        })
+        .join(' ');
+};
+
+const connectionSeries = computed(() => monitorHistory.value.map(s => s.activeConnections));
+const readQpsSeries = computed(() => monitorHistory.value.map(s => s.readQps));
+const writeQpsSeries = computed(() => monitorHistory.value.map(s => s.writeQps));
+
+const connectionChartMax = computed(() => Math.max(1, ...connectionSeries.value));
+const qpsChartMax = computed(() => Math.max(1, ...readQpsSeries.value, ...writeQpsSeries.value));
+
+const connectionChartPoints = computed(() => toPolylinePoints(connectionSeries.value, 360, 110, connectionChartMax.value));
+const readQpsChartPoints = computed(() => toPolylinePoints(readQpsSeries.value, 360, 110, qpsChartMax.value));
+const writeQpsChartPoints = computed(() => toPolylinePoints(writeQpsSeries.value, 360, 110, qpsChartMax.value));
+const longRunningTotal = computed(() =>
+    Math.max(1, latestMonitorSample.value.bucket0to1 + latestMonitorSample.value.bucket1to5 + latestMonitorSample.value.bucketGt5)
+);
+
+const focusActivityTask = (task: ActivityTask) => {
+    const targetTab = tabs.value.find(t => t.id === task.tabId);
+    if (targetTab) {
+        activeTabId.value = targetTab.id;
+    }
+    isActivityMonitorOpen.value = false;
+};
+
+const killActivityTask = async (taskId: string) => {
+    const task = activityTasks[taskId];
+    if (!task || task.status === 'canceling') return;
+
+    try {
+        task.status = 'canceling';
+        await CancelQuery(taskId);
+    } catch (e) {
+        console.error('Failed to cancel activity task', e);
+        task.status = 'running';
+        toastRef.value?.error('Failed to cancel query task.');
+    }
+};
+
+const killAllActivityTasks = async () => {
+    const ids = activityTasksList.value.map(task => task.id);
+    await Promise.all(ids.map(id => killActivityTask(id)));
+};
+
+watch(monitorRefreshRate, () => {
+    startMonitorTimer();
+});
 
 const handleRunHistoryQuery = (query: string) => {
     isHistoryOpen.value = false;
@@ -2133,6 +2899,11 @@ const isColumnResizing = ref(false);
 const resizingColumn = ref<string | null>(null);
 const startX = ref(0);
 const startWidth = ref(0);
+const resultSetHeights = reactive<Record<string, number>>({});
+const isResultSetResizing = ref(false);
+const resizingResultSetKey = ref<string | null>(null);
+const resultSetResizeStartY = ref(0);
+const resultSetResizeStartHeight = ref(0);
 
 const startResizing = (e: MouseEvent) => {
     isResizing.value = true;
@@ -2204,6 +2975,56 @@ const stopColumnResize = () => {
     document.body.style.cursor = '';
 };
 
+const getResultSetHeightKey = (resultSetIndex: number) => {
+    if (!activeTab.value) return '';
+    return `${activeTab.value.id}:${resultSetIndex}`;
+};
+
+const getAutoResultSetHeight = (resultSet: any, resultSetIndex: number) => {
+    const rowCount = Array.isArray(resultSet?.rows) ? resultSet.rows.length : 0;
+    const colCount = Array.isArray(resultSet?.columns) ? resultSet.columns.length : 0;
+
+    const score = Math.max(1, Math.ceil(rowCount / 40) + Math.ceil(colCount / 8));
+    const indexBoost = resultSetIndex === 0 ? 1 : 0;
+    const targetHeight = 220 + Math.min(6, score + indexBoost) * 52;
+
+    return Math.min(620, targetHeight);
+};
+
+const startResultSetResize = (e: MouseEvent, resultSetIndex: number, resultSet: any) => {
+    const key = getResultSetHeightKey(resultSetIndex);
+    if (!key) return;
+
+    isResultSetResizing.value = true;
+    resizingResultSetKey.value = key;
+    resultSetResizeStartY.value = e.clientY;
+    resultSetResizeStartHeight.value = resultSetHeights[key] ?? getAutoResultSetHeight(resultSet, resultSetIndex);
+
+    document.addEventListener('mousemove', doResultSetResize);
+    document.addEventListener('mouseup', stopResultSetResize);
+    document.body.style.cursor = 'row-resize';
+    e.preventDefault();
+    e.stopPropagation();
+};
+
+const doResultSetResize = (e: MouseEvent) => {
+    if (!isResultSetResizing.value || !resizingResultSetKey.value) return;
+
+    const deltaY = e.clientY - resultSetResizeStartY.value;
+    const maxHeight = Math.max(280, Math.floor(window.innerHeight * 0.8));
+    const newHeight = clamp(resultSetResizeStartHeight.value + deltaY, 180, maxHeight);
+
+    resultSetHeights[resizingResultSetKey.value] = newHeight;
+};
+
+const stopResultSetResize = () => {
+    isResultSetResizing.value = false;
+    resizingResultSetKey.value = null;
+    document.removeEventListener('mousemove', doResultSetResize);
+    document.removeEventListener('mouseup', stopResultSetResize);
+    document.body.style.cursor = '';
+};
+
 
 // Sidebar filtered computed items are now in useSidebar
 
@@ -2234,6 +3055,26 @@ const dbInfoModal = reactive({
 const dropDbConfirmation = reactive({
     isOpen: false,
     dbName: '',
+    isLoading: false
+});
+
+const tableActionConfirmation = reactive({
+    isOpen: false,
+    action: 'TRUNCATE' as 'TRUNCATE' | 'DROP',
+    tableName: '',
+    isLoading: false
+});
+
+const mockDataModal = reactive({
+    isOpen: false,
+    tableName: '',
+    rowCount: 10
+});
+
+const mockDataConfirm = reactive({
+    isOpen: false,
+    tableName: '',
+    rowCount: 10,
     isLoading: false
 });
 
@@ -2318,6 +3159,45 @@ const confirmDropDatabase = async () => {
         toastRef.value?.error("Failed to drop database: " + e);
     } finally {
         dropDbConfirmation.isLoading = false;
+    }
+};
+
+const confirmTableAction = async () => {
+    if (!tableActionConfirmation.tableName) return;
+
+    tableActionConfirmation.isLoading = true;
+    const tableName = tableActionConfirmation.tableName;
+    const type = (props.dbType || '').toLowerCase();
+    const escapedTableName = getEscapedTableName(tableName);
+
+    const query = tableActionConfirmation.action === 'TRUNCATE'
+        ? ((type.includes('sqlite') || type.includes('libsql'))
+            ? `DELETE FROM ${escapedTableName};`
+            : `TRUNCATE TABLE ${escapedTableName};`)
+        : `DROP TABLE ${escapedTableName};`;
+
+    try {
+        const res = await ExecuteQuery(props.connectionId, query, generateId());
+        if (res.error) {
+            const actionText = tableActionConfirmation.action === 'TRUNCATE' ? 'truncate' : 'drop';
+            toastRef.value?.error(`Failed to ${actionText} table: ${res.error}`);
+            return;
+        }
+
+        if (tableActionConfirmation.action === 'TRUNCATE') {
+            toastRef.value?.success(`Table "${tableName}" truncated.`);
+            await checkRowCount(tableName);
+        } else {
+            toastRef.value?.success(`Table "${tableName}" dropped.`);
+        }
+
+        await loadTables();
+        tableActionConfirmation.isOpen = false;
+    } catch (e) {
+        console.error('Failed to process table action', e);
+        toastRef.value?.error('Failed to execute table action.');
+    } finally {
+        tableActionConfirmation.isLoading = false;
     }
 };
 
@@ -3303,6 +4183,327 @@ const handleSelectTop100 = () => {
     }
 };
 
+const getEscapedIdentifier = (identifier: string) => {
+    const type = (props.dbType || '').toLowerCase();
+    if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+        return `\`${identifier.replace(/`/g, '``')}\``;
+    }
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        return `[${identifier.replace(/]/g, ']]')}]`;
+    }
+    return `"${identifier.replace(/"/g, '""')}"`;
+};
+
+const getEscapedTableName = (tableName: string) => {
+    const type = (props.dbType || '').toLowerCase();
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        if (tableName.includes('.') && !tableName.includes('[')) {
+            return tableName.split('.').map(part => getEscapedIdentifier(part)).join('.');
+        }
+        if (!tableName.startsWith('[')) {
+            return getEscapedIdentifier(tableName);
+        }
+        return tableName;
+    }
+
+    if (tableName.includes('.') && !tableName.includes('"') && !tableName.includes('`')) {
+        return tableName.split('.').map(part => getEscapedIdentifier(part)).join('.');
+    }
+    return getEscapedIdentifier(tableName);
+};
+
+const openSqlTemplateTab = (tabName: string, sql: string) => {
+    const currentTab = activeTab.value;
+    const isPristine = currentTab &&
+        !currentTab.tableName &&
+        !currentTab.query &&
+        !currentTab.isDesignView &&
+        !currentTab.isERView &&
+        !currentTab.queryExecuted;
+
+    if (!isPristine) {
+        addTab();
+    }
+
+    if (activeTab.value) {
+        activeTab.value.name = tabName;
+        activeTab.value.tableName = '';
+        activeTab.value.query = sql;
+        activeTab.value.error = '';
+        activeTab.value.queryExecuted = false;
+        activeTab.value.resultSets = [];
+        activeTab.value.resultViewTab = 'data';
+    }
+};
+
+const handleScriptTableAs = async (action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE') => {
+    const tableName = contextMenu.targetTable;
+    if (!tableName) return;
+
+    const escapedTableName = getEscapedTableName(tableName);
+    const type = (props.dbType || '').toLowerCase();
+
+    try {
+        if (action === 'SELECT') {
+            const sql = (type.includes('mssql') || type.includes('sqlserver'))
+                ? `SELECT TOP 100 *\nFROM ${escapedTableName};`
+                : `SELECT *\nFROM ${escapedTableName}\nLIMIT 100;`;
+            openSqlTemplateTab(`Script ${action}: ${tableName}`, sql);
+            closeContextMenu();
+            return;
+        }
+
+        const columns = await GetTableDefinition(props.connectionId, tableName);
+        if (!columns || columns.length === 0) {
+            toastRef.value?.error('Could not read table columns for scripting.');
+            closeContextMenu();
+            return;
+        }
+
+        const pkColumns = columns.filter(col => col.primaryKey).map(col => col.name);
+        const firstColumn = columns[0]?.name;
+        const fallbackWhereColumns = firstColumn ? [firstColumn] : [];
+
+        if (action === 'INSERT') {
+            const insertColumns = columns.filter(col => !col.autoIncrement);
+            const targetColumns = insertColumns.length > 0 ? insertColumns : columns;
+            const columnLines = targetColumns.map(col => `  ${getEscapedIdentifier(col.name)}`).join(',\n');
+            const valueLines = targetColumns.map(col => `  /* ${col.name} */`).join(',\n');
+            const sql = `INSERT INTO ${escapedTableName} (\n${columnLines}\n)\nVALUES (\n${valueLines}\n);`;
+            openSqlTemplateTab(`Script ${action}: ${tableName}`, sql);
+            closeContextMenu();
+            return;
+        }
+
+        if (action === 'UPDATE') {
+            const setColumns = columns.filter(col => !col.primaryKey);
+            const targetSetColumns = setColumns.length > 0 ? setColumns : columns;
+            const whereColumns = pkColumns.length > 0 ? pkColumns : fallbackWhereColumns;
+            const setLines = targetSetColumns.map(col => `  ${getEscapedIdentifier(col.name)} = /* ${col.name} */`).join(',\n');
+            const whereLines = whereColumns.map(col => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
+            const sql = `UPDATE ${escapedTableName}\nSET\n${setLines}\nWHERE\n${whereLines || '  /* condition */'};`;
+            openSqlTemplateTab(`Script ${action}: ${tableName}`, sql);
+            closeContextMenu();
+            return;
+        }
+
+        const deleteWhereColumns = pkColumns.length > 0 ? pkColumns : fallbackWhereColumns;
+        const deleteWhereLines = deleteWhereColumns.map(col => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
+        const deleteSql = `DELETE FROM ${escapedTableName}\nWHERE\n${deleteWhereLines || '  /* condition */'};`;
+        openSqlTemplateTab(`Script ${action}: ${tableName}`, deleteSql);
+    } catch (e) {
+        console.error('Failed to script table statement', e);
+        toastRef.value?.error('Failed to generate SQL script.');
+    } finally {
+        closeContextMenu();
+    }
+};
+
+const handleGenerateCreateStatement = async () => {
+    const tableName = contextMenu.targetTable;
+    if (!tableName) return;
+
+    try {
+        const columns = await GetTableDefinition(props.connectionId, tableName);
+        if (!columns || columns.length === 0) {
+            toastRef.value?.error('Could not read table columns.');
+            closeContextMenu();
+            return;
+        }
+
+        const pkColumns = columns.filter(col => col.primaryKey).map(col => col.name);
+        const columnDefs = columns.map(col => {
+            let line = `${getEscapedIdentifier(col.name)} ${col.type || 'TEXT'}`;
+            if (!col.nullable) line += ' NOT NULL';
+            if (col.defaultValue !== null && col.defaultValue !== undefined && String(col.defaultValue) !== '') {
+                line += ` DEFAULT ${String(col.defaultValue)}`;
+            }
+            return line;
+        });
+
+        if (pkColumns.length > 0) {
+            columnDefs.push(`PRIMARY KEY (${pkColumns.map(col => getEscapedIdentifier(col)).join(', ')})`);
+        }
+
+        const createSql = `CREATE TABLE ${getEscapedTableName(tableName)} (\n${columnDefs.map(line => `  ${line}`).join(',\n')}\n);`;
+        await navigator.clipboard.writeText(createSql);
+        toastRef.value?.success('CREATE TABLE statement copied to clipboard.');
+    } catch (e) {
+        console.error('Failed to generate CREATE statement', e);
+        toastRef.value?.error('Failed to generate CREATE TABLE statement.');
+    } finally {
+        closeContextMenu();
+    }
+};
+
+const handleTruncateTable = async () => {
+    const tableName = contextMenu.targetTable;
+    if (!tableName) return;
+
+    if (props.isReadOnly) {
+        toastRef.value?.error('Read-only mode is enabled.');
+        closeContextMenu();
+        return;
+    }
+
+    tableActionConfirmation.action = 'TRUNCATE';
+    tableActionConfirmation.tableName = tableName;
+    tableActionConfirmation.isOpen = true;
+    closeContextMenu();
+};
+
+const handleDropTable = async () => {
+    const tableName = contextMenu.targetTable;
+    if (!tableName) return;
+
+    if (props.isReadOnly) {
+        toastRef.value?.error('Read-only mode is enabled.');
+        closeContextMenu();
+        return;
+    }
+
+    tableActionConfirmation.action = 'DROP';
+    tableActionConfirmation.tableName = tableName;
+    tableActionConfirmation.isOpen = true;
+    closeContextMenu();
+};
+
+const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomPick = <T>(arr: T[]): T => arr[randomInt(0, arr.length - 1)];
+const randomString = (len: number) => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    let out = '';
+    for (let i = 0; i < len; i++) out += chars[randomInt(0, chars.length - 1)];
+    return out;
+};
+
+const escapeSqlString = (value: string) => value.replace(/'/g, "''");
+
+const generateMockSqlValue = (col: any, rowIndex: number) => {
+    const type = String(col.type || '').toLowerCase();
+    const name = String(col.name || '').toLowerCase();
+    const dbType = (props.dbType || '').toLowerCase();
+    const nullable = !!col.nullable;
+
+    if (nullable && Math.random() < 0.08) return 'NULL';
+
+    if (type.includes('bool') || type.includes('bit')) {
+        if (dbType.includes('mssql')) return Math.random() > 0.5 ? '1' : '0';
+        return Math.random() > 0.5 ? 'TRUE' : 'FALSE';
+    }
+    if (type.includes('int') || type.includes('serial')) {
+        return String(randomInt(1, 100000));
+    }
+    if (type.includes('decimal') || type.includes('numeric') || type.includes('float') || type.includes('double') || type.includes('real')) {
+        return (Math.random() * 10000).toFixed(2);
+    }
+    if (type.includes('date') && !type.includes('time')) {
+        const d = new Date(Date.now() - randomInt(0, 365) * 86400000);
+        const iso = d.toISOString().slice(0, 10);
+        return `'${iso}'`;
+    }
+    if (type.includes('time') || type.includes('timestamp') || type.includes('datetime')) {
+        const d = new Date(Date.now() - randomInt(0, 365) * 86400000);
+        const iso = d.toISOString().slice(0, 19).replace('T', ' ');
+        return `'${iso}'`;
+    }
+    if (type.includes('uuid') || name.includes('uuid')) {
+        return `'${crypto.randomUUID()}'`;
+    }
+
+    if (name.includes('email')) {
+        return `'${escapeSqlString(`${randomString(6)}${rowIndex}@example.com`)}'`;
+    }
+    if (name.includes('name')) {
+        return `'${escapeSqlString(`${randomPick(['Alex', 'Nina', 'John', 'May', 'Leo'])} ${randomPick(['Kim', 'Park', 'Smith', 'Tan'])}`)}'`;
+    }
+    if (name.includes('phone')) {
+        return `'${escapeSqlString(`08${randomInt(10000000, 99999999)}`)}'`;
+    }
+    if (type.includes('json')) {
+        return `'${escapeSqlString(JSON.stringify({ seed: rowIndex, active: Math.random() > 0.5 }))}'`;
+    }
+
+    return `'${escapeSqlString(`${randomPick(['sample', 'mock', 'demo'])}_${randomString(5)}_${rowIndex}`)}'`;
+};
+
+const openMockDataModal = () => {
+    if (!activeTab.value?.tableName) return;
+    mockDataModal.tableName = activeTab.value.tableName;
+    mockDataModal.rowCount = 10;
+    mockDataModal.isOpen = true;
+};
+
+const openMockDataConfirm = () => {
+    const rows = Number(mockDataModal.rowCount);
+    if (!Number.isFinite(rows) || rows < 1 || rows > 500) {
+        toastRef.value?.error('Please enter rows between 1 and 500.');
+        return;
+    }
+    mockDataModal.isOpen = false;
+    mockDataConfirm.tableName = mockDataModal.tableName;
+    mockDataConfirm.rowCount = Math.floor(rows);
+    mockDataConfirm.isOpen = true;
+};
+
+const confirmMockDataInsert = async () => {
+    const tableName = mockDataConfirm.tableName;
+    const rowCount = mockDataConfirm.rowCount;
+    if (!tableName || rowCount < 1) return;
+
+    mockDataConfirm.isLoading = true;
+    try {
+        const colDefs = await GetTableDefinition(props.connectionId, tableName);
+        const insertable = (colDefs || []).filter((c: any) => !c.autoIncrement);
+
+        if (insertable.length === 0) {
+            toastRef.value?.error('No insertable columns found for this table.');
+            return;
+        }
+
+        const escapedTable = getEscapedTableName(tableName);
+        const columnList = insertable.map((c: any) => getEscapedIdentifier(c.name)).join(', ');
+        const valueRows = Array.from({ length: rowCount }, (_, idx) => {
+            const values = insertable.map((c: any) => generateMockSqlValue(c, idx + 1)).join(', ');
+            return `(${values})`;
+        }).join(',\n');
+
+        const sql = `INSERT INTO ${escapedTable} (${columnList}) VALUES\n${valueRows};`;
+        const res = await ExecuteQuery(props.connectionId, sql, generateId());
+        if (res.error) {
+            toastRef.value?.error(`Mock insert failed: ${res.error}`);
+            return;
+        }
+
+        toastRef.value?.success(`Inserted ${rowCount} mock rows into ${tableName}.`);
+        mockDataConfirm.isOpen = false;
+
+        if (activeTab.value?.tableName === tableName) {
+            runQuery(true);
+        } else {
+            await checkRowCount(tableName);
+        }
+    } catch (e: any) {
+        console.error('Mock insert failed', e);
+        toastRef.value?.error(`Mock insert failed: ${String(e)}`);
+    } finally {
+        mockDataConfirm.isLoading = false;
+    }
+};
+
+const handleCopyTableName = async () => {
+    if (!contextMenu.targetTable) return;
+    try {
+        await navigator.clipboard.writeText(contextMenu.targetTable);
+        toastRef.value?.success(`Copied table name: ${contextMenu.targetTable}`);
+    } catch (e) {
+        console.error('Failed to copy table name', e);
+        toastRef.value?.error('Failed to copy table name.');
+    } finally {
+        closeContextMenu();
+    }
+};
+
 
 const openERDiagramTab = async (tableName: string) => {
     const existingTab = tabs.value.find(t => t.name === `ER: ${tableName}`);
@@ -3376,6 +4577,13 @@ const openERDiagramTab = async (tableName: string) => {
             const query = getSchemaQuery(tbl);
             const reqId = generateId();
             newTab.activeQueryIds.push(reqId);
+            registerActivityTask({
+                id: reqId,
+                tabId: newTab.id,
+                tabName: newTab.name,
+                query,
+                source: 'ER Schema Fetch'
+            });
             try {
                 const res = await ExecuteQuery(props.connectionId, query, reqId);
                 // Need to handle resultSets here too
@@ -3395,6 +4603,7 @@ const openERDiagramTab = async (tableName: string) => {
                 console.warn(`Failed to fetch schema for ${tbl}`, e);
             } finally {
                 newTab.activeQueryIds = newTab.activeQueryIds.filter(id => id !== reqId);
+                unregisterActivityTask(reqId);
             }
         });
 
@@ -3476,6 +4685,98 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
     return [];
 };
 
+const splitSqlStatements = (sql: string): string[] => {
+    const statements: string[] = [];
+    let current = '';
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let inBacktick = false;
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let i = 0; i < sql.length; i++) {
+        const ch = sql[i];
+        const next = sql[i + 1];
+
+        if (inLineComment) {
+            current += ch;
+            if (ch === '\n') inLineComment = false;
+            continue;
+        }
+        if (inBlockComment) {
+            current += ch;
+            if (ch === '*' && next === '/') {
+                current += '/';
+                i++;
+                inBlockComment = false;
+            }
+            continue;
+        }
+
+        if (!inSingleQuote && !inDoubleQuote && !inBacktick) {
+            if (ch === '-' && next === '-') {
+                current += ch;
+                inLineComment = true;
+                continue;
+            }
+            if (ch === '/' && next === '*') {
+                current += ch;
+                inBlockComment = true;
+                continue;
+            }
+        }
+
+        if (ch === "'" && !inDoubleQuote && !inBacktick) {
+            inSingleQuote = !inSingleQuote;
+            current += ch;
+            continue;
+        }
+        if (ch === '"' && !inSingleQuote && !inBacktick) {
+            inDoubleQuote = !inDoubleQuote;
+            current += ch;
+            continue;
+        }
+        if (ch === '`' && !inSingleQuote && !inDoubleQuote) {
+            inBacktick = !inBacktick;
+            current += ch;
+            continue;
+        }
+
+        if (ch === ';' && !inSingleQuote && !inDoubleQuote && !inBacktick) {
+            const trimmed = current.trim();
+            if (trimmed) statements.push(trimmed);
+            current = '';
+            continue;
+        }
+
+        current += ch;
+    }
+
+    const tail = current.trim();
+    if (tail) statements.push(tail);
+
+    return statements;
+};
+
+const mapRowsToObjects = (columns: string[], rows: any[]) => {
+    return (rows || []).map((row: any) => {
+        if (Array.isArray(row)) {
+            return Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]));
+        }
+        return row;
+    });
+};
+
+const getResultSetCardStyle = (resultSet: any, resultSetIndex: number) => {
+    const key = getResultSetHeightKey(resultSetIndex);
+    const height = (key && resultSetHeights[key]) ? resultSetHeights[key] : getAutoResultSetHeight(resultSet, resultSetIndex);
+
+    return {
+        height: `${height}px`,
+        maxHeight: '72vh',
+    };
+};
+
 
 
 const runQuery = async (forceBypassSafeMode: boolean = false) => {
@@ -3489,6 +4790,8 @@ const runQuery = async (forceBypassSafeMode: boolean = false) => {
     activeTab.value.isLoading = true;
     activeTab.value.isExplaining = false; // Reset explain state
     activeTab.value.explanation = undefined; // Reset explanation
+    activeTab.value.isAiExplaining = false;
+    activeTab.value.aiExplanation = undefined;
     activeTab.value.executionTime = undefined;
     activeTab.value.fetchTime = undefined;
     activeTab.value.editingCell = null;
@@ -3518,9 +4821,111 @@ const runQuery = async (forceBypassSafeMode: boolean = false) => {
             safeModeConfirmation.queryToRun = queryToRun;
             safeModeConfirmation.isOpen = true;
             tab.isLoading = false;
+            tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
             return;
         }
     }
+
+    const calculateInitialWidth = (meta: ColumnMetadata): number => {
+        if (!meta) return 150;
+
+        const type = (meta.type || '').toUpperCase();
+        const length = meta.length || 0;
+
+        // User's specific rule: max initial 300 for max, blob, long blob or very long fields
+        // In some drivers, -1 or very large numbers represent "MAX"
+        if (type.includes('BLOB') || length === -1 || length > 1000 || type === 'TEXT' || type === 'LONGTEXT') {
+            return 300;
+        }
+
+        if (type.includes('CHAR') || type.includes('TEXT') || type.includes('STRING')) {
+            if (length > 0) {
+                // Approx 8.5px per character + padding
+                return Math.min(300, Math.max(120, length * 8.5 + 32));
+            }
+            return 200; // Default for text without length
+        }
+
+        if (type.includes('INT') || type.includes('DECIMAL') || type.includes('NUMERIC') || type.includes('BIT')) {
+            return 120;
+        }
+
+        if (type.includes('DATE') || type.includes('TIME') || type.includes('TIMESTAMP')) {
+            return 180;
+        }
+
+        return 150; // Default
+    };
+
+    const statements = splitSqlStatements(queryToRun);
+    if (statements.length > 1) {
+        registerActivityTask({
+            id: reqId,
+            tabId: tab.id,
+            tabName: tab.name,
+            query: queryToRun,
+            source: 'SQL Query'
+        });
+
+        try {
+            if (queryToRun && queryToRun.trim().length > 0) {
+                SaveQueryHistory(queryToRun, props.connectionName || props.dbType || '');
+            }
+
+            for (const statement of statements) {
+                const res = await ExecuteQuery(props.connectionId, statement, reqId);
+                if (res.error) {
+                    throw new Error(res.error);
+                }
+
+                const resultSets = Array.isArray(res.resultSets) ? res.resultSets : [];
+                for (const rs of resultSets) {
+                    const columns = Array.isArray(rs?.columns) ? rs.columns : [];
+                    const rows = mapRowsToObjects(columns, Array.isArray(rs?.rows) ? rs.rows : []);
+                    const columnTypes = Array.isArray((rs as any)?.columnTypes) ? (rs as any).columnTypes : [];
+
+                    tab.resultSets.push({
+                        columns,
+                        columnTypes,
+                        rows: markRaw(rows),
+                    });
+
+                    columns.forEach((col: string, i: number) => {
+                        if (!tab.columnWidths[col]) {
+                            tab.columnWidths[col] = calculateInitialWidth(columnTypes[i]);
+                        }
+                    });
+                }
+            }
+
+            tab.queryExecuted = true;
+            const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
+            tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
+            tab.executionTime = Math.round(performance.now() - startTime);
+            tab.completionTime = new Date().toLocaleString();
+            tab.isLoading = false;
+            tab.error = '';
+        } catch (e: any) {
+            tab.error = e?.toString ? e.toString() : String(e);
+            tab.queryExecuted = true;
+            tab.resultViewTab = 'messages';
+            tab.executionTime = Math.round(performance.now() - startTime);
+            tab.completionTime = new Date().toLocaleString();
+            tab.isLoading = false;
+        } finally {
+            tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
+            unregisterActivityTask(reqId);
+        }
+        return;
+    }
+
+    registerActivityTask({
+        id: reqId,
+        tabId: tab.id,
+        tabName: tab.name,
+        query: queryToRun,
+        source: 'SQL Query'
+    });
 
     // Track whether we received first batch (for execution time)
     let firstBatchReceived = false;
@@ -3531,6 +4936,7 @@ const runQuery = async (forceBypassSafeMode: boolean = false) => {
         EventsOff('query:error:' + reqId);
         EventsOff('query:stats:' + reqId);
         tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
+        unregisterActivityTask(reqId);
     };
 
     EventsOn('query:stats:' + reqId, (stats: any) => {
@@ -3608,37 +5014,6 @@ const runQuery = async (forceBypassSafeMode: boolean = false) => {
         }
     });
 
-    const calculateInitialWidth = (meta: ColumnMetadata): number => {
-        if (!meta) return 150;
-
-        const type = (meta.type || '').toUpperCase();
-        const length = meta.length || 0;
-
-        // User's specific rule: max initial 300 for max, blob, long blob or very long fields
-        // In some drivers, -1 or very large numbers represent "MAX"
-        if (type.includes('BLOB') || length === -1 || length > 1000 || type === 'TEXT' || type === 'LONGTEXT') {
-            return 300;
-        }
-
-        if (type.includes('CHAR') || type.includes('TEXT') || type.includes('STRING')) {
-            if (length > 0) {
-                // Approx 8.5px per character + padding
-                return Math.min(300, Math.max(120, length * 8.5 + 32));
-            }
-            return 200; // Default for text without length
-        }
-
-        if (type.includes('INT') || type.includes('DECIMAL') || type.includes('NUMERIC') || type.includes('BIT')) {
-            return 120;
-        }
-
-        if (type.includes('DATE') || type.includes('TIME') || type.includes('TIMESTAMP')) {
-            return 180;
-        }
-
-        return 150; // Default
-    };
-
     EventsOn('query:done:' + reqId, () => {
         tab.isLoading = false;
         tab.completionTime = new Date().toLocaleString();
@@ -3692,12 +5067,83 @@ const stopQuery = async () => {
 
     try {
         const ids = [...tab.activeQueryIds];
+        ids.forEach(id => {
+            if (activityTasks[id]) {
+                activityTasks[id].status = 'canceling';
+            }
+        });
         await Promise.all(ids.map(id => CancelQuery(id)));
         // The ExecuteQuery promise in runQuery/ER logic will handle the error (context canceled)
     } catch (e) {
         console.error("Error stopping query:", e);
     }
 };
+
+const getCurrentQueryForAnalysis = () => {
+    if (!activeTab.value) return '';
+    let query = activeTab.value.query;
+    if (sqlEditorRef.value) {
+        const selection = sqlEditorRef.value.getSelection();
+        if (selection && selection.trim()) {
+            query = selection;
+        }
+    }
+    return query;
+};
+
+const collectSchemaContext = async (maxTables: number = 12) => {
+    const tableNames = (tables.value || []).slice(0, maxTables);
+    if (tableNames.length === 0) return 'No schema available.';
+
+    const schemaRows = await Promise.all(tableNames.map(async (tableName) => {
+        try {
+            const columns = await fetchTableColumns(tableName);
+            return `${tableName}(${(columns || []).slice(0, 20).join(', ')})`;
+        } catch {
+            return `${tableName}(...)`;
+        }
+    }));
+
+    return schemaRows.join('\n');
+};
+
+const collectResultSampleContext = () => {
+    const tab = activeTab.value;
+    if (!tab || !tab.resultSets || tab.resultSets.length === 0) return 'No result sample.';
+    const rs = tab.resultSets[0];
+    if (!rs || !rs.rows || rs.rows.length === 0) return 'No result sample.';
+
+    const rows = rs.rows.slice(0, 5);
+    return JSON.stringify(rows, null, 2);
+};
+
+const {
+    aiCopilot,
+    aiCopilotModeOptions,
+    openAiCopilot,
+    setAiCopilotMode,
+    runAiCopilot,
+    applyAiSqlToEditor
+} = useAiCopilot({
+    getRuntimeContext: async () => ({
+        dbType: props.dbType || 'SQL',
+        historyScope: props.connectionName || props.dbType || '',
+        currentQuery: getCurrentQueryForAnalysis(),
+        currentError: activeTab.value?.error || '',
+        currentPlan: activeTab.value?.explanation || '',
+        resultSample: collectResultSampleContext(),
+        schemaContext: await collectSchemaContext()
+    }),
+    loadHistory: (scope) => GetQueryHistory(scope),
+    complete: (messages, options) => completeWithSavedProvider(messages, options),
+    onApplySql: (sql) => {
+        if (!activeTab.value) return;
+        activeTab.value.query = sql;
+    },
+    onAppliedSql: () => {
+        toastRef.value?.success('Applied AI SQL to editor');
+    }
+});
 
 const analyzeQuery = async () => {
     if (!activeTab.value || !activeTab.value.query.trim()) return;
@@ -3710,13 +5156,7 @@ const analyzeQuery = async () => {
     // We treat explanation as a type of execution result
     activeTab.value.queryExecuted = true;
 
-    let queryToAnalyze = activeTab.value.query;
-    if (sqlEditorRef.value) {
-        const selection = sqlEditorRef.value.getSelection();
-        if (selection && selection.trim()) {
-            queryToAnalyze = selection;
-        }
-    }
+    const queryToAnalyze = getCurrentQueryForAnalysis();
 
     try {
         const plan = await ExplainQuery(props.connectionId, queryToAnalyze);
@@ -3726,6 +5166,42 @@ const analyzeQuery = async () => {
         activeTab.value.explanation = undefined;
     } finally {
         activeTab.value.isExplaining = false;
+    }
+};
+
+const explainWithAI = async () => {
+    if (!activeTab.value || !activeTab.value.query.trim()) return;
+
+    const tab = activeTab.value;
+    const queryToAnalyze = getCurrentQueryForAnalysis();
+    tab.isAiExplaining = true;
+    tab.aiExplanation = 'Analyzing with AI...';
+    tab.resultViewTab = 'analysis';
+    tab.queryExecuted = true;
+
+    try {
+        const dbType = props.dbType || 'SQL';
+        const contextPlan = tab.explanation ? `\n\nQuery execution plan:\n${tab.explanation}` : '';
+        const result = await completeWithSavedProvider(
+            [
+                {
+                    role: 'system',
+                    content: `You are a senior ${dbType} performance engineer. Explain SQL clearly and safely. Keep response concise with sections: Summary, Performance Risks, Suggested Rewrite.`
+                },
+                {
+                    role: 'user',
+                    content: `Analyze this ${dbType} SQL query:\n\n${queryToAnalyze}${contextPlan}`
+                }
+            ],
+            { temperature: 0.2, maxTokens: 700 }
+        );
+        tab.aiExplanation = result.text || 'AI returned an empty response.';
+    } catch (err: any) {
+        const errorMessage = err?.message || String(err);
+        tab.aiExplanation = `Failed to explain with AI: ${errorMessage}`;
+        toastRef.value?.error(`AI explain failed: ${errorMessage}`);
+    } finally {
+        tab.isAiExplaining = false;
     }
 };
 
@@ -3910,12 +5386,16 @@ onMounted(async () => {
     window.addEventListener('keydown', handleKeydown, true);
     window.addEventListener('click', handleGlobalClick);
     window.addEventListener('open-sql-file', handleOpenSqlFile as EventListener);
+    startMonitorTimer();
 });
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown, true);
     window.removeEventListener('click', handleGlobalClick);
     window.removeEventListener('open-sql-file', handleOpenSqlFile as EventListener);
+    stopColumnResize();
+    stopResultSetResize();
+    stopMonitorTimer();
 });
 
 const handleOpenSqlFile = (e: CustomEvent) => {

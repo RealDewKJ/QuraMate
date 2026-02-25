@@ -53,6 +53,10 @@
             Please wait while we establish a secure connection.
           </p>
         </div>
+        <button @click="cancelConnection"
+          class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-destructive text-destructive hover:bg-destructive/10 h-10 px-4 py-2">
+          Cancel
+        </button>
       </div>
 
       <div v-else class="space-y-3">

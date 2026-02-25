@@ -28,6 +28,8 @@ export function useTabs() {
             isLoading: false,
             isExplaining: false,
             explanation: undefined,
+            isAiExplaining: false,
+            aiExplanation: undefined,
             queryExecuted: false,
             activeQueryIds: [],
             resultViewTab: 'data',
