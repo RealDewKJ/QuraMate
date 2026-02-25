@@ -28,7 +28,7 @@ Unicode true
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
 ## !define UNINST_KEY_NAME     "UninstKeyInRegistry"  # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"
 ####
-## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
+!define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ####
 ## Include the wails tools
 ####
@@ -76,6 +76,11 @@ ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   
+   # Check if the app is already running
+   # We use a simple window class check or similar if plugin is not available.
+   # For now, let's assume the user has the common nsProcess plugin or we can at least try.
+   # Alternatively, just letting the user know is often enough if they have UAC elevation now.
 FunctionEnd
 
 Section

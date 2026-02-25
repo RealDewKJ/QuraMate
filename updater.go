@@ -220,7 +220,8 @@ func (a *App) PerformUpdate(downloadURL string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		// Run the installer normally (UI visible but automated via NSIS script)
+		// Use ShellExecute via cmd /c start to ensure UAC prompt is handled and it runs detached
+		// Providing the full path and ensuring it's treated as a single argument
 		cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
 	case "darwin":
 		cmd = exec.Command("open", installerPath)
@@ -233,7 +234,9 @@ func (a *App) PerformUpdate(downloadURL string) error {
 		return fmt.Errorf("failed to start installer: %w", err)
 	}
 
-	// Exit the current app so the installer can overwrite the files
+	// Exit the current app immediately so the installer can overwrite the files.
+	// We give the OS a very tiny bit of time to start the process before exiting.
+	time.Sleep(500 * time.Millisecond)
 	os.Exit(0)
 
 	return nil
