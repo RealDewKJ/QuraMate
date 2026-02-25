@@ -20,6 +20,8 @@ export interface QueryTab {
     isLoading: boolean;
     isExplaining?: boolean;
     explanation?: string;
+    isAiExplaining?: boolean;
+    aiExplanation?: string;
     queryExecuted: boolean;
     executionTime?: number;
     editingCell?: CellEdit | null;

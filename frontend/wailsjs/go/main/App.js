@@ -34,6 +34,10 @@ export function CreateTable(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateTable'](arg1, arg2, arg3);
 }
 
+export function DeleteAIProviderKey(arg1) {
+  return window['go']['main']['App']['DeleteAIProviderKey'](arg1);
+}
+
 export function DeleteCredential(arg1) {
   return window['go']['main']['App']['DeleteCredential'](arg1);
 }
@@ -138,6 +142,10 @@ export function ImportTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ImportTable'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function LoadAIProviderKey(arg1) {
+  return window['go']['main']['App']['LoadAIProviderKey'](arg1);
+}
+
 export function LoadSetting(arg1) {
   return window['go']['main']['App']['LoadSetting'](arg1);
 }
@@ -152,6 +160,10 @@ export function PerformUpdate(arg1) {
 
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
+}
+
+export function SaveAIProviderKey(arg1, arg2) {
+  return window['go']['main']['App']['SaveAIProviderKey'](arg1, arg2);
 }
 
 export function SaveCredential(arg1, arg2, arg3) {

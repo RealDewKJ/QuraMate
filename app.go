@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,6 +38,8 @@ type LogEntry struct {
 	Level   string `json:"level"`
 	Message string `json:"message"`
 }
+
+const aiKeyringService = "QuraMate-AI"
 
 func NewApp() *App {
 	ldb, err := NewLocalDB()
@@ -1040,9 +1043,50 @@ func decodeUTF16(b []byte, isBE bool) string {
 
 // ==== Settings Wails Bindings ====
 
+func normalizeAIProvider(provider string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(provider))
+	if normalized == "" {
+		return "", fmt.Errorf("provider is required")
+	}
+
+	for _, ch := range normalized {
+		isAlphaNum := (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')
+		if !isAlphaNum && ch != '-' && ch != '_' {
+			return "", fmt.Errorf("provider contains invalid characters")
+		}
+	}
+
+	return normalized, nil
+}
+
+func sanitizeUserSettingsForStorage(value string) string {
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(value), &parsed); err != nil {
+		// Keep original payload if it isn't JSON (backward compatibility).
+		return value
+	}
+
+	if aiRaw, ok := parsed["ai"]; ok {
+		if aiMap, ok := aiRaw.(map[string]any); ok {
+			delete(aiMap, "apiKey")
+			delete(aiMap, "apiKeys")
+		}
+	}
+
+	sanitized, err := json.Marshal(parsed)
+	if err != nil {
+		return value
+	}
+
+	return string(sanitized)
+}
+
 func (a *App) SaveSetting(key string, value string) string {
 	if a.localDB == nil {
 		return "Error: LocalDB is not initialized"
+	}
+	if key == "user_settings" {
+		value = sanitizeUserSettingsForStorage(value)
 	}
 	err := a.localDB.SaveSetting(key, value)
 	if err != nil {
@@ -1061,6 +1105,56 @@ func (a *App) LoadSetting(key string) string {
 		return ""
 	}
 	return value
+}
+
+func (a *App) SaveAIProviderKey(provider string, apiKey string) string {
+	normalizedProvider, err := normalizeAIProvider(provider)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+
+	trimmedKey := strings.TrimSpace(apiKey)
+	if trimmedKey == "" {
+		if err := keyring.Delete(aiKeyringService, normalizedProvider); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+			return fmt.Sprintf("Error deleting key: %s", err.Error())
+		}
+		return "Success"
+	}
+
+	if err := keyring.Set(aiKeyringService, normalizedProvider, trimmedKey); err != nil {
+		return fmt.Sprintf("Error saving key: %s", err.Error())
+	}
+	return "Success"
+}
+
+func (a *App) LoadAIProviderKey(provider string) string {
+	normalizedProvider, err := normalizeAIProvider(provider)
+	if err != nil {
+		return ""
+	}
+
+	value, err := keyring.Get(aiKeyringService, normalizedProvider)
+	if err != nil {
+		if errors.Is(err, keyring.ErrNotFound) {
+			return ""
+		}
+		fmt.Printf("Error loading AI provider key for %s: %v\n", normalizedProvider, err)
+		return ""
+	}
+	return value
+}
+
+func (a *App) DeleteAIProviderKey(provider string) string {
+	normalizedProvider, err := normalizeAIProvider(provider)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+
+	if err := keyring.Delete(aiKeyringService, normalizedProvider); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return fmt.Sprintf("Error deleting key: %s", err.Error())
+	}
+
+	return "Success"
 }
 
 // ImportTable imports data from a file to a table

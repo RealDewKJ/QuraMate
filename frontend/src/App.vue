@@ -14,15 +14,17 @@ const { locale } = useI18n({ useScope: 'global' });
 onMounted(async () => {
   try {
     const savedSettingsJson = await LoadSetting('user_settings');
+    let appFont = 'system-ui, sans-serif';
     if (savedSettingsJson) {
       const parsed = JSON.parse(savedSettingsJson);
       if (parsed.general && parsed.general.language) {
         locale.value = parsed.general.language;
       }
       if (parsed.appearance && parsed.appearance.appFont) {
-        document.documentElement.style.fontFamily = parsed.appearance.appFont;
+        appFont = parsed.appearance.appFont;
       }
     }
+    document.documentElement.style.fontFamily = appFont;
   } catch (e) {
     console.error("Failed to load global settings on mount", e);
   }

@@ -18,6 +18,8 @@ export function ConnectDB(arg1:main.DBConfig):Promise<main.ConnectResult>;
 
 export function CreateTable(arg1:string,arg2:string,arg3:Array<main.ColumnDefinition>):Promise<string>;
 
+export function DeleteAIProviderKey(arg1:string):Promise<string>;
+
 export function DeleteCredential(arg1:string):Promise<void>;
 
 export function DeleteQueryHistory(arg1:number):Promise<string>;
@@ -70,6 +72,8 @@ export function Greet(arg1:string):Promise<string>;
 
 export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
 
+export function LoadAIProviderKey(arg1:string):Promise<string>;
+
 export function LoadSetting(arg1:string):Promise<string>;
 
 export function OpenDownloadURL(arg1:string):Promise<string>;
@@ -77,6 +81,8 @@ export function OpenDownloadURL(arg1:string):Promise<string>;
 export function PerformUpdate(arg1:string):Promise<void>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function SaveAIProviderKey(arg1:string,arg2:string):Promise<string>;
 
 export function SaveCredential(arg1:string,arg2:string,arg3:string):Promise<void>;
 
