@@ -50,14 +50,27 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y
+
       - name: Build Windows installer
         run: wails build -platform windows/amd64 -nsis -o QuraMate-amd64.exe -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
+
+      - name: List Windows build outputs
+        shell: pwsh
+        run: |
+          if (Test-Path build/bin) {
+            Get-ChildItem -File build/bin | Select-Object Name, Length
+          } else {
+            Write-Error "build/bin directory was not created"
+          }
 
       - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: build/bin/QuraMate-amd64-installer.exe
+          path: build/bin/*-installer.exe
           if-no-files-found: error
           retention-days: 30
 
