@@ -103,8 +103,7 @@ jobs:
             Write-Error "Detected file is not an installer. FileDescription='$fileDescription'"
           }
 
-          Copy-Item -Path $installer.FullName -Destination build/bin/QuraMate-amd64-installer.exe -Force
-          "installer_path=build/bin/QuraMate-amd64-installer.exe" >> $env:GITHUB_OUTPUT
+          "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4
