@@ -51,7 +51,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build Windows installer
-        run: wails build -platform windows/amd64 -nsis -o QuraMate-amd64-installer.exe -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
+        run: wails build -platform windows/amd64 -nsis -o QuraMate-amd64.exe -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
 
       - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4

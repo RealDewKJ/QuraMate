@@ -59,6 +59,22 @@ const openQueryModal = (query: string) => {
     selectedQuery.value = query;
     showQueryModal.value = true;
 };
+
+const showKillConfirm = ref(false);
+const taskToKill = ref<ActivityTask | null>(null);
+
+const requestKillTask = (task: ActivityTask) => {
+    taskToKill.value = task;
+    showKillConfirm.value = true;
+};
+
+const confirmKillTask = () => {
+    if (taskToKill.value) {
+        emit('kill-task', taskToKill.value.id);
+        showKillConfirm.value = false;
+        taskToKill.value = null;
+    }
+};
 </script>
 
 <template>
@@ -226,7 +242,7 @@ const openQueryModal = (query: string) => {
                             </td>
                             <td class="px-3 py-2 align-top text-xs font-mono"
                                 :class="task.headBlock ? 'text-destructive font-bold' : 'text-muted-foreground'">{{
-                                task.headBlock || '-' }}</td>
+                                    task.headBlock || '-' }}</td>
                             <td class="px-3 py-2 align-top text-xs text-muted-foreground">{{
                                 formatActivityTime(task.startedAt) }}</td>
                             <td class="px-3 py-2 align-top text-xs">
@@ -236,7 +252,7 @@ const openQueryModal = (query: string) => {
                                 </span>
                             </td>
                             <td class="px-3 py-2 align-top text-right">
-                                <button @click.stop="emit('kill-task', task.id)"
+                                <button @click.stop="requestKillTask(task)"
                                     class="inline-flex items-center justify-center rounded-md text-xs font-medium px-2.5 py-1.5 border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
                                     :disabled="task.status === 'canceling...'">
                                     Kill
@@ -280,6 +296,53 @@ const openQueryModal = (query: string) => {
                     <button @click="confirmKillAll"
                         class="px-4 py-2 text-sm font-medium rounded-md bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors shadow-sm">
                         Yes, Kill All Processes
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Individual Kill Confirmation Modal -->
+        <div v-if="showKillConfirm"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showKillConfirm = false">
+            <div
+                class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 animate-in zoom-in-95 duration-200">
+                <h3 class="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-destructive">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" x2="12" y1="8" y2="12" />
+                        <line x1="12" x2="12.01" y1="16" y2="16" />
+                    </svg>
+                    Confirm Kill Process
+                </h3>
+                <div class="text-sm text-muted-foreground mb-6 space-y-3">
+                    <p>Are you sure you want to kill this database process?</p>
+                    <div v-if="taskToKill"
+                        class="bg-muted/50 p-3 rounded-md font-mono text-[11px] border border-border">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-muted-foreground">Session ID:</span>
+                            <span class="text-foreground text-right ml-2 truncate">{{ taskToKill.id }}</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-muted-foreground">Source:</span>
+                            <span class="text-foreground text-right ml-2 truncate">{{ taskToKill.source }}</span>
+                        </div>
+                        <div class="line-clamp-2 mt-2 pt-2 border-t border-border/50 text-foreground italic">
+                            {{ taskToKill.query || '(empty query)' }}
+                        </div>
+                    </div>
+                    <p class="text-xs text-destructive">This action will immediately terminate the selected session.</p>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button @click="showKillConfirm = false"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-muted hover:bg-accent text-foreground transition-colors border border-border">
+                        Cancel
+                    </button>
+                    <button @click="confirmKillTask"
+                        class="px-4 py-2 text-sm font-medium rounded-md bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-colors shadow-sm">
+                        Kill Process
                     </button>
                 </div>
             </div>

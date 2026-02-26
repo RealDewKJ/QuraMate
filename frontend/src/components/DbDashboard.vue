@@ -160,32 +160,19 @@
             :query-to-run="safeModeConfirmation.queryToRun" @cancel="cancelSafeModeQuery"
             @confirm="confirmSafeModeQuery" />
 
-        <DbUpdateConfirmationModal
-            :is-open="!!(updateConfirmation && updateConfirmation.isOpen)"
-            :table-name="updateConfirmation?.tableName || ''"
-            :column="updateConfirmation?.column || ''"
+        <DbUpdateConfirmationModal :is-open="!!(updateConfirmation && updateConfirmation.isOpen)"
+            :table-name="updateConfirmation?.tableName || ''" :column="updateConfirmation?.column || ''"
             :original-value="updateConfirmation?.originalValue"
-            :new-value-display="formatValueForDisplay(updateConfirmation?.newValue)"
-            @close="cancelUpdate"
-            @confirm="confirmUpdate"
-        />
+            :new-value-display="formatValueForDisplay(updateConfirmation?.newValue)" @close="cancelUpdate"
+            @confirm="confirmUpdate" />
 
-        <DbInsertRowModal
-            :is-open="!!(insertRowModal && insertRowModal.isOpen)"
-            :table-name="insertRowModal?.tableName || ''"
-            :columns="insertRowModal?.columns || []"
-            :values="insertRowModal?.values || {}"
-            :null-columns="insertRowModal?.nullColumns || {}"
-            :error="insertRowModal?.error || ''"
-            :is-inserting="!!insertRowModal?.isInserting"
-            :column-defs="insertRowModal?.columnDefs || {}"
-            :get-input-type="getInputType"
-            :get-number-step="getNumberStep"
-            @close="cancelInsertRow"
-            @confirm="confirmInsertRow"
-            @toggle-null="toggleInsertNull"
-            @update:value="updateInsertRowValue"
-        />
+        <DbInsertRowModal :is-open="!!(insertRowModal && insertRowModal.isOpen)"
+            :table-name="insertRowModal?.tableName || ''" :columns="insertRowModal?.columns || []"
+            :values="insertRowModal?.values || {}" :null-columns="insertRowModal?.nullColumns || {}"
+            :error="insertRowModal?.error || ''" :is-inserting="!!insertRowModal?.isInserting"
+            :column-defs="insertRowModal?.columnDefs || {}" :get-input-type="getInputType"
+            :get-number-step="getNumberStep" @close="cancelInsertRow" @confirm="confirmInsertRow"
+            @toggle-null="toggleInsertNull" @update:value="updateInsertRowValue" />
         <DbMockDataModals :generator-open="mockDataModal.isOpen" :generator-table-name="mockDataModal.tableName"
             :generator-row-count="mockDataModal.rowCount" :confirm-open="mockDataConfirm.isOpen"
             :confirm-table-name="mockDataConfirm.tableName" :confirm-row-count="mockDataConfirm.rowCount"
@@ -217,37 +204,26 @@
         <QueryHistory :is-open="isHistoryOpen" :connection-name="connectionName" @close="isHistoryOpen = false"
             @run-query="handleRunHistoryQuery" />
 
-        <!-- Image Preview Modal -->
-        <div v-if="imagePreviewUrl"
-            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-10"
-            @click="imagePreviewUrl = null">
-            <div class="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200"
-                @click.stop>
-                <img :src="imagePreviewUrl"
-                    class="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain border-4 border-background bg-card" />
-                <button @click="imagePreviewUrl = null"
-                    class="absolute -top-4 -right-4 h-10 w-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                        class="lucide lucide-x">
-                        <path d="M18 6 6 18" />
-                        <path d="m6 6 12 12" />
-                    </svg>
-                </button>
-                <div class="absolute -bottom-10 left-0 right-0 text-center">
-                    <a :href="imagePreviewUrl" target="_blank"
-                        class="text-white hover:text-primary transition-colors text-sm font-medium underline underline-offset-4">Open
-                        in browser</a>
-                </div>
-            </div>
-        </div>
+        <DbImagePreviewModal :image-url="imagePreviewUrl" @close="imagePreviewUrl = null" />
 
-        <AICopilotModal :is-open="aiCopilot.isOpen" :mode="aiCopilot.mode" :mode-options="aiCopilotModeOptions"
-            :prompt="aiCopilot.prompt" :backend-language="aiCopilot.backendLanguage" :is-loading="aiCopilot.isLoading"
-            :result="aiCopilot.result" :error="aiCopilot.error" :latency-ms="aiCopilot.latencyMs"
-            :has-suggested-sql="!!aiCopilot.suggestedSQL" @close="aiCopilot.isOpen = false" @run="runAiCopilot"
-            @apply-sql="applyAiSqlToEditor" @update:mode="setAiCopilotMode" @update:prompt="aiCopilot.prompt = $event"
-            @update:backend-language="aiCopilot.backendLanguage = $event" />
+        <DbAICopilotOverlay
+            :is-open="aiCopilot.isOpen"
+            :mode="aiCopilot.mode"
+            :mode-options="aiCopilotModeOptions"
+            :prompt="aiCopilot.prompt"
+            :backend-language="aiCopilot.backendLanguage"
+            :is-loading="aiCopilot.isLoading"
+            :result="aiCopilot.result"
+            :error="aiCopilot.error"
+            :latency-ms="aiCopilot.latencyMs"
+            :has-suggested-sql="!!aiCopilot.suggestedSQL"
+            @close="aiCopilot.isOpen = false"
+            @run="runAiCopilot"
+            @apply-sql="applyAiSqlToEditor"
+            @update:mode="setAiCopilotMode"
+            @update:prompt="aiCopilot.prompt = $event"
+            @update:backend-language="aiCopilot.backendLanguage = $event"
+        />
     </div>
 </template>
 
@@ -262,7 +238,6 @@ import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
-import AICopilotModal from './AICopilotModal.vue';
 import DbSidebar from './dashboard/DbSidebar.vue';
 import DbActivityMonitor from './dashboard/DbActivityMonitor.vue';
 import DbDashboardContextMenus from './dashboard/DbDashboardContextMenus.vue';
@@ -277,6 +252,8 @@ import DbSafeModeModal from './dashboard/DbSafeModeModal.vue';
 import DbImportOptionsModal from './dashboard/DbImportOptionsModal.vue';
 import DbInsertRowModal from './dashboard/DbInsertRowModal.vue';
 import DbUpdateConfirmationModal from './dashboard/DbUpdateConfirmationModal.vue';
+import DbImagePreviewModal from './dashboard/DbImagePreviewModal.vue';
+import DbAICopilotOverlay from './dashboard/DbAICopilotOverlay.vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 import { completeWithSavedProvider } from '../composables/useAiProvider';
 
@@ -426,6 +403,9 @@ const {
     connectionId: connectionIdRef,
     onCancelError: (message) => {
         toastRef.value?.error(message);
+    },
+    onCancelSuccess: (message) => {
+        toastRef.value?.success(message);
     }
 });
 

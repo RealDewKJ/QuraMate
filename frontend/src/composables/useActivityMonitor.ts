@@ -41,6 +41,7 @@ interface UseActivityMonitorOptions {
     isActivityMonitorOpen: Ref<boolean>;
     connectionId: Ref<string>;
     onCancelError?: (message: string) => void;
+    onCancelSuccess?: (message: string) => void;
 }
 
 export function useActivityMonitor(options: UseActivityMonitorOptions) {
@@ -235,6 +236,7 @@ export function useActivityMonitor(options: UseActivityMonitorOptions) {
             await KillServerProcess(options.connectionId.value, taskId);
             // Refresh list rapidly after kill
             await fetchServerProcesses();
+            options.onCancelSuccess?.(`Session ${taskId} killed successfully.`);
         } catch (e: any) {
             console.error('Failed to kill server process', e);
             options.onCancelError?.(`Failed to kill session ${taskId}: ${e.message || e}`);
