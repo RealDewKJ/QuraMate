@@ -1,5 +1,35 @@
 [
   {
+    "version": "v1.1.1",
+    "date": "2026-02-26",
+    "changes": [
+      {
+        "type": "feat",
+        "text": "Enhanced Activity Monitor explicitly showing HeadBlock (Blocked By) and a full query viewer dialog."
+      },
+      {
+        "type": "feat",
+        "text": "Added Kill All confirmation in Activity Monitor and excluded MSSQL background queries from tracing."
+      },
+      {
+        "type": "feat",
+        "text": "Improved AI Copilot UI and forced strict SQL-only results for immediate executing."
+      },
+      {
+        "type": "feat",
+        "text": "Added database lifecycle management actions and addressed MSSQL ALTER anomalies."
+      },
+      {
+        "type": "feat",
+        "text": "Implemented Safe Mode within DbDashboard and refined object search filters."
+      },
+      {
+        "type": "fix",
+        "text": "Resolved updater access denied errors by strictly requesting administrative elevation (UAC)."
+      }
+    ]
+  },
+  {
     "version": "v1.1.0",
     "date": "2026-02-24",
     "changes": [

@@ -104,7 +104,7 @@ Write-Host "  🏷️  Creating tag $Tag..." -ForegroundColor White
 git tag -a $Tag -m "Release $Tag"
 
 Write-Host ""
-$push = Read-Host "  Push commit + tag to origin? (Y/n)"
+$push = 'y'
 if ($push -eq '' -or $push -eq 'y' -or $push -eq 'Y') {
     git push origin HEAD
     git push origin $Tag
