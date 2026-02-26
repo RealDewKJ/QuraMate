@@ -51,43 +51,13 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build Windows installer
-        run: wails build -target windows/amd64 -nsis -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
+        run: wails build -platform windows/amd64 -nsis -o QuraMate-amd64-installer.exe -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
 
-      - name: Prepare SignPath artifact
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build/signpath
-          Copy-Item build/bin/QuraMate-amd64-installer.exe build/signpath/
-          Copy-Item .signpath/windows-installer-artifact-config.xml build/signpath/signpath.xml
-          Compress-Archive -Path build/signpath/* -DestinationPath build/signpath-artifact.zip
-
-      - name: Upload unsigned installer
-        id: upload_unsigned
+      - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer-unsigned
-          path: build/signpath-artifact.zip
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Submit to SignPath
-        id: signpath
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: build/signed
-
-      - name: Upload signed installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer-signed
-          path: build/signed/**
+          name: windows-installer
+          path: build/bin/QuraMate-amd64-installer.exe
           if-no-files-found: error
           retention-days: 30
 
@@ -125,7 +95,9 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build macOS app
-        run: wails build -target darwin/universal -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: wails build -platform darwin/universal -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
 
       - name: Ad-hoc sign app bundle
         run: |
@@ -169,10 +141,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download signed Windows artifact
+      - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: windows-installer-signed
+          name: windows-installer
           path: dist/windows
 
       - name: Download macOS artifact

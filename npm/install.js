@@ -133,10 +133,20 @@ async function main() {
       extractZip(downloadPath, binDir);
       console.log("  ✅ Extracted successfully");
     } else if (info.isInstaller) {
-      // For Windows, copy the installer to bin/
-      const destPath = path.join(binDir, info.binary);
-      fs.copyFileSync(downloadPath, destPath);
-      console.log(`  ✅ Binary placed at ${destPath}`);
+      // For Windows, launch the installer instead of keeping it in node_modules
+      console.log(`  🚀 Launching QuraMate Installer... Please complete the setup UI.`);
+      try {
+        // Run installer interactively so user can complete it
+        execSync(`"${downloadPath}"`, { stdio: "inherit" });
+        console.log(`  ✅ Installer finished.`);
+      } catch (e) {
+        console.log(`  ⚠️ Installer exited with code ${e.status}.`);
+      }
+      
+      // We don't need the installer anymore
+      try {
+         fs.unlinkSync(downloadPath);
+      } catch (e) {}
     }
 
     // Make unix binaries executable
