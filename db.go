@@ -626,6 +626,22 @@ type ResultSet struct {
 	Message string          `json:"message,omitempty"`
 }
 
+// ServerProcess represents an active session on the database server
+type ServerProcess struct {
+	SessionID   string `json:"sessionId"`
+	User        string `json:"user"`
+	Host        string `json:"host"`
+	Database    string `json:"database"`
+	Command     string `json:"command"`
+	Status      string `json:"status"`
+	State       string `json:"state"`
+	WaitTime    int64  `json:"waitTime"` // in milliseconds
+	WaitType    string `json:"waitType"`
+	QueryText   string `json:"queryText"`
+	ElapsedTime int64  `json:"elapsedTime"` // in milliseconds
+	HeadBlock   string `json:"headBlock"`
+}
+
 func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet, error) {
 	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
@@ -928,6 +944,156 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 	return nil
 }
 
+func (d *Database) GetServerProcesses(ctx context.Context) ([]ServerProcess, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("no database connection pool")
+	}
+
+	var query string
+	switch d.Type {
+	case "mssql":
+		query = `
+			SELECT 
+				er.session_id as SessionID,
+				es.login_name as [User],
+				es.host_name as Host,
+				DB_NAME(er.database_id) as [Database],
+				er.command as Command,
+				er.status as Status,
+				es.status as State,
+				er.wait_time as WaitTime,
+				er.wait_type as WaitType,
+				st.text as QueryText,
+				er.total_elapsed_time as ElapsedTime,
+				CAST(NULLIF(er.blocking_session_id, 0) AS VARCHAR) as HeadBlock
+			FROM sys.dm_exec_requests er
+			INNER JOIN sys.dm_exec_sessions es ON er.session_id = es.session_id
+			CROSS APPLY sys.dm_exec_sql_text(er.sql_handle) st
+			WHERE es.is_user_process = 1 AND er.session_id <> @@SPID
+		`
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		query = `
+			SELECT 
+				pid as SessionID,
+				usename as "User",
+				client_addr::text as Host,
+				datname as "Database",
+				'' as Command,
+				state as Status,
+				state as State,
+				0 as WaitTime,
+				wait_event_type as WaitType,
+				query as QueryText,
+				EXTRACT(EPOCH FROM (NOW() - query_start)) * 1000 as ElapsedTime,
+				'' as HeadBlock
+			FROM pg_stat_activity
+			WHERE pid <> pg_backend_pid()
+		`
+	case "mysql", "mariadb", "databend":
+		query = `
+			SELECT 
+				ID as SessionID,
+				USER as "User",
+				HOST as Host,
+				DB as "Database",
+				COMMAND as Command,
+				STATE as Status,
+				STATE as State,
+				TIME * 1000 as WaitTime,
+				'' as WaitType,
+				INFO as QueryText,
+				TIME * 1000 as ElapsedTime,
+				'' as HeadBlock
+			FROM information_schema.PROCESSLIST
+			WHERE ID <> CONNECTION_ID()
+		`
+	default:
+		return nil, fmt.Errorf("unsupported database type for getting server processes")
+	}
+
+	rows, err := d.conn.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var processes []ServerProcess
+	for rows.Next() {
+		var sp ServerProcess
+		var queryText, dbName, hostName, command, status, state, waitType, headBlock sql.NullString
+		var waitTime, elapsedTime sql.NullInt64
+
+		// Scan generic types to handle nulls
+		// SessionID can be string or int depending on DB, but defined as string in struct
+		// We'll scan into a string for SessionID
+		var sessionID interface{}
+
+		err = rows.Scan(
+			&sessionID,
+			&sp.User,
+			&hostName,
+			&dbName,
+			&command,
+			&status,
+			&state,
+			&waitTime,
+			&waitType,
+			&queryText,
+			&elapsedTime,
+			&headBlock,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		sp.SessionID = fmt.Sprintf("%v", sessionID)
+		sp.Host = hostName.String
+		sp.Database = dbName.String
+		sp.Command = command.String
+		sp.Status = status.String
+		sp.State = state.String
+		sp.WaitType = waitType.String
+		sp.QueryText = queryText.String
+		sp.HeadBlock = headBlock.String
+
+		if waitTime.Valid {
+			sp.WaitTime = waitTime.Int64
+		}
+		if elapsedTime.Valid {
+			sp.ElapsedTime = elapsedTime.Int64
+		}
+
+		processes = append(processes, sp)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return processes, nil
+}
+
+func (d *Database) KillServerProcess(ctx context.Context, sessionID string) error {
+	if d.conn == nil {
+		return fmt.Errorf("no database connection pool")
+	}
+
+	var query string
+	switch d.Type {
+	case "mssql":
+		query = fmt.Sprintf("KILL %s", sessionID)
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		query = fmt.Sprintf("SELECT pg_terminate_backend(%s)", sessionID)
+	case "mysql", "mariadb", "databend":
+		query = fmt.Sprintf("KILL %s", sessionID)
+	default:
+		return fmt.Errorf("unsupported database type for killing server processes")
+	}
+
+	_, err := d.conn.ExecContext(ctx, query)
+	return err
+}
+
 func (d *Database) GetPrimaryKeys(tableName string) ([]string, error) {
 	if d.conn == nil {
 		return nil, fmt.Errorf("no database connection")
@@ -1009,6 +1175,19 @@ func (d *Database) getSqlitePrimaryKeys(tableName string) ([]string, error) {
 	return pks, nil
 }
 
+func (d *Database) quoteIdentifier(name string) string {
+	switch d.Type {
+	case "postgres", "greenplum", "redshift", "cockroachdb", "sqlite", "libsql":
+		return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+	case "mysql", "mariadb", "databend":
+		return "`" + strings.ReplaceAll(name, "`", "``") + "`"
+	case "mssql":
+		return "[" + strings.ReplaceAll(name, "]", "]]") + "]"
+	default:
+		return name
+	}
+}
+
 func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}, conditions map[string]interface{}) error {
 	if d.persistentConn == nil {
 		return fmt.Errorf("no database connection")
@@ -1047,17 +1226,19 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 			}
 		}
 
+		quotedCol := d.quoteIdentifier(col)
+
 		if isDefault {
-			setClauses = append(setClauses, fmt.Sprintf("%s = DEFAULT", col))
+			setClauses = append(setClauses, fmt.Sprintf("%s = DEFAULT", quotedCol))
 		} else {
-			setClauses = append(setClauses, fmt.Sprintf("%s = %s", col, getPlaceholder()))
+			setClauses = append(setClauses, fmt.Sprintf("%s = %s", quotedCol, getPlaceholder()))
 			args = append(args, val)
 		}
 	}
 
 	var whereClauses []string
 	for col, val := range conditions {
-		whereClauses = append(whereClauses, fmt.Sprintf("%s = %s", col, getPlaceholder()))
+		whereClauses = append(whereClauses, fmt.Sprintf("%s = %s", d.quoteIdentifier(col), getPlaceholder()))
 		args = append(args, val)
 	}
 
@@ -1080,7 +1261,7 @@ func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}
 		}
 	}
 
-	query := fmt.Sprintf("UPDATE %s SET %s%s", tableName, setStr, whereStr)
+	query := fmt.Sprintf("UPDATE %s SET %s%s", d.quoteIdentifier(tableName), setStr, whereStr)
 
 	_, err := d.persistentConn.ExecContext(context.Background(), query, args...)
 	return err
@@ -1117,7 +1298,7 @@ func (d *Database) InsertRecord(tableName string, data map[string]interface{}) e
 	}
 
 	for col, val := range data {
-		columns = append(columns, col)
+		columns = append(columns, d.quoteIdentifier(col))
 		placeholders = append(placeholders, getPlaceholder())
 		args = append(args, val)
 	}
@@ -1125,7 +1306,7 @@ func (d *Database) InsertRecord(tableName string, data map[string]interface{}) e
 	colsStr := strings.Join(columns, ", ")
 	valsStr := strings.Join(placeholders, ", ")
 
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, colsStr, valsStr)
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", d.quoteIdentifier(tableName), colsStr, valsStr)
 
 	_, err := d.persistentConn.ExecContext(context.Background(), query, args...)
 	return err
@@ -1160,7 +1341,7 @@ func (d *Database) InsertRecordTx(tx *sql.Tx, tableName string, data map[string]
 	}
 
 	for col, val := range data {
-		columns = append(columns, col)
+		columns = append(columns, d.quoteIdentifier(col))
 		placeholders = append(placeholders, getPlaceholder())
 		args = append(args, val)
 	}
@@ -1168,7 +1349,7 @@ func (d *Database) InsertRecordTx(tx *sql.Tx, tableName string, data map[string]
 	colsStr := strings.Join(columns, ", ")
 	valsStr := strings.Join(placeholders, ", ")
 
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, colsStr, valsStr)
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", d.quoteIdentifier(tableName), colsStr, valsStr)
 
 	_, err := tx.Exec(query, args...)
 	return err
@@ -1478,10 +1659,7 @@ func (d *Database) DropDatabase(dbName string) error {
 	var query string
 	switch d.Type {
 	case "mysql", "mariadb", "postgres", "mssql":
-		query = fmt.Sprintf("DROP DATABASE [%s]", dbName)
-		if d.Type != "mssql" {
-			query = fmt.Sprintf("DROP DATABASE %s", dbName)
-		}
+		query = fmt.Sprintf("DROP DATABASE %s", d.quoteIdentifier(dbName))
 	case "sqlite", "libsql":
 		return fmt.Errorf("DROP DATABASE is not supported for SQLite. Please delete the file manually.")
 	default:

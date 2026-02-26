@@ -1,9 +1,10 @@
-import { ref, computed, nextTick, Ref } from 'vue';
+import { computed, nextTick, ref, toValue } from 'vue';
+import type { MaybeRefOrGetter, Ref } from 'vue';
 import { GetTableDefinition, ExecuteTransientQuery, UpdateRecord } from '../../wailsjs/go/main/App';
 import { QueryTab } from '../types/dashboard';
 
 export function useRecordOperations(
-    connectionId: string,
+    connectionId: MaybeRefOrGetter<string>,
     isReadOnly: boolean,
     activeTab: Ref<QueryTab | undefined>,
     runQuery: () => void,
@@ -87,6 +88,8 @@ export function useRecordOperations(
 
     const confirmUpdate = async () => {
         if (!updateConfirmation.value || !activeTab.value) return;
+        const id = toValue(connectionId);
+        if (!id) return;
 
         const { tableName, column, newValue, item } = updateConfirmation.value;
         const col = column;
@@ -118,7 +121,7 @@ export function useRecordOperations(
         updates[col] = processedValue;
 
         try {
-            const result = await UpdateRecord(connectionId, tableName, updates, conditions);
+            const result = await UpdateRecord(id, tableName, updates, conditions);
             if (result === "Success") {
                 item.data[col] = newValue;
                 if (activeResultSet.value) {
@@ -147,6 +150,8 @@ export function useRecordOperations(
 
     const openInsertRowModal = async () => {
         if (!activeTab.value || !activeTab.value.tableName || !activeTab.value.resultSets?.[0]?.columns) return;
+        const id = toValue(connectionId);
+        if (!id) return;
 
         const columns = activeTab.value.resultSets[0].columns;
         const pks = activeTab.value.primaryKeys || [];
@@ -155,7 +160,7 @@ export function useRecordOperations(
         const columnDefs: Record<string, { type: string; nullable: boolean; autoIncrement: boolean; primaryKey: boolean }> = {};
 
         try {
-            const defs = await GetTableDefinition(connectionId, activeTab.value.tableName);
+            const defs = await GetTableDefinition(id, activeTab.value.tableName);
             if (defs && defs.length > 0) {
                 for (const def of defs) {
                     columnDefs[def.name] = {
@@ -208,6 +213,8 @@ export function useRecordOperations(
 
     const confirmInsertRow = async () => {
         if (!insertRowModal.value || !activeTab.value) return;
+        const id = toValue(connectionId);
+        if (!id) return;
 
         insertRowModal.value.isInserting = true;
         insertRowModal.value.error = '';
@@ -241,7 +248,7 @@ export function useRecordOperations(
         const sql = `INSERT INTO ${tableName} (${insertCols.join(', ')}) VALUES (${insertVals.join(', ')})`;
 
         try {
-            const res = await ExecuteTransientQuery(connectionId, sql);
+            const res = await ExecuteTransientQuery(id, sql);
             if (res.error) {
                 insertRowModal.value.isInserting = false;
                 insertRowModal.value.error = res.error;

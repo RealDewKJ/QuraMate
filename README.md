@@ -13,12 +13,13 @@
   <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" /></a>
   <a href="https://github.com/RealDewKJ/QuraMate/releases"><img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green" alt="Downloads" /></a>
   <a href="https://github.com/RealDewKJ/QuraMate/stargazers"><img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" /></a>
+  <a href="https://www.npmjs.com/package/quramate"><img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm" /></a>
 </p>
 
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#supported-databases">Databases</a> ·
-  <a href="#download">Download</a> ·
+  <a href="#install">Install</a> ·
   <a href="#build-from-source">Build</a> ·
   <a href="#contributing">Contributing</a>
 </p>
@@ -70,7 +71,40 @@ QuraMate supports **11 database engines** out of the box — no plugins, no exte
 | SQLite   | `sqlite` |
 | LibSQL   | `sqlite` |
 
-## Download
+## Install
+
+### npm / pnpm / yarn / bun
+
+Install globally via any JavaScript package manager:
+
+```bash
+# npm
+npm install -g quramate
+
+# pnpm
+pnpm add -g quramate
+
+# yarn
+yarn global add quramate
+
+# bun
+bun add -g quramate
+```
+
+Then launch:
+
+```bash
+quramate
+```
+
+### Homebrew (macOS)
+
+```bash
+brew tap RealDewKJ/tap
+brew install --cask quramate
+```
+
+### Direct Download
 
 Pre-built binaries are available on the [Releases](https://github.com/RealDewKJ/QuraMate/releases/latest) page.
 
@@ -78,6 +112,32 @@ Pre-built binaries are available on the [Releases](https://github.com/RealDewKJ/
 | -------- | ------------ | ------------------------------------------------------------------------------------- |
 | Windows  | x64          | [QuraMate-amd64-installer.exe](https://github.com/RealDewKJ/QuraMate/releases/latest) |
 | macOS    | Universal    | [QuraMate-macOS-universal.zip](https://github.com/RealDewKJ/QuraMate/releases/latest) |
+| macOS    | Universal    | [QuraMate-macOS-universal.dmg](https://github.com/RealDewKJ/QuraMate/releases/latest) |
+
+### macOS installation notes
+
+The macOS build is currently ad-hoc signed in CI (not notarized). On first run, Gatekeeper may block the app.
+
+If blocked:
+
+1. Move `QuraMate.app` to `/Applications`.
+2. Right-click the app and choose **Open** once.
+3. If needed, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/QuraMate.app
+```
+
+### Coming Soon
+
+| Package Manager | Platform | Command                    |
+| --------------- | -------- | -------------------------- |
+| winget          | Windows  | `winget install QuraMate`  |
+| Scoop           | Windows  | `scoop install quramate`   |
+| Chocolatey      | Windows  | `choco install quramate`   |
+| Snap            | Linux    | `snap install quramate`    |
+| Flatpak         | Linux    | `flatpak install quramate` |
+| AUR             | Arch     | `yay -S quramate`          |
 
 ## Build from Source
 
@@ -106,6 +166,13 @@ wails build
 
 The output binary will be at `build/bin/QuraMate.app` (macOS) or `build/bin/QuraMate.exe` (Windows).
 
+## Release pipeline and signing
+
+- Windows installer signing is handled through SignPath in GitHub Actions.
+- SignPath Foundation enrollment and project configuration are a manual prerequisite.
+- After SignPath is approved and `SIGNPATH_*` repository secrets/variables are configured, enable the `publish-release` job in `.github/workflows/release.yml` to publish signed artifacts to GitHub Releases.
+- The npm package is auto-published via `.github/workflows/npm-publish.yml` when a GitHub Release is published. Requires `NPM_TOKEN` secret.
+
 ## Tech Stack
 
 | Layer             | Technology         |
@@ -131,6 +198,8 @@ QuraMate/
 │   │   │   └── DbDashboard.vue     # Main workspace
 │   │   └── assets/
 │   └── wailsjs/          # Auto-generated Go bindings
+├── npm/                   # npm wrapper package
+├── homebrew/              # Homebrew Cask definition
 ├── build/
 │   ├── appicon.png
 │   └── bin/               # Build output

@@ -1,7 +1,8 @@
-import { ref, computed } from 'vue';
+import { computed, ref, toValue } from 'vue';
+import type { MaybeRefOrGetter } from 'vue';
 import { GetTables, GetViews, GetStoredProcedures, GetFunctions } from '../../wailsjs/go/main/App';
 
-export function useSidebar(connectionId: string) {
+export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
     const tableSearch = ref('');
     const viewSearch = ref('');
     const storedProcedureSearch = ref('');
@@ -31,10 +32,13 @@ export function useSidebar(connectionId: string) {
     const filteredStoredProcedures = computed(() => filteredItems(storedProcedures.value, storedProcedureSearch));
     const filteredFunctions = computed(() => filteredItems(functions.value, functionSearch));
 
+    const resolveConnectionId = (): string => toValue(connectionId);
+
     const refreshTables = async () => {
-        if (!connectionId) return;
+        const id = resolveConnectionId();
+        if (!id) return;
         try {
-            const result = await GetTables(connectionId);
+            const result = await GetTables(id);
             tables.value = (result || []).sort((a, b) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load tables", e);
@@ -42,9 +46,10 @@ export function useSidebar(connectionId: string) {
     };
 
     const refreshViews = async () => {
-        if (!connectionId) return;
+        const id = resolveConnectionId();
+        if (!id) return;
         try {
-            const result = await GetViews(connectionId);
+            const result = await GetViews(id);
             views.value = (result || []).sort((a, b) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load views", e);
@@ -52,9 +57,10 @@ export function useSidebar(connectionId: string) {
     };
 
     const refreshStoredProcedures = async () => {
-        if (!connectionId) return;
+        const id = resolveConnectionId();
+        if (!id) return;
         try {
-            const result = await GetStoredProcedures(connectionId);
+            const result = await GetStoredProcedures(id);
             storedProcedures.value = (result || []).sort((a, b) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load stored procedures", e);
@@ -62,9 +68,10 @@ export function useSidebar(connectionId: string) {
     };
 
     const refreshFunctions = async () => {
-        if (!connectionId) return;
+        const id = resolveConnectionId();
+        if (!id) return;
         try {
-            const result = await GetFunctions(connectionId);
+            const result = await GetFunctions(id);
             functions.value = (result || []).sort((a, b) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load functions", e);

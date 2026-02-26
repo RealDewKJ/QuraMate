@@ -254,6 +254,40 @@ export namespace main {
 		}
 	}
 	
+	export class ServerProcess {
+	    sessionId: string;
+	    user: string;
+	    host: string;
+	    database: string;
+	    command: string;
+	    status: string;
+	    state: string;
+	    waitTime: number;
+	    waitType: string;
+	    queryText: string;
+	    elapsedTime: number;
+	    headBlock: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ServerProcess(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.user = source["user"];
+	        this.host = source["host"];
+	        this.database = source["database"];
+	        this.command = source["command"];
+	        this.status = source["status"];
+	        this.state = source["state"];
+	        this.waitTime = source["waitTime"];
+	        this.waitType = source["waitType"];
+	        this.queryText = source["queryText"];
+	        this.elapsedTime = source["elapsedTime"];
+	        this.headBlock = source["headBlock"];
+	    }
+	}
 	export class TableChanges {
 	    renameTable: string;
 	    addColumns: ColumnDefinition[];

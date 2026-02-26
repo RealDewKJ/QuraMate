@@ -56,6 +56,8 @@ export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntr
 
 export function GetRoutineDefinition(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function GetServerProcesses(arg1:string):Promise<Array<main.ServerProcess>>;
+
 export function GetStartupFile():Promise<string>;
 
 export function GetStoredProcedures(arg1:string):Promise<Array<string>>;
@@ -71,6 +73,8 @@ export function GetViews(arg1:string):Promise<Array<string>>;
 export function Greet(arg1:string):Promise<string>;
 
 export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
+
+export function KillServerProcess(arg1:string,arg2:string):Promise<void>;
 
 export function LoadAIProviderKey(arg1:string):Promise<string>;
 

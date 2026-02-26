@@ -110,6 +110,10 @@ export function GetRoutineDefinition(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetRoutineDefinition'](arg1, arg2, arg3);
 }
 
+export function GetServerProcesses(arg1) {
+  return window['go']['main']['App']['GetServerProcesses'](arg1);
+}
+
 export function GetStartupFile() {
   return window['go']['main']['App']['GetStartupFile']();
 }
@@ -140,6 +144,10 @@ export function Greet(arg1) {
 
 export function ImportTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ImportTable'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function KillServerProcess(arg1, arg2) {
+  return window['go']['main']['App']['KillServerProcess'](arg1, arg2);
 }
 
 export function LoadAIProviderKey(arg1) {

@@ -10,3 +10,11 @@ agent/
 .skills-lock.json
 AGENTS.md
 FRONTEND_CODE_REVIEW.md
+
+# npm wrapper package (temp files from postinstall)
+npm/.download/
+npm/bin/QuraMate*
+npm/LICENSE
+
+# Database files
+*.db

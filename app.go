@@ -377,6 +377,28 @@ func (a *App) CancelQuery(queryID string) string {
 	return "Query not found or already completed"
 }
 
+func (a *App) GetServerProcesses(connectionID string) ([]ServerProcess, error) {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return nil, fmt.Errorf("Connection not found")
+	}
+	return db.GetServerProcesses(context.Background())
+}
+
+func (a *App) KillServerProcess(connectionID string, sessionID string) error {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return fmt.Errorf("Connection not found")
+	}
+	return db.KillServerProcess(context.Background(), sessionID)
+}
+
 // ExecuteQueryStream starts query execution in a goroutine and streams results
 // via Wails events. Returns immediately with "" (no error) or an error string.
 func (a *App) ExecuteQueryStream(connectionID string, query string, queryID string) string {

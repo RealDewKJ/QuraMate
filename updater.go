@@ -13,8 +13,8 @@ import (
 )
 
 // AppVersion is the current version of the application.
-// Update this on each release.
-const AppVersion = "1.1.0"
+// This is overridden at build time via: -ldflags "-X main.AppVersion=x.y.z"
+var AppVersion = "1.1.0"
 
 // GitHubRepo is the GitHub repository for update checks.
 const GitHubRepo = "RealDewKJ/QuraMate"
@@ -121,6 +121,10 @@ func (a *App) CheckForUpdates() UpdateInfo {
 
 // OpenDownloadURL opens the given URL in the default browser.
 func (a *App) OpenDownloadURL(url string) string {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return "Error opening URL: Invalid URL scheme. Only http and https are allowed."
+	}
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -181,6 +185,10 @@ func parseVersionPart(s string) int {
 
 // PerformUpdate downloads the update from the provided URL, saves it to a temp file, and runs the installer.
 func (a *App) PerformUpdate(downloadURL string) error {
+	if !strings.HasPrefix(downloadURL, "https://github.com/RealDewKJ/QuraMate/releases/download/") {
+		return fmt.Errorf("invalid download URL source: must be an official update URL")
+	}
+
 	client := &http.Client{Timeout: 5 * time.Minute} // Large timeout for download
 	req, err := http.NewRequest("GET", downloadURL, nil)
 	if err != nil {
