@@ -1,5 +1,45 @@
 [
   {
+    "version": "v1.1.3",
+    "date": "2026-02-28",
+    "changes": [
+      {
+        "type": "feat",
+        "text": "Implemented virtual scrolling for all query result sets to resolve performance lag"
+      },
+      {
+        "type": "fix",
+        "text": "Resolved datatable context menu overflow issues"
+      },
+      {
+        "type": "chore",
+        "text": "Updated application version across all files to 1.1.3"
+      }
+    ]
+  },
+  {
+    "version": "v1.1.2",
+    "date": "2026-02-27",
+    "changes": [
+      {
+        "type": "perf",
+        "text": "Vue optimization pass: improved dashboard rendering and memory management"
+      },
+      {
+        "type": "fix",
+        "text": "Fixed laggy collapse/expand in datatable and broken Export All functionality"
+      },
+      {
+        "type": "fix",
+        "text": "Optimized global reactivity to prevent UI slowdowns during multiple query execution"
+      },
+      {
+        "type": "fix",
+        "text": "Fixed SQL query errors for photo retrieval and data ordering"
+      }
+    ]
+  },
+  {
     "version": "v1.1.1",
     "date": "2026-02-26",
     "changes": [

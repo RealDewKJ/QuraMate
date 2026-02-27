@@ -81,17 +81,18 @@
                     :get-columns="fetchTableColumns" :editor-settings="editorSettings" :is-read-only="isReadOnly"
                     @beautify-query="beautifyQuery" @explain-with-ai="explainWithAI" @save-routine="handleSaveRoutine"
                     @run-query="runQuery" @stop-query="stopQuery" @start-resizing="startResizing" />
-                <DbQueryResultsPane v-if="!activeTab.isERView && !activeTab.isDesignView" ref="resultsPaneRef"
-                    v-model:selected-row-index="selectedRowIndex" v-model:selected-column="selectedColumn"
-                    :active-tab="activeTab" :is-read-only="isReadOnly" :container-props="containerProps"
-                    :wrapper-props="wrapperProps" :virtual-list="virtualList" :pad-top="padTop" :pad-bottom="padBottom"
-                    :filtered-results="filteredResults" :open-ai-copilot="openAiCopilot" :toggle-sort="toggleSort"
-                    :start-column-resize="startColumnResize" :handle-cell-click="handleCellClick"
-                    :handle-row-context-menu="handleRowContextMenu" :get-editor-type="getEditorType"
-                    :save-cell-edit="saveCellEdit" :is-image-value="isImageValue" :open-image-preview="openImagePreview"
-                    :open-mock-data-modal="openMockDataModal" :open-insert-row-modal="openInsertRowModal"
-                    :start-result-set-resize="startResultSetResize"
-                    :get-result-set-card-style="getResultSetCardStyle" />
+                <DbQueryResultsPane
+                    v-if="tabs.find(t => t.id === activeTabId)?.resultSets && tabs.find(t => t.id === activeTabId)!.resultSets.length > 0"
+                    :activeTab="tabs.find(t => t.id === activeTabId)" :isReadOnly="isReadOnly"
+                    v-model:selectedRowIndex="selectedRowIndex" v-model:selectedColumn="selectedColumn"
+                    v-model:selectedRowData="selectedRowData" :openAiCopilot="openAiCopilot"
+                    :getEditorType="getEditorType" :saveCellEdit="saveCellEdit" :toggleSort="toggleSort"
+                    :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
+                    :handleRowContextMenu="handleRowContextMenu" :isImageValue="isImageValue"
+                    :openImagePreview="openImagePreview"
+                    :openMockDataModal="() => { if (mockDataModal) mockDataModal.isOpen = true }"
+                    :openInsertRowModal="() => { if (insertRowModal) insertRowModal.isOpen = true }"
+                    :startResultSetResize="startResultSetResize" :getResultSetCardStyle="getResultSetCardStyle" />
 
                 <!-- ER Diagram View -->
                 <div v-if="activeTab.isERView" class="flex-1 overflow-hidden bg-background">
@@ -206,24 +207,12 @@
 
         <DbImagePreviewModal :image-url="imagePreviewUrl" @close="imagePreviewUrl = null" />
 
-        <DbAICopilotOverlay
-            :is-open="aiCopilot.isOpen"
-            :mode="aiCopilot.mode"
-            :mode-options="aiCopilotModeOptions"
-            :prompt="aiCopilot.prompt"
-            :backend-language="aiCopilot.backendLanguage"
-            :is-loading="aiCopilot.isLoading"
-            :result="aiCopilot.result"
-            :error="aiCopilot.error"
-            :latency-ms="aiCopilot.latencyMs"
-            :has-suggested-sql="!!aiCopilot.suggestedSQL"
-            @close="aiCopilot.isOpen = false"
-            @run="runAiCopilot"
-            @apply-sql="applyAiSqlToEditor"
-            @update:mode="setAiCopilotMode"
-            @update:prompt="aiCopilot.prompt = $event"
-            @update:backend-language="aiCopilot.backendLanguage = $event"
-        />
+        <DbAICopilotOverlay :is-open="aiCopilot.isOpen" :mode="aiCopilot.mode" :mode-options="aiCopilotModeOptions"
+            :prompt="aiCopilot.prompt" :backend-language="aiCopilot.backendLanguage" :is-loading="aiCopilot.isLoading"
+            :result="aiCopilot.result" :error="aiCopilot.error" :latency-ms="aiCopilot.latencyMs"
+            :has-suggested-sql="!!aiCopilot.suggestedSQL" @close="aiCopilot.isOpen = false" @run="runAiCopilot"
+            @apply-sql="applyAiSqlToEditor" @update:mode="setAiCopilotMode" @update:prompt="aiCopilot.prompt = $event"
+            @update:backend-language="aiCopilot.backendLanguage = $event" />
     </div>
 </template>
 
@@ -436,6 +425,7 @@ const {
 const workspaceRef = ref<InstanceType<typeof DbQueryWorkspacePane> | null>(null);
 const selectedRowIndex = ref<number | string | null>(null);
 const selectedColumn = ref<string | null>(null);
+const selectedRowData = ref<any>(null);
 const tableSchemas = ref<Record<string, string[]>>({});
 
 const {
@@ -680,47 +670,29 @@ const handleAddWhereToCondition = () => {
 };
 
 const copySelectedCell = () => {
-    if (selectedRowIndex.value !== null && selectedColumn.value && activeTab.value) {
-        let rowData: any = null;
-        if (typeof selectedRowIndex.value === 'number') {
-            // Primary result set - use filteredResults to account for sorting/filtering
-            rowData = filteredResults.value[selectedRowIndex.value];
-        } else if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
-            // Subsequent result sets
-            const parts = selectedRowIndex.value.split('-');
-            const rsIdx = parseInt(parts[1]) + 1; // +1 because we slice(1) in template
-            const rIdx = parseInt(parts[2]);
-            if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
-                rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
-            }
-        }
-
-        if (rowData) {
-            const val = rowData[selectedColumn.value];
-            const str = val === null ? 'NULL' : String(val);
-            navigator.clipboard.writeText(str);
-            if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
-        }
+    if (selectedRowData.value && selectedColumn.value && activeTab.value) {
+        const val = selectedRowData.value[selectedColumn.value];
+        const str = val === null ? 'NULL' : String(val);
+        navigator.clipboard.writeText(str);
+        if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
     }
 };
 
 const copySelectedRow = (withHeader: boolean = false) => {
-    if (selectedRowIndex.value !== null && activeTab.value) {
-        let rowData: any = null;
+    if (selectedRowData.value && activeTab.value) {
+        let rowData = selectedRowData.value;
         let columns: string[] = [];
-        if (typeof selectedRowIndex.value === 'number') {
-            // Primary result set - use filteredResults to account for sorting/filtering
-            rowData = filteredResults.value[selectedRowIndex.value];
-            if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
-                columns = activeTab.value.resultSets[0].columns;
-            }
-        } else if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
+
+        // Try to figure out the resultSet columns from the selectedRowIndex format
+        if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
             const parts = selectedRowIndex.value.split('-');
             const rsIdx = parseInt(parts[1]) + 1;
-            const rIdx = parseInt(parts[2]);
             if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
-                rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
                 columns = activeTab.value.resultSets[rsIdx].columns;
+            }
+        } else if (typeof selectedRowIndex.value === 'number') {
+            if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
+                columns = activeTab.value.resultSets[0].columns;
             }
         }
 
@@ -824,15 +796,29 @@ const confirmImport = async () => {
 
 const {
     activeResultSet,
-    filteredResults,
-    virtualList,
-    containerProps,
-    wrapperProps,
-    padTop,
-    padBottom,
-    getColumns,
-    toggleSort,
-} = useQueryResultsView(activeTab);
+    getColumns
+} = useQueryResultsView(
+    computed(() => tabs.value.find(t => t.id === activeTabId.value))
+);
+
+const toggleSort = (col: string) => {
+    const tab = tabs.value.find(t => t.id === activeTabId.value);
+    if (!tab) return;
+
+    if (tab.sortColumn === col) {
+        if (tab.sortDirection === 'asc') {
+            tab.sortDirection = 'desc';
+        } else if (tab.sortDirection === 'desc') {
+            tab.sortDirection = null;
+            tab.sortColumn = undefined;
+        } else {
+            tab.sortDirection = 'asc';
+        }
+    } else {
+        tab.sortColumn = col;
+        tab.sortDirection = 'asc';
+    }
+};
 
 // closeTab moved to useTabs
 

@@ -1,3 +1,87 @@
+<script lang="ts" setup>
+import { ref, onMounted } from "vue";
+import { useToggle, onKeyStroke } from "@vueuse/core";
+import SettingsDialog from "./SettingsDialog.vue";
+import Toast from "./Toast.vue";
+import SavedConnectionsModal from "./connection/SavedConnectionsModal.vue";
+import {
+  useConnectionForm,
+  type ConnectionConfig,
+  type ActiveConnection,
+} from "../composables/useConnectionForm";
+
+const toastRef = ref<InstanceType<typeof Toast> | null>(null);
+
+const handleSettingsSave = () => {
+  // Handled internally by SettingsDialog
+};
+
+const props = defineProps<{
+  activeConnections: ActiveConnection[];
+  pendingSqlFile?: { path: string; name: string; content: string } | null;
+}>();
+
+const emit = defineEmits<{
+  connected: [conn: ActiveConnection];
+  "connection-exists": [id: string];
+  "connection-updated": [update: { id: string; config: ConnectionConfig }];
+}>();
+
+const {
+  config,
+  error,
+  testSuccess,
+  isLoading,
+  isTesting,
+  isQuickConnecting,
+  savedConnections,
+  connectionLabel,
+  handleSelectSqliteFile,
+  cancelConnection,
+  connect,
+  testConnection,
+  removeConnection,
+  selectConnection,
+  editConnection,
+  migrateSavedConnections,
+} = useConnectionForm(
+  () => props.activeConnections,
+  (conn) => emit("connected", conn),
+  (id) => emit("connection-exists", id),
+  (update) => emit("connection-updated", update),
+);
+
+const [showSettings, toggleSettings] = useToggle(false);
+const [showSavedModal, toggleSavedModal] = useToggle(false);
+const [showPassword, togglePassword] = useToggle(false);
+const [showSshPassword, toggleSshPassword] = useToggle(false);
+
+onKeyStroke("Escape", () => {
+  showSettings.value = false;
+});
+
+const handleSelectConn = (conn: ConnectionConfig) => {
+  showSavedModal.value = false;
+  selectConnection(conn);
+};
+
+const handleEditConn = (conn: ConnectionConfig) => {
+  showSavedModal.value = false;
+  editConnection(conn);
+};
+
+const handleRemoveConn = (conn: ConnectionConfig) => {
+  const index = savedConnections.value.findIndex((c) => c.id === conn.id);
+  if (index !== -1) {
+    removeConnection(index);
+  }
+};
+
+onMounted(() => {
+  migrateSavedConnections();
+});
+</script>
+
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-300">
     <div class="absolute top-4 right-4">
@@ -303,530 +387,15 @@
           </div>
         </div>
       </div>
-
-      <div v-if="showSavedModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-all duration-100 animate-in fade-in">
-        <div ref="savedModalRef"
-          class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full animate-in fade-in zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-48">
-          <div class="flex flex-col space-y-1.5 text-center sm:text-left">
-            <h2 class="text-lg font-semibold leading-none tracking-tight">
-              Saved Connections
-            </h2>
-            <p class="text-sm text-muted-foreground">
-              Select a connection to load its details.
-            </p>
-          </div>
-          <div class="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div v-if="savedConnections.length === 0" class="text-center text-muted-foreground text-sm py-8">
-              No saved connections found.
-            </div>
-            <div v-else class="space-y-2">
-              <div v-for="(conn, index) in savedConnections" :key="index"
-                class="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer group"
-                @click="selectConnection(conn)">
-                <div class="flex items-center gap-3 overflow-hidden">
-                  <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <svg v-if="
-                      conn.type === 'postgres' ||
-                      conn.type === 'greenplum' ||
-                      conn.type === 'redshift' ||
-                      conn.type === 'cockroachdb'
-                    " xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-database">
-                      <ellipse cx="12" cy="5" rx="9" ry="3" />
-                      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                      <path d="M3 12A9 3 0 0 0 21 12" />
-                    </svg>
-                    <svg v-else-if="
-                      conn.type === 'mysql' ||
-                      conn.type === 'mariadb' ||
-                      conn.type === 'databend'
-                    " xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-database">
-                      <ellipse cx="12" cy="5" rx="9" ry="3" />
-                      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                      <path d="M3 12A9 3 0 0 0 21 12" />
-                    </svg>
-                    <svg v-else-if="
-                      conn.type === 'sqlite' ||
-                      conn.type === 'duckdb' ||
-                      conn.type === 'libsql'
-                    " xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-file-code">
-                      <path d="M10 12.5 8 15l2 2.5" />
-                      <path d="m14 12.5 2 2.5-2 2.5" />
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <path d="M14 2v6h6" />
-                    </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-database">
-                      <ellipse cx="12" cy="5" rx="9" ry="3" />
-                      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-                      <path d="M3 12A9 3 0 0 0 21 12" />
-                    </svg>
-                  </div>
-                  <div class="flex flex-col truncate text-left">
-                    <span class="text-sm font-medium truncate">{{
-                      getConnectionLabel(conn)
-                    }}</span>
-                    <span class="text-xs text-muted-foreground truncate">{{ conn.host }}:{{ conn.port }}</span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button @click.stop="editConnection(conn)"
-                    class="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                    title="Edit Connection">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-pencil">
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
-                  </button>
-                  <button @click.stop="removeConnection(index)"
-                    class="p-2 rounded-md hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                    title="Delete Connection">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="lucide lucide-trash-2">
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                      <line x1="10" x2="10" y1="11" y2="17" />
-                      <line x1="14" x2="14" y1="11" y2="17" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-            <button @click="toggleSavedModal(false)"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
+
+    <SavedConnectionsModal :isOpen="showSavedModal" :connections="savedConnections" @close="toggleSavedModal(false)"
+      @select="handleSelectConn" @edit="handleEditConn" @remove="handleRemoveConn" />
+
     <Toast ref="toastRef" />
     <SettingsDialog :isOpen="showSettings" @close="toggleSettings(false)" @save="handleSettingsSave" />
   </div>
 </template>
-
-<script lang="ts" setup>
-import { ref, reactive, watch, onMounted, computed, shallowRef } from "vue";
-import {
-  useLocalStorage,
-  useToggle,
-  onClickOutside,
-  onKeyStroke,
-  watchImmediate,
-} from "@vueuse/core";
-import {
-  ConnectDB,
-  TestConnection,
-  SetReadOnly,
-  SelectSqliteFile,
-  SaveCredential,
-  DeleteCredential,
-} from "../../wailsjs/go/main/App";
-import SettingsDialog from "./SettingsDialog.vue";
-import Toast from "./Toast.vue";
-
-const toastRef = ref<InstanceType<typeof Toast> | null>(null);
-
-const handleSettingsSave = () => {
-  // Handled internally by SettingsDialog
-};
-
-const props = defineProps<{
-  activeConnections: any[];
-  pendingSqlFile?: { path: string; name: string; content: string } | null;
-}>();
-
-const emit = defineEmits([
-  "connected",
-  "connection-exists",
-  "connection-updated",
-]);
-
-const config = reactive({
-  id: "",
-  name: "",
-  type: "postgres",
-  host: "localhost",
-  port: 5432,
-  user: "postgres",
-  password: "",
-  database: "postgres",
-  readOnly: false,
-  sshEnabled: false,
-  sshHost: "",
-  sshPort: 22,
-  sshUser: "",
-  sshPassword: "",
-  sshKeyFile: "",
-  encoding: "",
-});
-
-const resetConfig = () => {
-  Object.assign(config, {
-    id: "",
-    name: "",
-    type: "postgres",
-    host: "localhost",
-    port: 5432,
-    user: "postgres",
-    password: "",
-    database: "postgres",
-    readOnly: false,
-    sshEnabled: false,
-    sshHost: "",
-    sshPort: 22,
-    sshUser: "",
-    sshPassword: "",
-    sshKeyFile: "",
-    encoding: "",
-  });
-};
-
-const error = ref("");
-const testSuccess = ref("");
-const connectionToken = ref(0);
-const [isLoading, toggleLoading] = useToggle(false);
-const [isTesting, toggleTesting] = useToggle(false);
-const [isQuickConnecting, toggleQuickConnecting] = useToggle(false);
-const [showSettings, toggleSettings] = useToggle(false);
-const [showSavedModal, toggleSavedModal] = useToggle(false);
-const savedConnections = useLocalStorage<any[]>("savedConnections", []);
-const [showPassword, togglePassword] = useToggle(false);
-const [showSshPassword, toggleSshPassword] = useToggle(false);
-
-const connectionLabel = computed(() => getConnectionLabel(config));
-
-const savedModalRef = ref(null);
-onClickOutside(savedModalRef, () => (showSavedModal.value = false));
-onKeyStroke("Escape", () => {
-  showSavedModal.value = false;
-  showSettings.value = false;
-});
-
-const handleSelectSqliteFile = async () => {
-  try {
-    const filePath = await SelectSqliteFile();
-    if (filePath) {
-      config.database = filePath;
-    }
-  } catch (e) {
-    console.error("Failed to select SQLite file", e);
-  }
-};
-
-watchImmediate(
-  () => config.type,
-  (newType) => {
-    if (
-      newType === "postgres" ||
-      newType === "greenplum" ||
-      newType === "redshift"
-    )
-      config.port = 5432;
-    else if (newType === "cockroachdb") config.port = 26257;
-    else if (newType === "mysql" || newType === "mariadb") config.port = 3306;
-    else if (newType === "databend") config.port = 3307;
-    else if (newType === "mssql") config.port = 1433;
-  },
-);
-
-const isConfigEqual = (c1: any, c2: any) => {
-  if (!c1 || !c2) return false;
-
-  const type1 = (c1.type || "").toLowerCase();
-  const type2 = (c2.type || "").toLowerCase();
-  if (type1 !== type2) return false;
-
-  const db1 = c1.database || "";
-  const db2 = c2.database || "";
-  const name1 = c1.name || "";
-  const name2 = c2.name || "";
-
-  if (type1 === "sqlite" || type1 === "duckdb" || type1 === "libsql") {
-    return db1 === db2 && name1 === name2;
-  }
-
-  const host1 = (c1.host || "").toLowerCase();
-  const host2 = (c2.host || "").toLowerCase();
-  const port1 = parseInt(String(c1.port), 10);
-  const port2 = parseInt(String(c2.port), 10);
-  const user1 = c1.user || "";
-  const user2 = c2.user || "";
-
-  if (
-    host1 !== host2 ||
-    port1 !== port2 ||
-    user1 !== user2 ||
-    db1 !== db2 ||
-    name1 !== name2
-  ) {
-    return false;
-  }
-
-  const sshEnabled1 = !!c1.sshEnabled;
-  const sshEnabled2 = !!c2.sshEnabled;
-  if (sshEnabled1 !== sshEnabled2) return false;
-
-  if (sshEnabled1) {
-    const sshHost1 = (c1.sshHost || "").toLowerCase();
-    const sshHost2 = (c2.sshHost || "").toLowerCase();
-    const sshPort1 = parseInt(String(c1.sshPort || 22), 10);
-    const sshPort2 = parseInt(String(c2.sshPort || 22), 10);
-    const sshUser1 = c1.sshUser || "";
-    const sshUser2 = c2.sshUser || "";
-    const sshKeyFile1 = c1.sshKeyFile || "";
-    const sshKeyFile2 = c2.sshKeyFile || "";
-
-    return (
-      sshHost1 === sshHost2 &&
-      sshPort1 === sshPort2 &&
-      sshUser1 === sshUser2 &&
-      sshKeyFile1 === sshKeyFile2
-    );
-  }
-
-  return true;
-};
-
-const connect = async () => {
-  performConnect();
-};
-
-const cancelConnection = () => {
-  connectionToken.value++;
-  isLoading.value = false;
-  isTesting.value = false;
-  isQuickConnecting.value = false;
-  error.value = "Connection cancelled by user.";
-  testSuccess.value = "";
-};
-
-const performConnect = async () => {
-  error.value = "";
-  testSuccess.value = "";
-  isLoading.value = true;
-  const currentToken = ++connectionToken.value;
-
-  // Check for existing connection
-  const existing = props.activeConnections.find((c) =>
-    isConfigEqual(c.config, config),
-  );
-
-  if (existing) {
-    if (currentToken !== connectionToken.value) return;
-    // Check if ReadOnly status has changed
-    if (!!existing.config.readOnly !== !!config.readOnly) {
-      try {
-        await SetReadOnly(existing.id, !!config.readOnly);
-        emit("connection-updated", {
-          id: existing.id,
-          config: { ...existing.config, readOnly: !!config.readOnly },
-        });
-      } catch (e: any) {
-        console.error("Failed to update ReadOnly status:", e);
-      }
-    }
-
-    emit("connection-exists", existing.id);
-    resetConfig();
-    isLoading.value = false;
-    return;
-  }
-
-  try {
-    const result = await ConnectDB(config);
-    if (currentToken !== connectionToken.value) return;
-
-    if (result.id) {
-      await saveConnection({ ...config });
-      if (currentToken !== connectionToken.value) return;
-
-      emit("connected", {
-        id: result.id,
-        name: config.name || getConnectionLabel(config),
-        config: { ...config },
-      });
-      resetConfig();
-    } else {
-      error.value = result.error || "Unknown error";
-    }
-  } catch (e: any) {
-    if (currentToken !== connectionToken.value) return;
-    error.value = e.toString();
-  } finally {
-    if (currentToken === connectionToken.value) {
-      isLoading.value = false;
-      isQuickConnecting.value = false;
-    }
-  }
-};
-
-const testConnection = async () => {
-  error.value = "";
-  testSuccess.value = "";
-  isTesting.value = true;
-  const currentToken = ++connectionToken.value;
-
-  try {
-    const testConfig = { ...config };
-    if (!testConfig.id) {
-      testConfig.id = "";
-    }
-    const result = await TestConnection(testConfig);
-    if (currentToken !== connectionToken.value) return;
-
-    if (result === "Success") {
-      testSuccess.value = "Connection successful!";
-    } else {
-      error.value = result;
-    }
-  } catch (e: any) {
-    if (currentToken !== connectionToken.value) return;
-    error.value = e.toString();
-  } finally {
-    if (currentToken === connectionToken.value) {
-      isTesting.value = false;
-    }
-  }
-};
-
-const saveConnection = async (newConfig: any) => {
-  if (!newConfig.id) {
-    const existing = savedConnections.value.find((c) =>
-      isConfigEqual(c, newConfig),
-    );
-    if (existing && existing.id) {
-      newConfig.id = existing.id;
-    } else {
-      newConfig.id = crypto.randomUUID();
-    }
-  }
-
-  config.id = newConfig.id;
-
-  if (newConfig.password || newConfig.sshPassword) {
-    try {
-      await SaveCredential(
-        newConfig.id,
-        newConfig.password || "",
-        newConfig.sshPassword || "",
-      );
-    } catch (e) {
-      console.error("Failed to save credentials to keyring", e);
-    }
-  }
-
-  const storageConfig = { ...newConfig, password: "", sshPassword: "" };
-
-  const existsIndex = savedConnections.value.findIndex(
-    (c) => c.id === storageConfig.id || isConfigEqual(c, storageConfig),
-  );
-
-  if (existsIndex === -1) {
-    savedConnections.value.push(storageConfig);
-  } else {
-    savedConnections.value[existsIndex] = storageConfig;
-  }
-};
-
-const removeConnection = async (index: number) => {
-  const conn = savedConnections.value[index];
-  if (conn && conn.id) {
-    try {
-      await DeleteCredential(conn.id);
-    } catch (e) {
-      console.error("Failed to delete credentials from keyring", e);
-    }
-  }
-  savedConnections.value.splice(index, 1);
-};
-
-const selectConnection = (conn: any) => {
-  config.name = conn.name || "";
-  Object.assign(config, conn);
-  // Explicitly clear password from the form view when loading from history
-  config.password = "";
-  config.sshPassword = "";
-
-  showSavedModal.value = false;
-  isQuickConnecting.value = true;
-  connect();
-};
-
-const editConnection = (conn: any) => {
-  config.name = conn.name || "";
-  Object.assign(config, conn);
-  // Explicitly clear password from the form view when loading from history
-  config.password = "";
-  config.sshPassword = "";
-
-  showSavedModal.value = false;
-};
-
-const getConnectionLabel = (conn: any) => {
-  if (conn.name) return conn.name;
-  if (
-    conn.type === "sqlite" ||
-    conn.type === "duckdb" ||
-    conn.type === "libsql"
-  )
-    return `${conn.type === "sqlite" ? "SQLite" : conn.type === "duckdb" ? "DuckDB" : "LibSQL"}: ${conn.database}`;
-  if (conn.type === "greenplum")
-    return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Greenplum)`;
-  if (conn.type === "redshift")
-    return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Redshift)`;
-  if (conn.type === "cockroachdb")
-    return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (CockroachDB)`;
-  if (conn.type === "databend")
-    return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Databend)`;
-  return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (${conn.type})`;
-};
-
-onMounted(async () => {
-  let needsSave = false;
-  const connections = [...savedConnections.value];
-
-  for (const conn of connections) {
-    let modified = false;
-    if (!conn.id) {
-      conn.id = crypto.randomUUID();
-      modified = true;
-    }
-    if (conn.password || conn.sshPassword) {
-      try {
-        await SaveCredential(
-          conn.id,
-          conn.password || "",
-          conn.sshPassword || "",
-        );
-        conn.password = "";
-        conn.sshPassword = "";
-        modified = true;
-      } catch (e) {
-        console.error("Failed to migrate credentials to keyring", e);
-      }
-    }
-    if (modified) needsSave = true;
-  }
-
-  if (needsSave) {
-    savedConnections.value = connections;
-  }
-});
-</script>
 
 <style scoped>
 /* Hide the native browser password reveal eye icon (especially in Edge and Chrome) */

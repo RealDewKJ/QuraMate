@@ -49,44 +49,18 @@ defineExpose({
 
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4 text-xs text-muted-foreground">
-                <div v-if="activeTab.isLoading && !activeTab.executionTime" class="flex items-center gap-2 text-primary">
-                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z"></path>
+                <div v-if="activeTab.isLoading && !activeTab.executionTime"
+                    class="flex items-center gap-2 text-primary">
+                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor" d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z">
+                        </path>
                     </svg>
                     Executing...
                 </div>
-                <div v-else-if="activeTab.executionTime !== undefined" class="flex items-center gap-1.5 ">
-                    <span class="flex items-center gap-1" title="Execution Time (Database)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-database">
-                            <ellipse cx="12" cy="5" rx="9" ry="3" />
-                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                        </svg>
-                        <span>Exec: {{ activeTab.executionTime }}ms</span>
-                    </span>
-                    <span class="text-border mx-1">|</span>
-                    <span class="flex items-center gap-1" title="Fetch/Transfer Time">
-                        <div v-if="activeTab.isLoading" class="flex items-center gap-1">
-                            <svg class="animate-spin h-3 w-3 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M12 2A10 10 0 0 0 2 12h4a6 6 0 0 1 6-6V2z"></path>
-                            </svg>
-                        </div>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-arrow-down">
-                            <line x1="12" x2="12" y1="5" y2="19" />
-                            <polyline points="19 12 12 19 5 12" />
-                        </svg>
-                        <span>Fetch: {{ activeTab.fetchTime !== undefined ? activeTab.fetchTime : '...' }}{{
-                            activeTab.isLoading ? '...' : 'ms' }}</span>
-                    </span>
-                </div>
+
             </div>
         </div>
 
@@ -116,7 +90,8 @@ defineExpose({
                 Beautify
             </button>
 
-            <button @click="emit('explain-with-ai')" :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
+            <button @click="emit('explain-with-ai')"
+                :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
                 class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
                 title="Explain SQL with configured AI provider">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"

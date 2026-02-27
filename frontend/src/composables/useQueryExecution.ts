@@ -180,177 +180,166 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
         }
 
         const statements = splitSqlStatements(queryToRun);
-        if (statements.length > 1) {
-
-            try {
-                if (queryToRun && queryToRun.trim().length > 0) {
-                    SaveQueryHistory(queryToRun, options.connectionName.value || options.dbType.value || '');
-                }
-
-                for (const statement of statements) {
-                    const res = await ExecuteQuery(options.connectionId.value, statement, reqId);
-                    if (res.error) {
-                        throw new Error(res.error);
-                    }
-
-                    const resultSets = Array.isArray(res.resultSets) ? res.resultSets : [];
-                    for (const rs of resultSets) {
-                        const columns = Array.isArray(rs?.columns) ? rs.columns : [];
-                        const rows = mapRowsToObjects(columns, Array.isArray(rs?.rows) ? rs.rows : []);
-                        const columnTypes = Array.isArray((rs as any)?.columnTypes) ? (rs as any).columnTypes : [];
-
-                        tab.resultSets.push({
-                            columns,
-                            columnTypes,
-                            rows: markRaw(rows),
-                        });
-
-                        columns.forEach((col: string, i: number) => {
-                            if (!tab.columnWidths[col]) {
-                                tab.columnWidths[col] = calculateInitialWidth(columnTypes[i]);
-                            }
-                        });
-                    }
-                }
-
-                tab.queryExecuted = true;
-                const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
-                tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
-                tab.executionTime = Math.round(performance.now() - startTime);
-                tab.completionTime = new Date().toLocaleString();
-                tab.isLoading = false;
-                tab.error = '';
-            } catch (e: any) {
-                tab.error = e?.toString ? e.toString() : String(e);
-                tab.queryExecuted = true;
-                tab.resultViewTab = 'messages';
-                tab.executionTime = Math.round(performance.now() - startTime);
-                tab.completionTime = new Date().toLocaleString();
-                tab.isLoading = false;
-            } finally {
-                tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
-            }
-            return;
-        }
-
-        let firstBatchReceived = false;
-        let cleanedUp = false;
-
-        const cleanup = () => {
-            if (cleanedUp) return;
-            cleanedUp = true;
-            EventsOff('query:batch:' + reqId);
-            EventsOff('query:done:' + reqId);
-            EventsOff('query:error:' + reqId);
-            EventsOff('query:stats:' + reqId);
-            tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== reqId);
-            activeStreamCleanups.delete(cleanup);
-        };
-        activeStreamCleanups.add(cleanup);
-
-        EventsOn('query:stats:' + reqId, (stats: any) => {
-            if (tab.activeQueryIds.includes(reqId)) {
-                if (stats.phase === 'execution') {
-                    tab.executionTime = stats.time;
-                } else {
-                    if (stats.rows >= 0) {
-                        tab.totalRowCount = stats.rows;
-                    } else {
-                        tab.totalRowCount = undefined;
-                    }
-
-                    if (stats.time !== undefined) tab.executionTime = stats.time;
-                    if (stats.fetchTime !== undefined) tab.fetchTime = stats.fetchTime;
-
-                    tab.isPartialStats = stats.partial;
-                }
-            }
-        });
-
-        EventsOn('query:batch:' + reqId, (batch: any) => {
-            if (!firstBatchReceived) {
-                firstBatchReceived = true;
-                if (tab.executionTime === undefined) {
-                    tab.executionTime = Math.round(performance.now() - startTime);
-                }
-            }
-
-            const rsIdx = batch.resultSetIdx;
-            const columns = batch.columns || [];
-            const columnTypes = batch.columnTypes || [];
-            const batchRows = batch.rows || [];
-
-            const mappedRows = batchRows.map((row: any[]) =>
-                Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]))
-            );
-
-            while (tab.resultSets.length <= rsIdx) {
-                tab.resultSets.push({ columns: [], columnTypes: [], rows: [] });
-            }
-
-            const rs = tab.resultSets[rsIdx];
-            if (columns.length > 0 && rs.columns.length === 0) {
-                rs.columns = columns;
-                rs.columnTypes = columnTypes;
-
-                columns.forEach((col: string, i: number) => {
-                    if (!tab.columnWidths[col]) {
-                        const meta = columnTypes[i];
-                        tab.columnWidths[col] = calculateInitialWidth(meta);
-                    }
-                });
-            }
-            rs.rows = markRaw(rs.rows.concat(mappedRows));
-
-            if (!tab.queryExecuted) {
-                tab.queryExecuted = true;
-                tab.resultViewTab = (columns.length > 0 && mappedRows.length > 0) ? 'data' : 'messages';
-            }
-        });
-
-        EventsOn('query:done:' + reqId, () => {
-            tab.isLoading = false;
-            tab.completionTime = new Date().toLocaleString();
-            if (!tab.queryExecuted) {
-                tab.queryExecuted = true;
-                const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
-                tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
-            }
-            if (!firstBatchReceived) {
-                if (tab.executionTime === undefined) {
-                    tab.executionTime = Math.round(performance.now() - startTime);
-                }
-            }
-            cleanup();
-        });
-
-        EventsOn('query:error:' + reqId, (errMsg: string) => {
-            tab.error = errMsg;
-            tab.isLoading = false;
-            tab.queryExecuted = true;
-            tab.executionTime = Math.round(performance.now() - startTime);
-            tab.completionTime = new Date().toLocaleString();
-            tab.resultViewTab = 'messages';
-            cleanup();
-        });
-
+        
         try {
             if (queryToRun && queryToRun.trim().length > 0) {
                 SaveQueryHistory(queryToRun, options.connectionName.value || options.dbType.value || '');
             }
-            const err = await ExecuteQueryStream(options.connectionId.value, queryToRun, reqId);
-            if (err) {
-                tab.error = err;
-                tab.isLoading = false;
-                tab.queryExecuted = true;
-                tab.resultViewTab = 'messages';
-                cleanup();
+
+            let totalExecutionTime = 0;
+            let totalFetchTime = 0;
+            let totalRows = 0;
+            let isFirstStatementDataReceived = false;
+
+            for (let idx = 0; idx < statements.length; idx++) {
+                if (!tab.isLoading) break; // Abort if cancelled by user
+                
+                const statement = statements[idx];
+                const statementReqId = statements.length > 1 ? `${reqId}-${idx}` : reqId;
+                
+                if (statements.length > 1) {
+                    tab.activeQueryIds.push(statementReqId);
+                }
+
+                await new Promise<void>((resolve, reject) => {
+                    let firstBatchReceived = false;
+                    let cleanedUp = false;
+                    const statementStartTime = performance.now();
+                    const rsOffset = tab.resultSets.length;
+
+                    const cleanup = () => {
+                        if (cleanedUp) return;
+                        cleanedUp = true;
+                        EventsOff('query:batch:' + statementReqId);
+                        EventsOff('query:done:' + statementReqId);
+                        EventsOff('query:error:' + statementReqId);
+                        EventsOff('query:stats:' + statementReqId);
+                        tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => id !== statementReqId);
+                        activeStreamCleanups.delete(cleanup);
+                    };
+                    activeStreamCleanups.add(cleanup);
+
+                    EventsOn('query:stats:' + statementReqId, (stats: any) => {
+                        if (tab.activeQueryIds.includes(statementReqId) || statements.length === 1) {
+                            if (stats.phase === 'execution') {
+                                tab.executionTime = totalExecutionTime + stats.time;
+                            } else {
+                                if (stats.rows >= 0) {
+                                    tab.totalRowCount = totalRows + stats.rows;
+                                }
+
+                                if (stats.time !== undefined) {
+                                    tab.executionTime = totalExecutionTime + stats.time;
+                                }
+                                if (stats.fetchTime !== undefined) {
+                                    tab.fetchTime = totalFetchTime + stats.fetchTime;
+                                }
+
+                                tab.isPartialStats = stats.partial;
+                            }
+                        }
+                    });
+
+                    EventsOn('query:batch:' + statementReqId, (batch: any) => {
+                        if (!firstBatchReceived) {
+                            firstBatchReceived = true;
+                            if (tab.executionTime === undefined) {
+                                tab.executionTime = totalExecutionTime + Math.round(performance.now() - statementStartTime);
+                            }
+                        }
+
+                        const rsIdx = rsOffset + batch.resultSetIdx;
+                        const columns = batch.columns || [];
+                        const columnTypes = batch.columnTypes || [];
+                        const batchRows = batch.rows || [];
+
+                        const mappedRows = batchRows.map((row: any[]) =>
+                            Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]))
+                        );
+
+                        while (tab.resultSets.length <= rsIdx) {
+                            tab.resultSets.push({ columns: [], columnTypes: [], rows: [] });
+                        }
+
+                        const rs = tab.resultSets[rsIdx];
+                        if (columns.length > 0 && rs.columns.length === 0) {
+                            rs.columns = columns;
+                            rs.columnTypes = columnTypes;
+
+                            columns.forEach((col: string, i: number) => {
+                                if (!tab.columnWidths[col]) {
+                                    const meta = columnTypes[i];
+                                    tab.columnWidths[col] = calculateInitialWidth(meta);
+                                }
+                            });
+                        }
+                        rs.rows = markRaw(rs.rows.concat(mappedRows));
+
+                        if (!tab.queryExecuted || (!isFirstStatementDataReceived && mappedRows.length > 0)) {
+                            tab.queryExecuted = true;
+                            if (mappedRows.length > 0) {
+                                isFirstStatementDataReceived = true;
+                            }
+                            tab.resultViewTab = (columns.length > 0 && isFirstStatementDataReceived) ? 'data' : 'messages';
+                        }
+                    });
+
+                    EventsOn('query:done:' + statementReqId, () => {
+                        if (!tab.queryExecuted) {
+                            tab.queryExecuted = true;
+                            const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
+                            tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
+                        }
+                        if (!firstBatchReceived) {
+                            if (tab.executionTime === undefined || statements.length > 1) {
+                                tab.executionTime = totalExecutionTime + Math.round(performance.now() - statementStartTime);
+                            }
+                        }
+                        
+                        // Commit stats to running totals
+                        totalExecutionTime = tab.executionTime || 0;
+                        totalFetchTime = tab.fetchTime || 0;
+                        totalRows = tab.totalRowCount || 0;
+
+                        cleanup();
+                        resolve();
+                    });
+
+                    EventsOn('query:error:' + statementReqId, (errMsg: string) => {
+                        cleanup();
+                        reject(new Error(errMsg));
+                    });
+
+                    ExecuteQueryStream(options.connectionId.value, statement, statementReqId).then((err) => {
+                        if (err) {
+                            cleanup();
+                            reject(new Error(err));
+                        }
+                    }).catch(e => {
+                        cleanup();
+                        reject(e);
+                    });
+                });
             }
+
+            // All statements completed successfully
+            tab.isLoading = false;
+            tab.completionTime = new Date().toLocaleString();
+            if (!tab.queryExecuted) {
+                tab.queryExecuted = true;
+                const hasDataWithRows = tab.resultSets.some((rs: any) => rs.columns && rs.columns.length > 0 && rs.rows && rs.rows.length > 0);
+                tab.resultViewTab = hasDataWithRows ? 'data' : 'messages';
+            }
+
         } catch (e: any) {
             tab.error = e.toString();
             tab.isLoading = false;
             tab.executionTime = Math.round(performance.now() - startTime);
-            cleanup();
+            tab.completionTime = new Date().toLocaleString();
+            tab.queryExecuted = true;
+            tab.resultViewTab = 'messages';
+        } finally {
+            tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => !id.startsWith(reqId));
         }
     };
 

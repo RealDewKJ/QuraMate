@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DbConnection from './components/DbConnection.vue';
 import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 import { colorMode } from './composables/useTheme';
-import { LoadSetting, GetStartupFile, ReadTextFile, ConnectDB, CheckPendingFile } from '../wailsjs/go/main/App';
+import { LoadSetting, GetStartupFile, ReadTextFile, ConnectDB } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
@@ -39,26 +39,12 @@ onMounted(async () => {
     console.error("Failed to fetch startup file", e);
   }
 
-  // File-based IPC for second instance — poll for pending files
-  // Poll for pending files from second instances (file-based IPC fallback)
-  console.log("[OpenWith] Starting pending file poll (every 2s)");
-  pendingFileInterval = window.setInterval(async () => {
-    try {
-      const filePath = await CheckPendingFile();
-      console.log("[OpenWith] Poll tick, result:", filePath || "(empty)");
-      if (filePath) {
-        console.log("[OpenWith] Found pending file:", filePath);
-        processStartupFile(filePath);
-      }
-    } catch (e) {
-      console.error("[OpenWith] Poll error:", e);
+  // Listen for files opened from second instances via Wails events
+  EventsOn('app:open-file', (filePath: string) => {
+    if (filePath) {
+      processStartupFile(filePath);
     }
-  }, 2000);
-});
-
-let pendingFileInterval: number | null = null;
-onUnmounted(() => {
-  if (pendingFileInterval) window.clearInterval(pendingFileInterval);
+  });
 });
 
 const processStartupFile = async (startupFile: string) => {
@@ -185,7 +171,6 @@ const removeTab = (id: string, event: Event) => {
   // Let's rely on the dashboard "Disconnect" button for now to force proper cleanup.
   // So this function is just a placeholder or for "force close".
   handleDisconnect(id);
-  handleDisconnect(id);
 }
 
 const handleConnectionExists = (id: string) => {
@@ -196,9 +181,12 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
   const conn = connections.value.find(c => c.id === update.id);
   if (conn) {
     conn.config = { ...update.config };
-    // Force reactivity if needed, but above should work
   }
 };
+
+const activeConn = computed(() =>
+  connections.value.find(c => c.id === activeTabId.value) ?? null
+);
 </script>
 
 <template>
@@ -270,10 +258,11 @@ const handleConnectionUpdate = (update: { id: string, config: any }) => {
           @connection-exists="handleConnectionExists" @connection-updated="handleConnectionUpdate" />
       </div>
 
-      <div v-for="conn in connections" :key="conn.id" v-show="activeTabId === conn.id" class="h-full">
-        <DbDashboard :connectionId="conn.id" :connectionName="conn.name" :dbType="conn.config.type"
-          :isReadOnly="conn.config.readOnly" @disconnect="handleDisconnect" />
-      </div>
+      <KeepAlive :max="5">
+        <DbDashboard v-if="activeConn" :key="activeConn.id" :connectionId="activeConn.id"
+          :connectionName="activeConn.name" :dbType="activeConn.config.type" :isReadOnly="activeConn.config.readOnly"
+          @disconnect="handleDisconnect" />
+      </KeepAlive>
     </div>
 
     <!-- Update Notification Overlay -->

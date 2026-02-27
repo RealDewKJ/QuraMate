@@ -973,6 +973,8 @@ func (a *App) onSecondInstanceLaunch(secondInstanceData options.SecondInstanceDa
 				pendingPath := a.getPendingFilePath()
 				writeErr := os.WriteFile(pendingPath, []byte(arg), 0644)
 				a.debugLog(fmt.Sprintf("Wrote pending file: %s -> %s (err=%v)", arg, pendingPath, writeErr))
+				// Also emit event so frontend can react immediately (no polling needed)
+				runtime.EventsEmit(a.ctx, "app:open-file", arg)
 				break
 			}
 		}

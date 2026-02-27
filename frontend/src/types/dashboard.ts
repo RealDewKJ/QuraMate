@@ -4,6 +4,7 @@ export interface CellEdit {
     rowId: any;
     col: string;
     value: any;
+    resultSetIndex?: number;
 }
 
 export interface QueryTab {
