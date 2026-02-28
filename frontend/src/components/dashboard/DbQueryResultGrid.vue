@@ -206,7 +206,7 @@ const isCellEditing = (index: number, col: string) => {
                 <tr v-for="item in virtualList" :key="item.index" class="transition-colors h-[37px] cursor-pointer group"
                     :class="isRowSelected(item.index) ? 'bg-primary/5' : 'bg-card hover:bg-muted/50'"
                     @click="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), '')">
-                    <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-muted/80"
+                    <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-accent transition-colors"
                         :class="isRowSelected(item.index) ? 'border-l-2 border-l-primary' : ''"
                         @click.stop="emit('update:selectedRowData', item.data); emit('rowSelectorClick', $event, getFormattedRowIndex(item.index))"
                         @mousedown="e => { if (e.shiftKey) e.preventDefault(); }">
