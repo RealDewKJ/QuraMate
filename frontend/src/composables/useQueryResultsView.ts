@@ -58,6 +58,7 @@ export function useQueryResultsView(activeTab: Ref<QueryTab | undefined>) {
 
     return {
         activeResultSet,
+        filteredResults,
         getColumns
     };
 }

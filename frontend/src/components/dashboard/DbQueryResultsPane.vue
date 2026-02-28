@@ -26,7 +26,7 @@ interface Props {
 
 defineProps<Props>();
 
-const selectedRowIndex = defineModel<number | string | null>('selectedRowIndex', { required: true });
+const selectedRowIndex = defineModel<Array<number | string> | number | string | null>('selectedRowIndex', { required: true });
 const selectedColumn = defineModel<string | null>('selectedColumn', { required: true });
 const selectedRowData = defineModel<any>('selectedRowData');
 
@@ -36,6 +36,79 @@ const collapsedResultSets = ref<Record<number, boolean>>({});
 
 const toggleResultSetCollapse = (index: number) => {
     collapsedResultSets.value[index] = !collapsedResultSets.value[index];
+};
+
+const lastClickedRow = ref<number | string | null>(null);
+
+const isRowSelected = (index: number | string) => {
+    if (Array.isArray(selectedRowIndex.value)) {
+        return selectedRowIndex.value.includes(index);
+    }
+    return selectedRowIndex.value === index;
+};
+
+const handleRowSelectorClick = (e: MouseEvent, itemIndex: number | string) => {
+    let currentSelection = Array.isArray(selectedRowIndex.value) 
+        ? [...selectedRowIndex.value] 
+        : (selectedRowIndex.value !== null ? [selectedRowIndex.value] : []);
+
+    if (e.shiftKey && lastClickedRow.value !== null && typeof itemIndex === typeof lastClickedRow.value) {
+        if (typeof itemIndex === 'number' && typeof lastClickedRow.value === 'number') {
+            const start = Math.min(itemIndex, lastClickedRow.value);
+            const end = Math.max(itemIndex, lastClickedRow.value);
+            if (!e.metaKey && !e.ctrlKey) {
+                currentSelection = [];
+            }
+            for (let i = start; i <= end; i++) {
+                if (!currentSelection.includes(i)) currentSelection.push(i);
+            }
+            if (lastClickedRow.value !== null && !currentSelection.includes(lastClickedRow.value)) {
+                currentSelection.push(lastClickedRow.value);
+            }
+        } else if (typeof itemIndex === 'string' && typeof lastClickedRow.value === 'string') {
+            const parts1 = itemIndex.split('-');
+            const parts2 = lastClickedRow.value.split('-');
+            if (parts1[1] === parts2[1]) {
+                const start = Math.min(parseInt(parts1[2]), parseInt(parts2[2]));
+                const end = Math.max(parseInt(parts1[2]), parseInt(parts2[2]));
+                if (!e.metaKey && !e.ctrlKey) {
+                    currentSelection = [];
+                }
+                for (let i = start; i <= end; i++) {
+                    const idxStr = `sub-${parts1[1]}-${i}`;
+                    if (!currentSelection.includes(idxStr)) currentSelection.push(idxStr);
+                }
+                if (lastClickedRow.value !== null && !currentSelection.includes(lastClickedRow.value)) {
+                    currentSelection.push(lastClickedRow.value);
+                }
+            }
+        }
+    } else if (e.metaKey || e.ctrlKey) {
+        const idx = currentSelection.indexOf(itemIndex);
+        if (idx > -1) {
+            currentSelection.splice(idx, 1);
+        } else {
+            currentSelection.push(itemIndex);
+        }
+    } else {
+        if (currentSelection.length === 1 && currentSelection[0] === itemIndex) {
+            currentSelection = [];
+        } else {
+            currentSelection = [itemIndex];
+        }
+    }
+    
+    selectedRowIndex.value = currentSelection;
+    if (!e.shiftKey || lastClickedRow.value === null) {
+        lastClickedRow.value = itemIndex;
+    }
+    selectedColumn.value = null;
+};
+
+const handleCellClickCustom = (itemIndex: number | string, col: string) => {
+    selectedRowIndex.value = [];
+    lastClickedRow.value = itemIndex;
+    selectedColumn.value = col;
 };
 
 const containsTarget = (target: EventTarget | null) => {
@@ -140,6 +213,8 @@ defineExpose({
                         <DbQueryResultGrid :resultSet="activeTab.resultSets[0]" :resultSetIndex="0"
                             :activeTab="activeTab" :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
                             v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
+                            :lastClickedRow="lastClickedRow" :isRowSelected="isRowSelected"
+                            @rowSelectorClick="handleRowSelectorClick" @cellClickCustom="handleCellClickCustom"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
@@ -186,6 +261,8 @@ defineExpose({
                         <DbQueryResultGrid :resultSet="resultSet" :resultSetIndex="Number(rsIndex) + 1"
                             :activeTab="activeTab" :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
                             v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
+                            :lastClickedRow="lastClickedRow" :isRowSelected="isRowSelected"
+                            @rowSelectorClick="handleRowSelectorClick" @cellClickCustom="handleCellClickCustom"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"

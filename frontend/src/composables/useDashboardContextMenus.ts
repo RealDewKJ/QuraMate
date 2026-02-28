@@ -19,7 +19,8 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         targetFolder: '',
         targetView: '',
         targetRoutine: '',
-        targetRoutineType: 'PROCEDURE' as 'PROCEDURE' | 'FUNCTION'
+        targetRoutineType: 'PROCEDURE' as 'PROCEDURE' | 'FUNCTION',
+        targetRowIndex: null as string | number | null
     });
 
     const closeContextMenu = () => {
@@ -78,10 +79,11 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         adjustPosition();
     };
 
-    const handleRowContextMenu = (event: MouseEvent, row: any, col: string) => {
+    const handleRowContextMenu = (event: MouseEvent, row: any, col: string, rowIndex?: string | number) => {
         closeContextMenu();
         contextMenu.targetRow = row;
         contextMenu.targetColumn = col;
+        contextMenu.targetRowIndex = rowIndex ?? null;
         contextMenu.position = { x: event.clientX, y: event.clientY };
         contextMenu.showRow = true;
         adjustPosition();

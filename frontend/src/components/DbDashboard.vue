@@ -423,7 +423,7 @@ const {
 
 // Other local state
 const workspaceRef = ref<InstanceType<typeof DbQueryWorkspacePane> | null>(null);
-const selectedRowIndex = ref<number | string | null>(null);
+const selectedRowIndex = ref<Array<number | string> | number | string | null>(null);
 const selectedColumn = ref<string | null>(null);
 const selectedRowData = ref<any>(null);
 const tableSchemas = ref<Record<string, string[]>>({});
@@ -587,6 +587,17 @@ const handleFolderCollapse = () => {
 };
 
 const handleCopyRow = () => {
+    // If the right-clicked row is part of our multi-selection, we'll just copy the entire selection
+    const isMultiSelected = Array.isArray(selectedRowIndex.value) 
+        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex)) 
+        : false;
+
+    if (isMultiSelected) {
+        copySelectedRow(false);
+        closeContextMenu();
+        return;
+    }
+
     if (contextMenu.targetRow) {
         const values = Object.values(contextMenu.targetRow).map(v => v === null ? 'NULL' : String(v)).join('\t');
         navigator.clipboard.writeText(values);
@@ -604,6 +615,16 @@ const handleCopyCellValue = () => {
 };
 
 const handleCopyRowWithHeader = () => {
+    const isMultiSelected = Array.isArray(selectedRowIndex.value) 
+        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex)) 
+        : false;
+
+    if (isMultiSelected) {
+        copySelectedRow(true);
+        closeContextMenu();
+        return;
+    }
+
     if (contextMenu.targetRow && activeTab.value && activeTab.value.resultSets && activeTab.value.resultSets.length > 0) {
         const rs = activeTab.value.resultSets[0];
         const columns = rs.columns;
@@ -670,45 +691,79 @@ const handleAddWhereToCondition = () => {
 };
 
 const copySelectedCell = () => {
-    if (selectedRowData.value && selectedColumn.value && activeTab.value) {
-        const val = selectedRowData.value[selectedColumn.value];
-        const str = val === null ? 'NULL' : String(val);
-        navigator.clipboard.writeText(str);
-        if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
+    const isSelected = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value.length > 0 : selectedRowIndex.value !== null;
+    if (isSelected && selectedColumn.value && activeTab.value) {
+        const selVal = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value[0] : selectedRowIndex.value;
+        let rowData: any = null;
+        if (typeof selVal === 'number') {
+            rowData = filteredResults.value[selVal];
+        } else if (typeof selVal === 'string' && selVal.startsWith('sub-')) {
+            const parts = selVal.split('-');
+            const rsIdx = parseInt(parts[1]) + 1;
+            const rIdx = parseInt(parts[2]);
+            if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
+                rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
+            }
+        }
+
+        if (rowData) {
+            const val = rowData[selectedColumn.value];
+            const str = val === null ? 'NULL' : String(val);
+            navigator.clipboard.writeText(str);
+            if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
+        }
     }
 };
 
 const copySelectedRow = (withHeader: boolean = false) => {
-    if (selectedRowData.value && activeTab.value) {
-        let rowData = selectedRowData.value;
-        let columns: string[] = [];
-
-        // Try to figure out the resultSet columns from the selectedRowIndex format
-        if (typeof selectedRowIndex.value === 'string' && selectedRowIndex.value.startsWith('sub-')) {
-            const parts = selectedRowIndex.value.split('-');
-            const rsIdx = parseInt(parts[1]) + 1;
-            if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
-                columns = activeTab.value.resultSets[rsIdx].columns;
+    const isSelected = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value.length > 0 : selectedRowIndex.value !== null;
+    if (isSelected && activeTab.value) {
+        const indices = Array.isArray(selectedRowIndex.value) 
+            ? selectedRowIndex.value.slice().sort((a,b) => {
+                if (typeof a === 'number' && typeof b === 'number') return a - b;
+                return String(a).localeCompare(String(b));
+              }) 
+            : [selectedRowIndex.value];
+        
+        let headersStr = '';
+        let rowsStrs: string[] = [];
+        
+        for (const selVal of indices) {
+            let rowData: any = null;
+            let columns: string[] = [];
+            
+            if (typeof selVal === 'number') {
+                rowData = filteredResults.value[selVal];
+                if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
+                    columns = activeTab.value.resultSets[0].columns;
+                }
+            } else if (typeof selVal === 'string' && selVal.startsWith('sub-')) {
+                const parts = selVal.split('-');
+                const rsIdx = parseInt(parts[1]) + 1;
+                const rIdx = parseInt(parts[2]);
+                if (activeTab.value.resultSets && activeTab.value.resultSets[rsIdx]) {
+                    rowData = activeTab.value.resultSets[rsIdx].rows[rIdx];
+                    columns = activeTab.value.resultSets[rsIdx].columns;
+                }
             }
-        } else if (typeof selectedRowIndex.value === 'number') {
-            if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
-                columns = activeTab.value.resultSets[0].columns;
+
+            if (rowData && columns.length > 0) {
+                if (!headersStr) headersStr = columns.join('\t');
+                const valueLine = columns.map(col => {
+                    const val = rowData[col];
+                    return val === null ? 'NULL' : String(val);
+                }).join('\t');
+                rowsStrs.push(valueLine);
             }
         }
-
-        if (rowData && columns.length > 0) {
-            const valueLine = columns.map(col => {
-                const val = rowData[col];
-                return val === null ? 'NULL' : String(val);
-            }).join('\t');
-
+        
+        if (rowsStrs.length > 0) {
             if (withHeader) {
-                const headerLine = columns.join('\t');
-                navigator.clipboard.writeText(`${headerLine}\n${valueLine}`);
-                if (toastRef.value) toastRef.value.success('Row with header copied to clipboard');
+                navigator.clipboard.writeText(`${headersStr}\n${rowsStrs.join('\n')}`);
+                if (toastRef.value) toastRef.value.success(`${rowsStrs.length} row(s) with header copied to clipboard`);
             } else {
-                navigator.clipboard.writeText(valueLine);
-                if (toastRef.value) toastRef.value.success('Row copied to clipboard');
+                navigator.clipboard.writeText(rowsStrs.join('\n'));
+                if (toastRef.value) toastRef.value.success(`${rowsStrs.length} row(s) copied to clipboard`);
             }
         }
     }
@@ -796,6 +851,7 @@ const confirmImport = async () => {
 
 const {
     activeResultSet,
+    filteredResults,
     getColumns
 } = useQueryResultsView(
     computed(() => tabs.value.find(t => t.id === activeTabId.value))

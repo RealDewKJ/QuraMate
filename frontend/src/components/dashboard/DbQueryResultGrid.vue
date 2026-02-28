@@ -9,21 +9,25 @@ interface Props {
     resultSetIndex: number;
     activeTab: QueryTab;
     isReadOnly?: boolean;
-    selectedRowIndex?: number | string | null;
+    selectedRowIndex?: Array<number | string> | number | string | null;
     selectedColumn?: string | null;
+    lastClickedRow?: number | string | null;
+    isRowSelected?: (index: number | string) => boolean;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-    (e: 'update:selectedRowIndex', value: number | string | null): void;
+    (e: 'update:selectedRowIndex', value: Array<number | string> | number | string | null): void;
     (e: 'update:selectedColumn', value: string | null): void;
     (e: 'update:selectedRowData', value: any): void;
+    (e: 'rowSelectorClick', ev: MouseEvent, itemIndex: number | string): void;
+    (e: 'cellClickCustom', itemIndex: number | string, col: string): void;
     (e: 'openMockDataModal'): void;
     (e: 'openInsertRowModal'): void;
     (e: 'startColumnResize', ev: MouseEvent, col: string): void;
     (e: 'handleCellClick', item: any, col: string): void;
-    (e: 'handleRowContextMenu', ev: MouseEvent, row: any, col: string): void;
+    (e: 'handleRowContextMenu', ev: MouseEvent, row: any, col: string, rowIndex?: number | string): void;
     (e: 'saveCellEdit', item: any, col: string): void;
     (e: 'openImagePreview', url: string): void;
     (e: 'toggleSort', col: string): void;
@@ -95,11 +99,15 @@ const getFormattedRowIndex = (rIndex: number) => {
 };
 
 const isRowSelected = (rIndex: number) => {
-    return props.selectedRowIndex === getFormattedRowIndex(rIndex);
+    if (props.isRowSelected) {
+        return props.isRowSelected(getFormattedRowIndex(rIndex));
+    }
+    return false;
 };
 
 const selectRow = (rIndex: number, col: string) => {
     const formatted = getFormattedRowIndex(rIndex);
+    // Backward compatibility for standard single row selecting if parents expect it
     if (props.selectedRowIndex === formatted && props.selectedColumn === col) {
         emit('update:selectedRowIndex', null);
         emit('update:selectedRowData', null);
@@ -151,8 +159,9 @@ const isCellEditing = (index: number, col: string) => {
 <template>
     <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
         <table v-if="resultSet.columns && resultSet.columns.length > 0" class="w-full text-sm text-left relative">
-            <thead class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-10 font-medium">
+            <thead class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-20 font-medium">
                 <tr>
+                    <th scope="col" class="w-8 min-w-8 sticky left-0 z-30 bg-muted border-b border-border"></th>
                     <th v-for="(col, index) in resultSet.columns" :key="index + '-' + col" scope="col"
                         class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
@@ -194,17 +203,26 @@ const isCellEditing = (index: number, col: string) => {
             </thead>
             <tbody class="divide-y divide-border">
                 <tr :style="{ height: `${padTop}px` }"></tr>
-                <tr v-for="item in virtualList" :key="item.index" class="transition-colors h-[37px] cursor-pointer"
-                    :class="isRowSelected(item.index) ? 'bg-primary/10 border-l-2 border-l-primary' : 'bg-card hover:bg-muted/50'"
-                    @click="selectRow(item.index, '')">
+                <tr v-for="item in virtualList" :key="item.index" class="transition-colors h-[37px] cursor-pointer group"
+                    :class="isRowSelected(item.index) ? 'bg-primary/5' : 'bg-card hover:bg-muted/50'"
+                    @click="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), '')">
+                    <td class="w-8 min-w-8 sticky left-0 z-10 border-r border-border cursor-pointer select-none bg-inherit"
+                        :class="isRowSelected(item.index) ? 'border-l-2 border-l-primary' : ''"
+                        @click.stop="emit('update:selectedRowData', item.data); emit('rowSelectorClick', $event, getFormattedRowIndex(item.index))"
+                        @mousedown="e => { if (e.shiftKey) e.preventDefault(); }">
+                        <div class="flex items-center justify-center w-full h-full">
+                            <span v-if="isRowSelected(item.index)" class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                            <span v-else class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 inline-block opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                        </div>
+                    </td>
                     <td v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
                         class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                         :class="{
                             'bg-accent/50': isCellEditing(item.index, col),
-                            'ring-1 ring-inset ring-primary z-10': isRowSelected(item.index) && selectedColumn === col && (!activeTab.editingCell || activeTab.editingCell.resultSetIndex !== resultSetIndex)
-                        }" @click.stop="selectRow(item.index, col)" @dblclick="emit('handleCellClick', item, col)"
-                        @contextmenu.prevent="emit('handleRowContextMenu', $event, item.data, col)">
+                            'ring-1 ring-inset ring-primary z-10': props.lastClickedRow === getFormattedRowIndex(item.index) && selectedColumn === col && (!activeTab.editingCell || activeTab.editingCell.resultSetIndex !== resultSetIndex)
+                        }" @click.stop="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), col)" @dblclick="emit('handleCellClick', item, col)"
+                        @contextmenu.prevent="emit('update:selectedRowData', item.data); emit('handleRowContextMenu', $event, item.data, col, getFormattedRowIndex(item.index))">
 
                         <div v-if="isCellEditing(item.index, col) && activeTab.editingCell"
                             class="absolute inset-0 p-0.5">
