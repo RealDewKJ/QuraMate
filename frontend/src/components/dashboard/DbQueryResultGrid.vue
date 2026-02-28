@@ -26,7 +26,7 @@ const emit = defineEmits<{
     (e: 'openMockDataModal'): void;
     (e: 'openInsertRowModal'): void;
     (e: 'startColumnResize', ev: MouseEvent, col: string): void;
-    (e: 'handleCellClick', item: any, col: string): void;
+    (e: 'handleCellClick', item: any, col: string, rsIndex: number): void;
     (e: 'handleRowContextMenu', ev: MouseEvent, row: any, col: string, rowIndex?: number | string): void;
     (e: 'saveCellEdit', item: any, col: string): void;
     (e: 'openImagePreview', url: string): void;
@@ -206,7 +206,7 @@ const isCellEditing = (index: number, col: string) => {
                 <tr v-for="item in virtualList" :key="item.index" class="transition-colors h-[37px] cursor-pointer group"
                     :class="isRowSelected(item.index) ? 'bg-primary/5' : 'bg-card hover:bg-muted/50'"
                     @click="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), '')">
-                    <td class="w-8 min-w-8 sticky left-0 z-10 border-r border-border cursor-pointer select-none bg-inherit"
+                    <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-muted/80"
                         :class="isRowSelected(item.index) ? 'border-l-2 border-l-primary' : ''"
                         @click.stop="emit('update:selectedRowData', item.data); emit('rowSelectorClick', $event, getFormattedRowIndex(item.index))"
                         @mousedown="e => { if (e.shiftKey) e.preventDefault(); }">
@@ -221,7 +221,7 @@ const isCellEditing = (index: number, col: string) => {
                         :class="{
                             'bg-accent/50': isCellEditing(item.index, col),
                             'ring-1 ring-inset ring-primary z-10': props.lastClickedRow === getFormattedRowIndex(item.index) && selectedColumn === col && (!activeTab.editingCell || activeTab.editingCell.resultSetIndex !== resultSetIndex)
-                        }" @click.stop="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), col)" @dblclick="emit('handleCellClick', item, col)"
+                        }" @click.stop="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), col)" @dblclick="emit('handleCellClick', item, col, resultSetIndex)"
                         @contextmenu.prevent="emit('update:selectedRowData', item.data); emit('handleRowContextMenu', $event, item.data, col, getFormattedRowIndex(item.index))">
 
                         <div v-if="isCellEditing(item.index, col) && activeTab.editingCell"

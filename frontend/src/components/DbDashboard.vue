@@ -1899,7 +1899,7 @@ const getRowId = (row: any, index: number) => {
     return index;
 };
 
-const handleCellClick = (item: any, col: string) => {
+const handleCellClick = (item: any, col: string, rsIndex: number = 0) => {
     if (!isEditable(col)) return;
 
     let value = item.data[col];
@@ -1927,11 +1927,12 @@ const handleCellClick = (item: any, col: string) => {
     activeTab.value!.editingCell = {
         rowId: item.index,
         col: col,
-        value: value
+        value: value,
+        resultSetIndex: rsIndex
     };
 
     nextTick(() => {
-        const input = document.getElementById(`edit-input-${item.index}-${col}`);
+        const input = document.getElementById(`edit-input-${rsIndex}-${item.index}-${col}`);
         if (input) (input as HTMLInputElement).focus();
     });
 };

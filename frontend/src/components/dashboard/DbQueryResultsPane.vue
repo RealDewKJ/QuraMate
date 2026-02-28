@@ -12,8 +12,8 @@ interface Props {
     openAiCopilot: (mode?: any) => void;
     toggleSort: (col: string) => void;
     startColumnResize: (e: MouseEvent, col: string) => void;
-    handleCellClick: (item: any, col: string) => void;
-    handleRowContextMenu: (e: MouseEvent, row: any, col: string) => void;
+    handleCellClick: (item: any, col: string, rsIndex: number) => void;
+    handleRowContextMenu: (e: MouseEvent, row: any, col: string, rowIndex?: number | string) => void;
     getEditorType: (col: string) => string;
     saveCellEdit: (item: any, col: string) => void | Promise<void>;
     isImageValue: (value: any, col: string) => boolean;
