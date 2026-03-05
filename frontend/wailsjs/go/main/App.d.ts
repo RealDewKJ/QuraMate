@@ -74,6 +74,8 @@ export function Greet(arg1:string):Promise<string>;
 
 export function ImportTable(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<string>;
 
+export function InsertRowsBatch(arg1:string,arg2:string,arg3:Array<Record<string, any>>):Promise<main.BatchInsertResult>;
+
 export function KillServerProcess(arg1:string,arg2:string):Promise<void>;
 
 export function LoadAIProviderKey(arg1:string):Promise<string>;

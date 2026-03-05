@@ -1,5 +1,23 @@
 export namespace main {
 	
+	export class BatchInsertResult {
+	    inserted: number;
+	    skipped: number;
+	    errors: string[];
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchInsertResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.inserted = source["inserted"];
+	        this.skipped = source["skipped"];
+	        this.errors = source["errors"];
+	        this.error = source["error"];
+	    }
+	}
 	export class ColumnDefinition {
 	    name: string;
 	    type: string;

@@ -279,6 +279,13 @@ type QueryResult struct {
 	Error      string      `json:"error"`
 }
 
+type BatchInsertResult struct {
+	Inserted int      `json:"inserted"`
+	Skipped  int      `json:"skipped"`
+	Errors   []string `json:"errors"`
+	Error    string   `json:"error"`
+}
+
 func (a *App) ExecuteQuery(connectionID string, query string, queryID string) QueryResult {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]
@@ -383,6 +390,67 @@ func (a *App) ExecuteTransientQuery(connectionID string, query string) QueryResu
 	return QueryResult{ResultSets: resultSets}
 }
 
+func (a *App) InsertRowsBatch(connectionID string, tableName string, rows []map[string]interface{}) BatchInsertResult {
+	a.mu.Lock()
+	db, ok := a.dbs[connectionID]
+	a.mu.Unlock()
+
+	if !ok {
+		return BatchInsertResult{Error: "Connection not found"}
+	}
+
+	if strings.TrimSpace(tableName) == "" {
+		return BatchInsertResult{Error: "Table name is required"}
+	}
+
+	if len(rows) == 0 {
+		return BatchInsertResult{Error: "No rows to insert"}
+	}
+
+	tx, err := db.BeginTransaction()
+	if err != nil {
+		return BatchInsertResult{Error: fmt.Sprintf("Error starting transaction: %s", err.Error())}
+	}
+	defer tx.Rollback()
+
+	inserted := 0
+	skipped := 0
+	rowErrors := make([]string, 0)
+
+	for idx, row := range rows {
+		if len(row) == 0 {
+			skipped++
+			rowErrors = append(rowErrors, fmt.Sprintf("Row %d skipped: no values to insert", idx+1))
+			continue
+		}
+
+		if err := db.InsertRecordTx(tx, tableName, row); err != nil {
+			rowErrors = append(rowErrors, fmt.Sprintf("Row %d failed: %s", idx+1, err.Error()))
+			return BatchInsertResult{
+				Inserted: 0,
+				Skipped:  skipped,
+				Errors:   rowErrors,
+				Error:    fmt.Sprintf("Batch insert failed and rolled back: %s", err.Error()),
+			}
+		}
+		inserted++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return BatchInsertResult{
+			Inserted: 0,
+			Skipped:  skipped,
+			Errors:   rowErrors,
+			Error:    fmt.Sprintf("Error committing transaction: %s", err.Error()),
+		}
+	}
+
+	return BatchInsertResult{
+		Inserted: inserted,
+		Skipped:  skipped,
+		Errors:   rowErrors,
+	}
+}
 func (a *App) CancelQuery(queryID string) string {
 	a.muQueries.Lock()
 	cancel, ok := a.queryCancelFuncs[queryID]

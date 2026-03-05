@@ -146,6 +146,10 @@ export function ImportTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ImportTable'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function InsertRowsBatch(arg1, arg2, arg3) {
+  return window['go']['main']['App']['InsertRowsBatch'](arg1, arg2, arg3);
+}
+
 export function KillServerProcess(arg1, arg2) {
   return window['go']['main']['App']['KillServerProcess'](arg1, arg2);
 }

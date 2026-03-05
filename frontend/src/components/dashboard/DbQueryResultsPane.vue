@@ -21,6 +21,7 @@ interface Props {
     openImagePreview: (url: any) => void;
     openMockDataModal: () => void;
     openInsertRowModal: () => void;
+    pasteRowsFromClipboard: () => void | Promise<void>;
     startResultSetResize: (e: MouseEvent, resultSetIndex: number, resultSet: any) => void;
     getResultSetCardStyle: (resultSet: any, resultSetIndex: number) => Record<string, string> | string | undefined;
 }
@@ -328,6 +329,14 @@ useEventListener(document, 'keydown', (e: KeyboardEvent) => {
             copyCurrentSelection();
         } else if (hasSelection) {
             return; // Let native copy happen
+        }
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (!props.isReadOnly && props.activeTab?.tableName && props.activeTab?.resultViewTab === 'data') {
+            e.preventDefault();
+            e.stopPropagation();
+            void props.pasteRowsFromClipboard();
         }
     }
 });
@@ -688,3 +697,4 @@ defineExpose({
     </div>
 
 </template>
+

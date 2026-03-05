@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "frontend",
   "private": true,
-  "version": "1.1.4",
+  "version": "1.1.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -35,3 +35,4 @@
     "vue-tsc": "^3.2.4"
   }
 }
+

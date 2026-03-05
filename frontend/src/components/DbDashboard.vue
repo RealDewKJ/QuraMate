@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="flex h-full bg-background text-foreground font-sans">
         <DbSidebar :connection-name="connectionName" :db-type="dbType" :activity-task-count="activityTaskCount"
             :table-search="tableSearch" :view-search="viewSearch" :stored-procedure-search="storedProcedureSearch"
@@ -88,8 +88,9 @@
                     :toggleSort="toggleSort" :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
                     :handleRowContextMenu="handleRowContextMenu" :isImageValue="isImageValue"
                     :openImagePreview="openImagePreview"
-                    :openMockDataModal="() => { if (mockDataModal) mockDataModal.isOpen = true }"
-                    :openInsertRowModal="() => { if (insertRowModal) insertRowModal.isOpen = true }"
+                    :openMockDataModal="openMockDataModal"
+                    :openInsertRowModal="openInsertRowModal"
+                    :pasteRowsFromClipboard="pasteRowsFromClipboard"
                     :startResultSetResize="startResultSetResize" :getResultSetCardStyle="getResultSetCardStyle" />
 
                 <!-- ER Diagram View -->
@@ -172,6 +173,14 @@
             :column-defs="insertRowModal?.columnDefs || {}" :get-input-type="getInputType"
             :get-number-step="getNumberStep" @close="cancelInsertRow" @confirm="confirmInsertRow"
             @toggle-null="toggleInsertNull" @update:value="updateInsertRowValue" />
+        <DbPastePreviewModal :is-open="!!(pastePreviewModal && pastePreviewModal.isOpen)"
+            :table-name="pastePreviewModal?.tableName || ''" :columns="pastePreviewModal?.columns || []"
+            :rows="pastePreviewModal?.rows || []" :is-inserting="!!pastePreviewModal?.isInserting"
+            :error="pastePreviewModal?.error || ''" :column-defs="pastePreviewModal?.columnDefs || {}"
+            :get-input-type="getInputType" :get-number-step="getNumberStep" @close="cancelPastePreview"
+            @confirm="confirmPastePreviewInsert" @auto-fix="autoFixPastePreviewRows" @toggle-row="togglePastePreviewRow"
+            @update:value="updatePastePreviewValue" />
+
         <DbMockDataModals :generator-open="mockDataModal.isOpen" :generator-table-name="mockDataModal.tableName"
             :generator-row-count="mockDataModal.rowCount" :confirm-open="mockDataConfirm.isOpen"
             :confirm-table-name="mockDataConfirm.tableName" :confirm-row-count="mockDataConfirm.rowCount"
@@ -216,7 +225,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, GetQueryHistory } from '../../wailsjs/go/main/App';
+import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 
 // Components
@@ -237,6 +246,7 @@ import DbExportDatabaseModal from './dashboard/DbExportDatabaseModal.vue';
 import DbSafeModeModal from './dashboard/DbSafeModeModal.vue';
 import DbImportOptionsModal from './dashboard/DbImportOptionsModal.vue';
 import DbInsertRowModal from './dashboard/DbInsertRowModal.vue';
+import DbPastePreviewModal from './dashboard/DbPastePreviewModal.vue';
 import DbUpdateConfirmationModal from './dashboard/DbUpdateConfirmationModal.vue';
 import DbImagePreviewModal from './dashboard/DbImagePreviewModal.vue';
 import DbAICopilotOverlay from './dashboard/DbAICopilotOverlay.vue';
@@ -356,6 +366,7 @@ const emit = defineEmits(['disconnect']);
 const props = defineProps<{
     connectionId: string;
     connectionName?: string;
+    sessionKey?: string;
     dbType: string;
     isReadOnly?: boolean;
 }>();
@@ -368,12 +379,202 @@ const isReadOnlyRef = computed(() => props.isReadOnly || false);
 const {
     tabs,
     activeTabId,
+    tabCounter,
     activeTab,
     addTab,
     closeTab,
     generateId
 } = useTabs();
 
+const DASHBOARD_TAB_SESSION_VERSION = 1;
+
+interface PersistedDashboardTab {
+    id: string;
+    name: string;
+    tableName?: string;
+    query: string;
+    resultViewTab: 'data' | 'messages' | 'analysis';
+    editorHeight: number;
+    columnWidths: Record<string, number>;
+    isDesignView?: boolean;
+    isERView?: boolean;
+    relationships?: any[];
+    tablesData?: Record<string, { name: string, type: string }[]>;
+    isRoutine?: boolean;
+    routineName?: string;
+    routineType?: 'PROCEDURE' | 'FUNCTION';
+}
+
+interface PersistedDashboardSession {
+    version: number;
+    activeTabId: string | null;
+    tabCounter: number;
+    tabs: PersistedDashboardTab[];
+}
+
+const sanitizeSessionSegment = (value: string | undefined): string => {
+    const sanitized = String(value || 'default').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_');
+    return sanitized || 'default';
+};
+
+const tabSessionStorageKey = computed(() => {
+    if (props.sessionKey) {
+        return `dashboard_session:${sanitizeSessionSegment(props.sessionKey)}`;
+    }
+
+    const dbTypeSegment = sanitizeSessionSegment(props.dbType);
+    const connectionSegment = sanitizeSessionSegment(props.connectionName || props.connectionId);
+    return `dashboard_session:${dbTypeSegment}:${connectionSegment}`;
+});
+
+const isRestoringTabSession = ref(false);
+let tabSessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+const toPersistedDashboardTab = (tab: QueryTab): PersistedDashboardTab => ({
+    id: tab.id,
+    name: tab.name,
+    tableName: tab.tableName,
+    query: tab.query || '',
+    resultViewTab: tab.resultViewTab || 'data',
+    editorHeight: tab.editorHeight || 300,
+    columnWidths: tab.columnWidths || {},
+    isDesignView: !!tab.isDesignView,
+    isERView: !!tab.isERView,
+    relationships: tab.relationships,
+    tablesData: tab.tablesData,
+    isRoutine: !!tab.isRoutine,
+    routineName: tab.routineName,
+    routineType: tab.routineType,
+});
+
+const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
+    const normalizedResultViewTab = saved.resultViewTab === 'messages' || saved.resultViewTab === 'analysis'
+        ? saved.resultViewTab
+        : 'data';
+    const normalizedEditorHeight = typeof saved.editorHeight === 'number' && saved.editorHeight > 120 && saved.editorHeight < 1200
+        ? saved.editorHeight
+        : 300;
+
+    return {
+        id: saved.id || generateId(),
+        name: saved.name || 'Query',
+        tableName: saved.tableName,
+        query: saved.query || '',
+        resultSets: markRaw([]),
+        primaryKeys: [],
+        filters: {},
+        sortColumn: undefined,
+        sortDirection: null,
+        error: '',
+        isLoading: false,
+        isExplaining: false,
+        explanation: undefined,
+        isAiExplaining: false,
+        aiExplanation: undefined,
+        queryExecuted: false,
+        activeQueryIds: [],
+        resultViewTab: normalizedResultViewTab,
+        totalRowCount: undefined,
+        isPartialStats: false,
+        editorHeight: normalizedEditorHeight,
+        columnWidths: saved.columnWidths || {},
+        isDesignView: !!saved.isDesignView,
+        isERView: !!saved.isERView,
+        relationships: saved.relationships || [],
+        tablesData: saved.tablesData,
+        isRoutine: !!saved.isRoutine,
+        routineName: saved.routineName,
+        routineType: saved.routineType,
+    };
+};
+
+const persistTabSession = async () => {
+    const payload: PersistedDashboardSession = {
+        version: DASHBOARD_TAB_SESSION_VERSION,
+        activeTabId: activeTabId.value,
+        tabCounter: tabCounter.value,
+        tabs: tabs.value.map(toPersistedDashboardTab),
+    };
+
+    try {
+        await SaveSetting(tabSessionStorageKey.value, JSON.stringify(payload));
+    } catch (e) {
+        console.error('Failed to persist tab session', e);
+    }
+};
+
+const restoreTabSession = async (): Promise<boolean> => {
+    try {
+        const raw = await LoadSetting(tabSessionStorageKey.value);
+        if (!raw) {
+            return false;
+        }
+
+        const parsed = JSON.parse(raw) as Partial<PersistedDashboardSession>;
+        if (parsed.version !== DASHBOARD_TAB_SESSION_VERSION || !Array.isArray(parsed.tabs) || parsed.tabs.length === 0) {
+            return false;
+        }
+
+        isRestoringTabSession.value = true;
+
+        const restoredTabs = parsed.tabs
+            .filter((tab): tab is PersistedDashboardTab => !!tab && typeof tab.id === 'string')
+            .map((tab) => fromPersistedDashboardTab(tab));
+
+        if (restoredTabs.length === 0) {
+            return false;
+        }
+
+        tabs.value = restoredTabs;
+        const maxQueryNumber = restoredTabs.reduce((maxValue, tab) => {
+            const match = tab.name.match(/^Query\s+(\d+)$/i);
+            if (!match) return maxValue;
+            const current = Number(match[1]);
+            return Number.isNaN(current) ? maxValue : Math.max(maxValue, current);
+        }, 0);
+
+        const parsedCounter = typeof parsed.tabCounter === 'number' ? parsed.tabCounter : 0;
+        tabCounter.value = Math.max(parsedCounter, maxQueryNumber, restoredTabs.length);
+
+        if (parsed.activeTabId && restoredTabs.some(tab => tab.id === parsed.activeTabId)) {
+            activeTabId.value = parsed.activeTabId;
+        } else {
+            activeTabId.value = restoredTabs[restoredTabs.length - 1].id;
+        }
+
+        return true;
+    } catch (e) {
+        console.error('Failed to restore tab session', e);
+        return false;
+    } finally {
+        isRestoringTabSession.value = false;
+    }
+};
+
+const schedulePersistTabSession = () => {
+    if (isRestoringTabSession.value) return;
+    if (tabSessionSaveTimer) {
+        clearTimeout(tabSessionSaveTimer);
+    }
+
+    tabSessionSaveTimer = setTimeout(() => {
+        tabSessionSaveTimer = null;
+        void persistTabSession();
+    }, 450);
+};
+
+watch([tabs, activeTabId, tabCounter], schedulePersistTabSession, { deep: true });
+
+const initializeDashboardState = async () => {
+    if (!props.connectionId) return;
+    loadTables();
+
+    const restored = await restoreTabSession();
+    if (!restored) {
+        tabs.value = [];
+        addTab();
+    }
+};
 const {
     activityTasksList,
     activityTaskCount,
@@ -458,6 +659,13 @@ const {
     initiateQuickUpdate,
     confirmUpdate,
     openInsertRowModal,
+    pasteRowsFromClipboard,
+    pastePreviewModal,
+    updatePastePreviewValue,
+    togglePastePreviewRow,
+    autoFixPastePreviewRows,
+    confirmPastePreviewInsert,
+    cancelPastePreview,
     toggleInsertNull,
     confirmInsertRow,
     getInputType,
@@ -2036,10 +2244,8 @@ onMounted(async () => {
         console.error("Failed to load global settings in dashboard", e);
     }
 
-    if (props.connectionId) {
-        loadTables();
-        addTab();
-    }
+    await initializeDashboardState();
+
     window.addEventListener('keydown', handleKeydown, true);
     window.addEventListener('click', handleGlobalClick);
     window.addEventListener('open-sql-file', handleOpenSqlFile as EventListener);
@@ -2047,6 +2253,12 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    if (tabSessionSaveTimer) {
+        clearTimeout(tabSessionSaveTimer);
+        tabSessionSaveTimer = null;
+    }
+    void persistTabSession();
+
     cleanupAllStreams();
     window.removeEventListener('keydown', handleKeydown, true);
     window.removeEventListener('click', handleGlobalClick);
@@ -2100,9 +2312,7 @@ const getColDef = (col: string) => {
 
 watch(() => props.connectionId, (newId) => {
     if (newId) {
-        loadTables();
-        tabs.value = [];
-        addTab();
+        void initializeDashboardState();
     }
 });
 
@@ -2115,3 +2325,8 @@ watch(activeTabId, () => {
     selectedColumn.value = null;
 });
 </script>
+
+
+
+
+

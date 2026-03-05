@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <img src=".github/logo.png" alt="QuraMate" width="120" />
 </p>
 
@@ -17,10 +17,10 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> ·
-  <a href="#supported-databases">Databases</a> ·
-  <a href="#install">Install</a> ·
-  <a href="#build-from-source">Build</a> ·
+  <a href="#features">Features</a> Â·
+  <a href="#supported-databases">Databases</a> Â·
+  <a href="#install">Install</a> Â·
+  <a href="#build-from-source">Build</a> Â·
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -28,16 +28,17 @@
 
 ## What is QuraMate?
 
-QuraMate is a lightweight, cross-platform desktop database client built with [Wails](https://wails.io/) (Go + Vue). It lets you connect to multiple databases simultaneously, browse schemas, write and execute SQL, design table structures, visualize ER diagrams, and manage your data — all from a single, beautiful interface.
+QuraMate is a lightweight, cross-platform desktop database client built with [Wails](https://wails.io/) (Go + Vue). It lets you connect to multiple databases simultaneously, browse schemas, write and execute SQL, design table structures, visualize ER diagrams, and manage your data â€” all from a single, beautiful interface.
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.1.4)
+## Latest Release (v1.1.5)
 
-- Backend SQL history search with indexed filters (connection/favorites/date/sort)
-- Lower memory overhead for very large query result sets
-- Optional Query Performance Logs written to System Logs
-- Lazy-loaded heavy UI modules (SQL editor and ER diagram) for faster cold start
+- Fixed issue where insert/paste modal did not open in dashboard flow
+- Added Paste from Excel support via Ctrl+V in table results
+- Added paste preview modal before insert with row-by-row validation status
+- Added inline preview editing and selectable skip/include per row
+- Added backend batch insert in a single transaction with rollback-safe behavior
 
 ## Features
 
@@ -45,20 +46,20 @@ QuraMate provides a robust set of tools right out of the box. For a comprehensiv
 
 ### Core Highlights
 
-- **Multi-connection & Safe Mode** — Open multiple simultaneous connections with optional "Read-Only" safeguards to prevent accidental writes
-- **Advanced SQL Editor** — Syntax-highlighted editor with auto-complete, formatter, selected-text execution, and strict execution mode
-- **Streaming Results** — Query results stream in real-time with optimized virtual scrolling, handling millions of rows effortlessly
-- **Visual Table Designer** — Visually modify schemas, columns, types, nullability, defaults, and primary keys directly
-- **ER Diagrams** — Auto-generated entity-relationship diagrams bridging complex foreign key shapes visually
-- **Diagnostic & Performance Tools** — Built-in `EXPLAIN`, real-time Activity Monitor for tracking locking/headblocks, and streaming statistics
-- **Inline Editing** — Click any cell to edit dynamically using context-aware inputs and smart encoding/decoding
-- **Advanced Lifecycle Management** — Complete GUI for Stored Procedures/Functions and safe schema modifications
-- **SSH Tunneling** — Connect to remote databases securely through standard password or private key-based auth
-- **System Integrity** — Fast export (CSV/JSON), built-in i18n support, single-instance locking, and system-aware dark/light themes
+- **Multi-connection & Safe Mode** â€” Open multiple simultaneous connections with optional "Read-Only" safeguards to prevent accidental writes
+- **Advanced SQL Editor** â€” Syntax-highlighted editor with auto-complete, formatter, selected-text execution, and strict execution mode
+- **Streaming Results** â€” Query results stream in real-time with optimized virtual scrolling, handling millions of rows effortlessly
+- **Visual Table Designer** â€” Visually modify schemas, columns, types, nullability, defaults, and primary keys directly
+- **ER Diagrams** â€” Auto-generated entity-relationship diagrams bridging complex foreign key shapes visually
+- **Diagnostic & Performance Tools** â€” Built-in `EXPLAIN`, real-time Activity Monitor for tracking locking/headblocks, and streaming statistics
+- **Inline Editing** â€” Click any cell to edit dynamically using context-aware inputs and smart encoding/decoding
+- **Advanced Lifecycle Management** â€” Complete GUI for Stored Procedures/Functions and safe schema modifications
+- **SSH Tunneling** â€” Connect to remote databases securely through standard password or private key-based auth
+- **System Integrity** â€” Fast export (CSV/JSON), built-in i18n support, single-instance locking, and system-aware dark/light themes
 
 ## Supported Databases
 
-QuraMate supports **11 database engines** out of the box — no plugins, no extensions.
+QuraMate supports **11 database engines** out of the box â€” no plugins, no extensions.
 
 ### Server-based
 
@@ -152,8 +153,8 @@ xattr -dr com.apple.quarantine /Applications/QuraMate.app
 
 ### Prerequisites
 
-- [Go](https://golang.org/dl/) ≥ 1.21
-- [Node.js](https://nodejs.org/) ≥ 18
+- [Go](https://golang.org/dl/) â‰¥ 1.21
+- [Node.js](https://nodejs.org/) â‰¥ 18
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation) v2
 
 ### Steps
@@ -197,27 +198,27 @@ The output binary will be at `build/bin/QuraMate.app` (macOS) or `build/bin/Qura
 
 ```
 QuraMate/
-├── db.go                 # Database connection & query engine
-├── app.go                # Wails application bindings
-├── main.go               # Entry point
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── DbConnection.vue    # Connection form
-│   │   │   └── DbDashboard.vue     # Main workspace
-│   │   └── assets/
-│   └── wailsjs/          # Auto-generated Go bindings
-├── npm/                   # npm wrapper package
-├── homebrew/              # Homebrew Cask definition
-├── build/
-│   ├── appicon.png
-│   └── bin/               # Build output
-└── wails.json             # Wails configuration
+â”œâ”€â”€ db.go                 # Database connection & query engine
+â”œâ”€â”€ app.go                # Wails application bindings
+â”œâ”€â”€ main.go               # Entry point
+â”œâ”€â”€ frontend/
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ components/
+â”‚   â”‚   â”‚   â”œâ”€â”€ DbConnection.vue    # Connection form
+â”‚   â”‚   â”‚   â””â”€â”€ DbDashboard.vue     # Main workspace
+â”‚   â”‚   â””â”€â”€ assets/
+â”‚   â””â”€â”€ wailsjs/          # Auto-generated Go bindings
+â”œâ”€â”€ npm/                   # npm wrapper package
+â”œâ”€â”€ homebrew/              # Homebrew Cask definition
+â”œâ”€â”€ build/
+â”‚   â”œâ”€â”€ appicon.png
+â”‚   â””â”€â”€ bin/               # Build output
+â””â”€â”€ wails.json             # Wails configuration
 ```
 
 ## Contributing
 
-Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — all are appreciated.
+Contributions are welcome! Whether it's bug reports, feature requests, or pull requests â€” all are appreciated.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feat/amazing-feature`)
@@ -238,5 +239,7 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 ---
 
 <p align="center">
-  Built with ❤️ using <a href="https://wails.io">Wails</a> + <a href="https://vuejs.org">Vue</a> + <a href="https://go.dev">Go</a>
+  Built with â¤ï¸ using <a href="https://wails.io">Wails</a> + <a href="https://vuejs.org">Vue</a> + <a href="https://go.dev">Go</a>
 </p>
+
+

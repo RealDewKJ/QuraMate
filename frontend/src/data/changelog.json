@@ -1,172 +1,208 @@
-[
-  {
-    "version": "v1.1.4",
-    "date": "2026-03-05",
-    "changes": [
-      {
-        "type": "feat",
-        "text": "Added backend SQL history search with indexed filtering (connection, favorites, date range, sort, limit)"
-      },
-      {
-        "type": "perf",
-        "text": "Optimized query result memory usage by reducing Vue deep reactivity overhead for large datasets"
-      },
-      {
-        "type": "perf",
-        "text": "Added optional Query Performance Logs toggle and integrated performance events into System Logs"
-      },
-      {
-        "type": "perf",
-        "text": "Implemented lazy loading for heavy modules (SQL editor and ER diagram) to improve cold start"
-      },
-      {
-        "type": "chore",
-        "text": "Updated application version across app/frontend/npm manifests to 1.1.4"
-      },
-      {
-        "type": "docs",
-        "text": "Updated README release highlights and feature documentation references"
-      }
-    ]
-  },
-  {
-    "version": "v1.1.3",
-    "date": "2026-02-28",
-    "changes": [
-      {
-        "type": "feat",
-        "text": "Implemented virtual scrolling for all query result sets to resolve performance lag"
-      },
-      {
-        "type": "fix",
-        "text": "Resolved datatable context menu overflow issues"
-      },
-      {
-        "type": "chore",
-        "text": "Updated application version across all files to 1.1.3"
-      }
-    ]
-  },
-  {
-    "version": "v1.1.2",
-    "date": "2026-02-27",
-    "changes": [
-      {
-        "type": "perf",
-        "text": "Vue optimization pass: improved dashboard rendering and memory management"
-      },
-      {
-        "type": "fix",
-        "text": "Fixed laggy collapse/expand in datatable and broken Export All functionality"
-      },
-      {
-        "type": "fix",
-        "text": "Optimized global reactivity to prevent UI slowdowns during multiple query execution"
-      },
-      {
-        "type": "fix",
-        "text": "Fixed SQL query errors for photo retrieval and data ordering"
-      }
-    ]
-  },
-  {
-    "version": "v1.1.1",
-    "date": "2026-02-26",
-    "changes": [
-      {
-        "type": "feat",
-        "text": "Enhanced Activity Monitor explicitly showing HeadBlock (Blocked By) and a full query viewer dialog."
-      },
-      {
-        "type": "feat",
-        "text": "Added Kill All confirmation in Activity Monitor and excluded MSSQL background queries from tracing."
-      },
-      {
-        "type": "feat",
-        "text": "Improved AI Copilot UI and forced strict SQL-only results for immediate executing."
-      },
-      {
-        "type": "feat",
-        "text": "Added database lifecycle management actions and addressed MSSQL ALTER anomalies."
-      },
-      {
-        "type": "feat",
-        "text": "Implemented Safe Mode within DbDashboard and refined object search filters."
-      },
-      {
-        "type": "fix",
-        "text": "Resolved updater access denied errors by strictly requesting administrative elevation (UAC)."
-      }
-    ]
-  },
-  {
-    "version": "v1.1.0",
-    "date": "2026-02-24",
-    "changes": [
-      {
-        "type": "feat",
-        "text": "Added Single Instance locking and second instance launch handling"
-      },
-      {
-        "type": "feat",
-        "text": "Improved Thai character decoding for database values and control characters"
-      },
-      {
-        "type": "feat",
-        "text": "Added full lifecycle management for Stored Routines/Functions with advanced UI"
-      },
-      {
-        "type": "feat",
-        "text": "Integrated SQL Editor font settings (Family & Size) and Settings Dialog"
-      },
-      {
-        "type": "feat",
-        "text": "Enhanced Query History with favorites and persistence"
-      },
-      {
-        "type": "feat",
-        "text": "Added Thai (i18n) language support(Developing...)"
-      },
-      {
-        "type": "refactor",
-        "text": "Decoupled dashboard logic into optimized composables and components"
-      }
-    ]
-  },
-  {
-    "version": "v1.0.0",
-    "date": "2026-02-22",
-    "changes": [
-      { "type": "feat", "text": "Official 1.0.0 Release" },
-      {
-        "type": "feat",
-        "text": "Multi-connection support with saved configurations"
-      },
-      {
-        "type": "feat",
-        "text": "Connection Mode Selection (Read-Only vs Normal)"
-      },
-      {
-        "type": "feat",
-        "text": "Enhanced SQL Editor with customizable fonts and themes"
-      },
-      {
-        "type": "feat",
-        "text": "Advanced query statistics and streaming feedback"
-      },
-      {
-        "type": "feat",
-        "text": "Type-aware input fields for data insertion (Dates, Numbers, etc.)"
-      },
-      {
-        "type": "feat",
-        "text": "Integrated Toast notification system for better UX"
-      },
-      { "type": "feat", "text": "Expandable changelog view in Settings" },
-      {
-        "type": "feat",
-        "text": "PostgreSQL support with improved data viewing"
-      }
-    ]
-  }
+﻿[
+    {
+        "version":  "v1.1.5",
+        "date":  "2026-03-05",
+        "changes":  [
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed dashboard issue where insert/paste modal failed to open"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added Paste from Excel (Ctrl+V) to parse rows/columns into table-aligned preview data"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added paste preview modal with per-row validation, edit, and include/skip controls before insert"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added auto-fix common issues action in paste preview for number/boolean/datetime normalization"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Implemented transactional batch insert API with inserted/skipped/error result reporting"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm manifests to 1.1.5"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.1.4",
+        "date":  "2026-03-05",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added backend SQL history search with indexed filtering (connection, favorites, date range, sort, limit)"
+                        },
+                        {
+                            "type":  "perf",
+                            "text":  "Optimized query result memory usage by reducing Vue deep reactivity overhead for large datasets"
+                        },
+                        {
+                            "type":  "perf",
+                            "text":  "Added optional Query Performance Logs toggle and integrated performance events into System Logs"
+                        },
+                        {
+                            "type":  "perf",
+                            "text":  "Implemented lazy loading for heavy modules (SQL editor and ER diagram) to improve cold start"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm manifests to 1.1.4"
+                        },
+                        {
+                            "type":  "docs",
+                            "text":  "Updated README release highlights and feature documentation references"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.1.3",
+        "date":  "2026-02-28",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Implemented virtual scrolling for all query result sets to resolve performance lag"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Resolved datatable context menu overflow issues"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across all files to 1.1.3"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.1.2",
+        "date":  "2026-02-27",
+        "changes":  [
+                        {
+                            "type":  "perf",
+                            "text":  "Vue optimization pass: improved dashboard rendering and memory management"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed laggy collapse/expand in datatable and broken Export All functionality"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Optimized global reactivity to prevent UI slowdowns during multiple query execution"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed SQL query errors for photo retrieval and data ordering"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.1.1",
+        "date":  "2026-02-26",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Enhanced Activity Monitor explicitly showing HeadBlock (Blocked By) and a full query viewer dialog."
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added Kill All confirmation in Activity Monitor and excluded MSSQL background queries from tracing."
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Improved AI Copilot UI and forced strict SQL-only results for immediate executing."
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added database lifecycle management actions and addressed MSSQL ALTER anomalies."
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Implemented Safe Mode within DbDashboard and refined object search filters."
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Resolved updater access denied errors by strictly requesting administrative elevation (UAC)."
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.1.0",
+        "date":  "2026-02-24",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added Single Instance locking and second instance launch handling"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Improved Thai character decoding for database values and control characters"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added full lifecycle management for Stored Routines/Functions with advanced UI"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Integrated SQL Editor font settings (Family \u0026 Size) and Settings Dialog"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Enhanced Query History with favorites and persistence"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added Thai (i18n) language support(Developing...)"
+                        },
+                        {
+                            "type":  "refactor",
+                            "text":  "Decoupled dashboard logic into optimized composables and components"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.0.0",
+        "date":  "2026-02-22",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Official 1.0.0 Release"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Multi-connection support with saved configurations"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Connection Mode Selection (Read-Only vs Normal)"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Enhanced SQL Editor with customizable fonts and themes"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Advanced query statistics and streaming feedback"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Type-aware input fields for data insertion (Dates, Numbers, etc.)"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Integrated Toast notification system for better UX"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Expandable changelog view in Settings"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "PostgreSQL support with improved data viewing"
+                        }
+                    ]
+    }
 ]
