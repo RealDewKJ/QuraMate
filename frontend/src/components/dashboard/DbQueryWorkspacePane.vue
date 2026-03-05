@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { defineAsyncComponent, ref } from 'vue';
 
-import SqlEditor from '../SqlEditor.vue';
+const SqlEditor = defineAsyncComponent(() => import('../SqlEditor.vue'));
 
 const props = defineProps<{
     activeTab: any;

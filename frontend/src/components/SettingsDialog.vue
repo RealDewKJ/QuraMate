@@ -81,6 +81,27 @@
                                             DELETE queries without a WHERE clause</span>
                                     </div>
                                 </div>
+
+                                <div class="grid gap-2 pt-4 border-t border-border">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Query Performance Logs
+                                    </label>
+                                    <div class="flex items-center space-x-2">
+                                        <button type="button" role="switch"
+                                            :aria-checked="settings.general.enablePerfLogs"
+                                            @click="settings.general.enablePerfLogs = !settings.general.enablePerfLogs"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.enablePerfLogs ? 'bg-primary' : 'bg-input'">
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.enablePerfLogs ? 'translate-x-5' : 'translate-x-0'">
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Write lightweight query timing and
+                                            row-count logs to the browser console</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -688,7 +709,8 @@ const toggleVersion = (version) => {
 const settings = reactive({
     general: {
         language: 'en',
-        enableSafeMode: true
+        enableSafeMode: true,
+        enablePerfLogs: false
     },
     appearance: {
         theme: 'system',
@@ -1034,6 +1056,9 @@ const loadSettings = async () => {
     // Default safe mode to true if undefined
     if (settings.general.enableSafeMode === undefined) {
         settings.general.enableSafeMode = true;
+    }
+    if (settings.general.enablePerfLogs === undefined) {
+        settings.general.enablePerfLogs = false;
     }
 };
 

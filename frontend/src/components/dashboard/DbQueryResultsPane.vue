@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
+import { useEventListener } from '@vueuse/core';
 
 import DatePicker from '../DatePicker.vue';
 import DbQueryResultsTabs from './DbQueryResultsTabs.vue';
@@ -24,7 +25,7 @@ interface Props {
     getResultSetCardStyle: (resultSet: any, resultSetIndex: number) => Record<string, string> | string | undefined;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const selectedRowIndex = defineModel<Array<number | string> | number | string | null>('selectedRowIndex', { required: true });
 const selectedColumn = defineModel<string | null>('selectedColumn', { required: true });
@@ -44,12 +45,124 @@ const isRowSelected = (index: number | string) => {
     if (Array.isArray(selectedRowIndex.value)) {
         return selectedRowIndex.value.includes(index);
     }
-    return selectedRowIndex.value === index;
+    return selectedRowIndex.value === index && !selectedColumn.value; // Only highlight full row if no specific column selected
+};
+
+// --- Multi-Cell Drag Selection ---
+const dragStartCell = ref<{ row: string | number, col: string } | null>(null);
+const dragCurrentCell = ref<{ row: string | number, col: string } | null>(null);
+const draggedCellSelection = ref<{ row: string | number, col: string }[]>([]);
+
+const getRowIndexNumber = (formattedIndex: string | number): { rsIndex: number, rIndex: number } => {
+    if (typeof formattedIndex === 'number') {
+        return { rsIndex: 0, rIndex: formattedIndex };
+    }
+    const parts = formattedIndex.split('-');
+    return { rsIndex: parseInt(parts[1]) + 1, rIndex: parseInt(parts[2]) };
+};
+
+const calculateDragSelection = () => {
+    if (!dragStartCell.value || !dragCurrentCell.value) return;
+
+    draggedCellSelection.value = [];
+
+    const startObj = getRowIndexNumber(dragStartCell.value.row);
+    const currObj = getRowIndexNumber(dragCurrentCell.value.row);
+
+    // Only allow drag selection within the same result set
+    if (startObj.rsIndex !== currObj.rsIndex) return;
+
+    const rsIndex = startObj.rsIndex;
+    const resultSet = props.activeTab.resultSets[rsIndex];
+    if (!resultSet || !resultSet.columns) return;
+
+    const minRow = Math.min(startObj.rIndex, currObj.rIndex);
+    const maxRow = Math.max(startObj.rIndex, currObj.rIndex);
+
+    const startColIndex = resultSet.columns.indexOf(dragStartCell.value.col);
+    const currColIndex = resultSet.columns.indexOf(dragCurrentCell.value.col);
+
+    if (startColIndex === -1 || currColIndex === -1) return;
+
+    const minCol = Math.min(startColIndex, currColIndex);
+    const maxCol = Math.max(startColIndex, currColIndex);
+
+    const newSelection = [];
+
+    for (let r = minRow; r <= maxRow; r++) {
+        const rowId = rsIndex === 0 ? r : `sub-${rsIndex - 1}-${r}`;
+        for (let c = minCol; c <= maxCol; c++) {
+            newSelection.push({ row: rowId, col: resultSet.columns[c] });
+        }
+    }
+
+    draggedCellSelection.value = newSelection;
+};
+
+const handleCellDragStart = (rowIndex: number | string, col: string) => {
+    draggedCellSelection.value = []; // Clear previous drag
+    dragStartCell.value = { row: rowIndex, col };
+    dragCurrentCell.value = { row: rowIndex, col };
+    calculateDragSelection();
+};
+
+const handleCellDragEnter = (rowIndex: number | string, col: string) => {
+    if (dragStartCell.value) {
+        dragCurrentCell.value = { row: rowIndex, col };
+        calculateDragSelection();
+    }
+};
+
+let dragJustEnded = false;
+
+const handleCellDragEnd = () => {
+    // Commit the drag selection to the main selection model if it's more than one cell
+    if (draggedCellSelection.value.length > 1) {
+        dragJustEnded = true;
+        setTimeout(() => { dragJustEnded = false; }, 300);
+
+        // Collect all unique row indices
+        const uniqueRows = Array.from(new Set(draggedCellSelection.value.map(cell => cell.row)));
+
+        // Update selection state
+        selectedRowIndex.value = uniqueRows;
+
+        // We set selectedColumn to null when range selecting so we don't just highlight one specific cell's border
+        selectedColumn.value = null;
+        lastClickedRow.value = uniqueRows[uniqueRows.length - 1];
+    } else if (draggedCellSelection.value.length === 1) {
+        // Single cell click handled by original logic, but we still clean up
+        const cell = draggedCellSelection.value[0];
+        selectedRowIndex.value = [cell.row];
+        selectedColumn.value = cell.col;
+        lastClickedRow.value = cell.row;
+    }
+
+    dragStartCell.value = null;
+    dragCurrentCell.value = null;
+};
+
+const isCellSelected = (rowIndex: number | string, col: string): boolean => {
+    // If we have a multi-cell selection (either dragging or finalized)
+    if (draggedCellSelection.value.length > 1) {
+        return draggedCellSelection.value.some(cell => cell.row === rowIndex && cell.col === col);
+    }
+
+    // Otherwise rely on the committed multi-row selection + whatever was copied
+    if (Array.isArray(selectedRowIndex.value)) {
+        if (selectedRowIndex.value.includes(rowIndex)) {
+            return !selectedColumn.value || selectedColumn.value === col;
+        }
+    } else if (selectedRowIndex.value === rowIndex) {
+        return selectedColumn.value === col;
+    }
+
+    return false;
 };
 
 const handleRowSelectorClick = (e: MouseEvent, itemIndex: number | string) => {
-    let currentSelection = Array.isArray(selectedRowIndex.value) 
-        ? [...selectedRowIndex.value] 
+    let currentSelection = Array.isArray(selectedRowIndex.value)
+        ? [...selectedRowIndex.value]
         : (selectedRowIndex.value !== null ? [selectedRowIndex.value] : []);
 
     if (e.shiftKey && lastClickedRow.value !== null && typeof itemIndex === typeof lastClickedRow.value) {
@@ -97,7 +210,7 @@ const handleRowSelectorClick = (e: MouseEvent, itemIndex: number | string) => {
             currentSelection = [itemIndex];
         }
     }
-    
+
     selectedRowIndex.value = currentSelection;
     if (!e.shiftKey || lastClickedRow.value === null) {
         lastClickedRow.value = itemIndex;
@@ -106,10 +219,118 @@ const handleRowSelectorClick = (e: MouseEvent, itemIndex: number | string) => {
 };
 
 const handleCellClickCustom = (itemIndex: number | string, col: string) => {
-    selectedRowIndex.value = [];
+    if (dragJustEnded) return;
+
+    // If clicking a single cell, clear the multi-cell drag highlight cache
+    draggedCellSelection.value = [];
+
+    selectedRowIndex.value = [itemIndex];
     lastClickedRow.value = itemIndex;
     selectedColumn.value = col;
 };
+
+// --- Copy Selection (Ctrl+C) ---
+const copyCurrentSelection = () => {
+    if (draggedCellSelection.value.length > 0) {
+        // 1. Multi-cell dragged selection
+        const cells = [...draggedCellSelection.value].sort((a, b) => {
+            const aObj = getRowIndexNumber(a.row);
+            const bObj = getRowIndexNumber(b.row);
+            if (aObj.rsIndex !== bObj.rsIndex) return aObj.rsIndex - bObj.rsIndex;
+            if (aObj.rIndex !== bObj.rIndex) return aObj.rIndex - bObj.rIndex;
+            return 0; // Col order was maintained during selection
+        });
+
+        const rsIndex = getRowIndexNumber(cells[0].row).rsIndex;
+        const resultSet = props.activeTab.resultSets[rsIndex];
+        if (!resultSet || !resultSet.rows) return;
+
+        let currentStrRow = '';
+        let currentRowId = cells[0].row;
+        let rowsStrs: string[] = [];
+
+        for (const cell of cells) {
+            if (cell.row !== currentRowId) {
+                rowsStrs.push(currentStrRow);
+                currentStrRow = '';
+                currentRowId = cell.row;
+            }
+
+            const rObj = getRowIndexNumber(cell.row);
+            const rowData = resultSet.rows[rObj.rIndex];
+            if (rowData) {
+                const val = rowData[cell.col];
+                const valStr = val === null ? 'NULL' : String(val);
+                if (currentStrRow) currentStrRow += '\t';
+                currentStrRow += valStr;
+            }
+        }
+        if (currentStrRow) rowsStrs.push(currentStrRow);
+
+        navigator.clipboard.writeText(rowsStrs.join('\n'));
+    }
+    else if (selectedRowIndex.value !== null) {
+        // 2. Multi-row or single row/cell selection
+        const indices = Array.isArray(selectedRowIndex.value)
+            ? selectedRowIndex.value.slice().sort((a, b) => {
+                const aObj = getRowIndexNumber(a);
+                const bObj = getRowIndexNumber(b);
+                if (aObj.rsIndex !== bObj.rsIndex) return aObj.rsIndex - bObj.rsIndex;
+                if (aObj.rIndex !== bObj.rIndex) return aObj.rIndex - bObj.rIndex;
+                return 0;
+            })
+            : [selectedRowIndex.value];
+
+        let rowsStrs: string[] = [];
+
+        for (const selVal of indices) {
+            const rObj = getRowIndexNumber(selVal);
+            const resultSet = props.activeTab.resultSets[rObj.rsIndex];
+            if (!resultSet || !resultSet.rows) continue;
+
+            const rowData = resultSet.rows[rObj.rIndex];
+            if (!rowData) continue;
+
+            if (selectedColumn.value) {
+                // Single cell copy
+                const val = rowData[selectedColumn.value];
+                rowsStrs.push(val === null ? 'NULL' : String(val));
+            } else {
+                // Full row copy
+                const columns = resultSet.columns || [];
+                const valueLine = columns.map((col: string) => {
+                    const val = rowData[col];
+                    return val === null ? 'NULL' : String(val);
+                }).join('\t');
+                rowsStrs.push(valueLine);
+            }
+        }
+
+        if (rowsStrs.length > 0) {
+            navigator.clipboard.writeText(rowsStrs.join('\n'));
+        }
+    }
+};
+
+useEventListener(document, 'keydown', (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+    if (!rootRef.value || getComputedStyle(rootRef.value).display === 'none') return;
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        // Only skip to native copy if they natively selected something AND we don't have grid cells selected
+        const hasSelection = window.getSelection()?.toString();
+
+        if (draggedCellSelection.value.length > 0 || selectedRowIndex.value !== null) {
+            e.preventDefault();
+            e.stopPropagation();
+            copyCurrentSelection();
+        } else if (hasSelection) {
+            return; // Let native copy happen
+        }
+    }
+});
 
 const containsTarget = (target: EventTarget | null) => {
     const node = target as Node | null;
@@ -135,6 +356,8 @@ const getSecondaryFilteredRows = (resultSet: any, filters: any) => {
 
 defineExpose({
     containsTarget,
+    copyCurrentSelection,
+    isCellSelected
 });
 </script>
 
@@ -145,11 +368,11 @@ defineExpose({
         <DbQueryResultsTabs :active-tab="activeTab" @change-tab="activeTab.resultViewTab = $event" />
 
         <!-- Data Tab Content -->
-        <div v-if="activeTab.resultViewTab === 'data' || (!activeTab.queryExecuted && !activeTab.error)"
-            class="flex-1 overflow-auto p-4">
+        <div v-show="activeTab.resultViewTab === 'data' || (!activeTab.queryExecuted && !activeTab.error)"
+            class="flex-1 overflow-auto p-4 flex flex-col">
             <!-- Error State -->
             <div v-if="activeTab.error"
-                class="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                class="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2 shrink-0 mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-alert-triangle mt-0.5">
@@ -175,12 +398,11 @@ defineExpose({
             </div>
 
             <!-- Results List (Multiple Sets) -->
-            <div v-else-if="activeTab.resultSets && activeTab.resultSets.length > 0"
-                class="flex flex-col gap-4 min-h-0">
+            <div v-if="activeTab.resultSets && activeTab.resultSets.length > 0" class="flex flex-col gap-4 min-h-0">
 
                 <!-- Primary Result Set (Virtual List) -->
                 <div v-if="activeTab.resultSets[0]"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden"
+                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0"
                     :class="collapsedResultSets[0] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[0] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(activeTab.resultSets[0], 0)">
 
@@ -214,7 +436,9 @@ defineExpose({
                             :activeTab="activeTab" :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
                             v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
                             :lastClickedRow="lastClickedRow" :isRowSelected="isRowSelected"
-                            @rowSelectorClick="handleRowSelectorClick" @cellClickCustom="handleCellClickCustom"
+                            :isCellSelected="isCellSelected" @rowSelectorClick="handleRowSelectorClick"
+                            @cellClickCustom="handleCellClickCustom" @cellDragStart="handleCellDragStart"
+                            @cellDragEnter="handleCellDragEnter" @cellDragEnd="handleCellDragEnd"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
@@ -227,7 +451,7 @@ defineExpose({
 
                 <!-- Subsequent Result Sets (Standard Tables) -->
                 <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="Number(rsIndex) + 1"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden"
+                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0"
                     :class="collapsedResultSets[Number(rsIndex) + 1] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[Number(rsIndex) + 1] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(resultSet, Number(rsIndex) + 1)">
 
@@ -262,7 +486,9 @@ defineExpose({
                             :activeTab="activeTab" :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
                             v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
                             :lastClickedRow="lastClickedRow" :isRowSelected="isRowSelected"
-                            @rowSelectorClick="handleRowSelectorClick" @cellClickCustom="handleCellClickCustom"
+                            :isCellSelected="isCellSelected" @rowSelectorClick="handleRowSelectorClick"
+                            @cellClickCustom="handleCellClickCustom" @cellDragStart="handleCellDragStart"
+                            @cellDragEnter="handleCellDragEnter" @cellDragEnd="handleCellDragEnd"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
@@ -275,7 +501,7 @@ defineExpose({
             </div>
 
             <!-- Empty State -->
-            <div v-else-if="!activeTab.error && activeTab.queryExecuted"
+            <div v-else-if="!activeTab.error && activeTab.queryExecuted && (!activeTab.resultSets || activeTab.resultSets.length === 0)"
                 class="flex flex-col items-center justify-center h-full text-muted-foreground animate-in fade-in zoom-in-95 duration-300">
                 <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -292,7 +518,8 @@ defineExpose({
             </div>
 
             <!-- Initial State -->
-            <div v-else class="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <div v-else-if="!activeTab.error && !activeTab.queryExecuted && (!activeTab.resultSets || activeTab.resultSets.length === 0)"
+                class="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <div class="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"

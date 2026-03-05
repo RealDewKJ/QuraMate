@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { markRaw, ref, computed } from 'vue';
 import { QueryTab } from '../types/dashboard';
 
 export function useTabs() {
@@ -19,7 +19,7 @@ export function useTabs() {
             id: newId,
             name: `Query ${tabCounter.value}`,
             query: '',
-            resultSets: [],
+            resultSets: markRaw([]),
             primaryKeys: [],
             filters: {},
             sortColumn: undefined,

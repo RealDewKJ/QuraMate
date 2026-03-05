@@ -346,6 +346,24 @@ func (a *App) ClearAppLogs() string {
 	return "Success"
 }
 
+func (a *App) LogClientEvent(level string, message string) string {
+	cleanLevel := strings.ToUpper(strings.TrimSpace(level))
+	if cleanLevel == "" {
+		cleanLevel = "INFO"
+	}
+
+	cleanMessage := strings.TrimSpace(message)
+	if cleanMessage == "" {
+		return "Message is required"
+	}
+	if len(cleanMessage) > 2000 {
+		cleanMessage = cleanMessage[:2000]
+	}
+
+	a.logEvent(cleanLevel, cleanMessage)
+	return "Success"
+}
+
 func (a *App) ExecuteTransientQuery(connectionID string, query string) QueryResult {
 	a.mu.Lock()
 	db, ok := a.dbs[connectionID]
@@ -487,8 +505,10 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 				buffer := make([][]interface{}, 0, SafeBufferLimit)
 				isStreaming := false
 				batchSize := 500
+				rowCount := 0
 
 				for rows.Next() {
+					rowCount++
 					if err := ctx.Err(); err != nil {
 						return
 					}
@@ -566,7 +586,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 				if !isStreaming {
 					// Final stats for this result set
 					runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
-						"rows":      len(buffer),
+						"rows":      rowCount,
 						"time":      executionDuration,
 						"fetchTime": time.Since(startTime).Milliseconds() - executionDuration,
 						"partial":   false,
@@ -609,7 +629,7 @@ func (a *App) ExecuteQueryStream(connectionID string, query string, queryID stri
 						})
 					}
 					runtime.EventsEmit(a.ctx, "query:stats:"+queryID, map[string]interface{}{
-						"rows":      -1,
+						"rows":      rowCount,
 						"time":      executionDuration,
 						"fetchTime": fetchDuration,
 						"partial":   false,
@@ -1514,6 +1534,18 @@ func (a *App) GetQueryHistory(dbType string) []QueryHistoryEntry {
 	entries, err := a.localDB.GetQueries(dbType)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Failed to get query history: %v", err))
+		return []QueryHistoryEntry{}
+	}
+	return entries
+}
+
+func (a *App) SearchQueryHistory(queryText string, dbType string, favoritesOnly bool, dateRange string, sortMode string, limit int) []QueryHistoryEntry {
+	if a.localDB == nil {
+		return []QueryHistoryEntry{}
+	}
+	entries, err := a.localDB.SearchQueries(queryText, dbType, favoritesOnly, dateRange, sortMode, limit)
+	if err != nil {
+		a.logEvent("ERROR", fmt.Sprintf("Failed to search query history: %v", err))
 		return []QueryHistoryEntry{}
 	}
 	return entries

@@ -1,5 +1,35 @@
 [
   {
+    "version": "v1.1.4",
+    "date": "2026-03-05",
+    "changes": [
+      {
+        "type": "feat",
+        "text": "Added backend SQL history search with indexed filtering (connection, favorites, date range, sort, limit)"
+      },
+      {
+        "type": "perf",
+        "text": "Optimized query result memory usage by reducing Vue deep reactivity overhead for large datasets"
+      },
+      {
+        "type": "perf",
+        "text": "Added optional Query Performance Logs toggle and integrated performance events into System Logs"
+      },
+      {
+        "type": "perf",
+        "text": "Implemented lazy loading for heavy modules (SQL editor and ER diagram) to improve cold start"
+      },
+      {
+        "type": "chore",
+        "text": "Updated application version across app/frontend/npm manifests to 1.1.4"
+      },
+      {
+        "type": "docs",
+        "text": "Updated README release highlights and feature documentation references"
+      }
+    ]
+  },
+  {
     "version": "v1.1.3",
     "date": "2026-02-28",
     "changes": [

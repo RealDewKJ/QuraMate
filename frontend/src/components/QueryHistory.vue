@@ -45,21 +45,69 @@
                 <!-- History List -->
                 <div class="flex-1 flex flex-col bg-background relative">
                     <!-- Main Toolbar -->
-                    <div class="p-2 border-b border-border flex justify-between items-center bg-muted/5 z-10">
-                        <div class="text-sm text-muted-foreground pl-2">{{ filteredHistory.length }} queries</div>
-                        <button @click="clearHistory"
-                            class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-md transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-trash-2">
-                                <path d="M3 6h18" />
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                <line x1="10" x2="10" y1="11" y2="17" />
-                                <line x1="14" x2="14" y1="11" y2="17" />
-                            </svg>
-                            Clear Non-Favorites
-                        </button>
+                    <div class="p-3 border-b border-border bg-muted/5 z-10 space-y-2">
+                        <div class="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+                            <div class="relative flex-1 max-w-xl">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="lucide lucide-search absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.3-4.3" />
+                                </svg>
+                                <input v-model="searchText" type="text"
+                                    placeholder="Search SQL text, table names, clauses..."
+                                    class="w-full h-9 pl-8 pr-10 rounded-md border border-input bg-background text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring" />
+                                <button v-if="searchText" @click="searchText = ''"
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
+                                    title="Clear search">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x">
+                                        <path d="M18 6 6 18" />
+                                        <path d="m6 6 12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <button @click="clearHistory"
+                                class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-destructive hover:bg-destructive/10 rounded-md transition-colors whitespace-nowrap">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-trash-2">
+                                    <path d="M3 6h18" />
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                    <line x1="10" x2="10" y1="11" y2="17" />
+                                    <line x1="14" x2="14" y1="11" y2="17" />
+                                </svg>
+                                Clear Non-Favorites
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button @click="showFavoritesOnly = !showFavoritesOnly"
+                                class="px-2.5 py-1.5 rounded-md text-xs border transition-colors"
+                                :class="showFavoritesOnly ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-600' : 'border-border bg-background text-muted-foreground hover:text-foreground'">
+                                Favorites Only
+                            </button>
+                            <select v-model="dateRange"
+                                class="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                            <select v-model="sortMode"
+                                class="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                                <option value="recent">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
+                            <button v-if="hasActiveFilters" @click="resetFilters"
+                                class="px-2.5 py-1.5 rounded-md text-xs border border-border bg-background text-muted-foreground hover:text-foreground">
+                                Reset Filters
+                            </button>
+                            <div class="text-xs text-muted-foreground ml-auto">{{ history.length }} / {{ allHistory.length }}
+                                queries</div>
+                        </div>
                     </div>
 
                     <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -84,8 +132,7 @@
                                 <path d="m21 21-4.3-4.3" />
                             </svg>
                             <h3 class="text-base font-medium text-foreground mb-1">No history found</h3>
-                            <p class="text-sm">You haven't executed any queries yet, or there are none for the selected
-                                connection.</p>
+                            <p class="text-sm">{{ emptyStateMessage }}</p>
                         </div>
 
                         <div v-for="entry in filteredHistory" :key="entry.id"
@@ -191,55 +238,87 @@
     </div>
 </template>
 
-<script setup>
-import { ref, onMounted, watch, computed } from 'vue';
-import { GetQueryHistory, ToggleFavoriteQuery, DeleteQueryHistory, ClearQueryHistory } from '../../wailsjs/go/main/App';
+<script lang="ts" setup>
+import { computed, ref, shallowRef, watch } from 'vue';
+import { ClearQueryHistory, DeleteQueryHistory, GetQueryHistory, SearchQueryHistory, ToggleFavoriteQuery } from '../../wailsjs/go/main/App';
 
-const props = defineProps({
-    isOpen: {
-        type: Boolean,
-        default: false
-    },
-    connectionName: {
-        type: String,
-        default: ''
-    }
+type QueryHistoryEntry = {
+    id: number;
+    query: string;
+    db_type: string;
+    timestamp: string;
+    is_favorite: boolean;
+};
+
+type DateRange = 'all' | 'today' | '7d' | '30d';
+type SortMode = 'recent' | 'oldest';
+
+const props = withDefaults(defineProps<{
+    isOpen: boolean;
+    connectionName?: string;
+}>(), {
+    isOpen: false,
+    connectionName: ''
 });
 
-const emit = defineEmits(['close', 'run-query']);
+const emit = defineEmits<{
+    (e: 'close'): void;
+    (e: 'run-query', query: string): void;
+}>();
 
-const history = ref([]);
-const isLoading = ref(false);
-const activeDbType = ref('all');
-const showClearConfirm = ref(false);
+const history = ref<QueryHistoryEntry[]>([]);
+const allHistory = ref<QueryHistoryEntry[]>([]);
+const isLoading = shallowRef(false);
+const activeDbType = shallowRef('all');
+const showClearConfirm = shallowRef(false);
+const searchText = shallowRef('');
+const showFavoritesOnly = shallowRef(false);
+const dateRange = shallowRef<DateRange>('all');
+const sortMode = shallowRef<SortMode>('recent');
 
 const dbTypes = computed(() => {
-    const types = new Set(history.value.map(h => h.db_type));
+    const types = new Set(allHistory.value.map((entry) => entry.db_type));
     return Array.from(types).sort();
 });
 
-const filteredHistory = computed(() => {
-    let list = history.value;
-    if (activeDbType.value !== 'all') {
-        list = list.filter(h => h.db_type === activeDbType.value);
+const hasActiveFilters = computed(() =>
+    searchText.value.trim().length > 0 ||
+    showFavoritesOnly.value ||
+    dateRange.value !== 'all' ||
+    activeDbType.value !== 'all'
+);
+
+const filteredHistory = computed(() => history.value);
+
+const emptyStateMessage = computed(() => {
+    if (allHistory.value.length === 0) {
+        return "You haven't executed any queries yet.";
     }
-    // Sort favorites to top, then by id descending
-    return list.sort((a, b) => {
-        if (a.is_favorite && !b.is_favorite) return -1;
-        if (!a.is_favorite && b.is_favorite) return 1;
-        return b.id - a.id;
-    });
+    return 'No query history matches your current search filters.';
 });
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+const fetchAllHistory = async () => {
+    const res = await GetQueryHistory('');
+    allHistory.value = res || [];
+};
 
 const fetchHistory = async () => {
     isLoading.value = true;
     try {
-        const res = await GetQueryHistory('');
+        const res = await SearchQueryHistory(
+            searchText.value.trim(),
+            activeDbType.value,
+            showFavoritesOnly.value,
+            dateRange.value,
+            sortMode.value,
+            2000
+        );
         history.value = res || [];
 
-        // Auto-select current connection if it exists in history
         if (props.connectionName && activeDbType.value === 'all') {
-            const hasCurrentConn = history.value.some(h => h.db_type === props.connectionName);
+            const hasCurrentConn = allHistory.value.some((entry) => entry.db_type === props.connectionName);
             if (hasCurrentConn) {
                 activeDbType.value = props.connectionName;
             }
@@ -251,32 +330,35 @@ const fetchHistory = async () => {
     }
 };
 
-const toggleFavorite = async (entry) => {
+const toggleFavorite = async (entry: QueryHistoryEntry) => {
     try {
         const newVal = !entry.is_favorite;
         await ToggleFavoriteQuery(entry.id, newVal);
-        entry.is_favorite = newVal;
+        await fetchAllHistory();
+        await fetchHistory();
     } catch (err) {
         console.error("Failed to toggle favorite", err);
     }
 };
 
-const deleteEntry = async (id) => {
+const deleteEntry = async (id: number) => {
     try {
         await DeleteQueryHistory(id);
-        history.value = history.value.filter(h => h.id !== id);
+        await fetchAllHistory();
+        await fetchHistory();
     } catch (err) {
         console.error("Failed to delete entry", err);
     }
 };
 
-const clearHistory = async () => {
+const clearHistory = () => {
     showClearConfirm.value = true;
 };
 
 const executeClearHistory = async () => {
     try {
         await ClearQueryHistory();
+        await fetchAllHistory();
         await fetchHistory();
         showClearConfirm.value = false;
     } catch (err) {
@@ -284,30 +366,68 @@ const executeClearHistory = async () => {
     }
 };
 
-const copyQuery = async (text) => {
+const copyQuery = async (text: string) => {
     try {
         await navigator.clipboard.writeText(text);
-        // You could emit a toast here
     } catch (err) {
         console.error("Failed to copy", err);
     }
 };
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string): string => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
     return date.toLocaleString();
 };
 
-watch(() => props.isOpen, (newVal) => {
-    if (newVal) {
-        fetchHistory();
+const resetFilters = () => {
+    searchText.value = '';
+    showFavoritesOnly.value = false;
+    dateRange.value = 'all';
+    if (props.connectionName && dbTypes.value.includes(props.connectionName)) {
+        activeDbType.value = props.connectionName;
+        return;
+    }
+    activeDbType.value = 'all';
+};
+
+watch(() => props.connectionName, (newConnectionName) => {
+    if (!newConnectionName || !props.isOpen) {
+        return;
+    }
+    if (dbTypes.value.includes(newConnectionName)) {
+        activeDbType.value = newConnectionName;
     }
 });
 
-onMounted(() => {
-    if (props.isOpen) {
-        fetchHistory();
+watch(() => props.isOpen, (isOpen) => {
+    if (!isOpen) {
+        return;
+    }
+    fetchAllHistory()
+        .then(() => fetchHistory())
+        .catch((err) => console.error("Failed to load history", err));
+}, { immediate: true });
+
+watch([searchText, showFavoritesOnly, dateRange, sortMode, activeDbType], () => {
+    if (!props.isOpen) {
+        return;
+    }
+
+    if (searchDebounce) {
+        clearTimeout(searchDebounce);
+    }
+    searchDebounce = setTimeout(() => {
+        fetchHistory().catch((err) => console.error("Failed to search history", err));
+    }, 180);
+});
+
+watch(activeDbType, (dbType) => {
+    if (dbType !== 'all') {
+        return;
+    }
+    if (props.connectionName && dbTypes.value.includes(props.connectionName)) {
+        activeDbType.value = props.connectionName;
     }
 });
 </script>

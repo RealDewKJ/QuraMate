@@ -81,13 +81,11 @@
                     :get-columns="fetchTableColumns" :editor-settings="editorSettings" :is-read-only="isReadOnly"
                     @beautify-query="beautifyQuery" @explain-with-ai="explainWithAI" @save-routine="handleSaveRoutine"
                     @run-query="runQuery" @stop-query="stopQuery" @start-resizing="startResizing" />
-                <DbQueryResultsPane
-                    v-if="tabs.find(t => t.id === activeTabId)?.resultSets && tabs.find(t => t.id === activeTabId)!.resultSets.length > 0"
-                    :activeTab="tabs.find(t => t.id === activeTabId)" :isReadOnly="isReadOnly"
-                    v-model:selectedRowIndex="selectedRowIndex" v-model:selectedColumn="selectedColumn"
-                    v-model:selectedRowData="selectedRowData" :openAiCopilot="openAiCopilot"
-                    :getEditorType="getEditorType" :saveCellEdit="saveCellEdit" :toggleSort="toggleSort"
-                    :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
+                <DbQueryResultsPane ref="resultsPaneRef" v-if="activeTab" :activeTab="activeTab"
+                    :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
+                    v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
+                    :openAiCopilot="openAiCopilot" :getEditorType="getEditorType" :saveCellEdit="saveCellEdit"
+                    :toggleSort="toggleSort" :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
                     :handleRowContextMenu="handleRowContextMenu" :isImageValue="isImageValue"
                     :openImagePreview="openImagePreview"
                     :openMockDataModal="() => { if (mockDataModal) mockDataModal.isOpen = true }"
@@ -217,12 +215,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
+import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
 import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, GetQueryHistory } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 
 // Components
-import ERDiagram from './ERDiagram.vue';
 import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
@@ -265,6 +262,8 @@ import { useTableActions } from '../composables/useTableActions';
 import { QueryTab } from '../types/dashboard';
 import { ResultSet } from '../types/database';
 
+const ERDiagram = defineAsyncComponent(() => import('./ERDiagram.vue'));
+
 const resultsPaneRef = ref<InstanceType<typeof DbQueryResultsPane> | null>(null);
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
 const isSettingsOpen = ref(false);
@@ -275,6 +274,9 @@ const imagePreviewUrl = ref<string | null>(null);
 const globalSettings = ref<any>({});
 const safeModeEnabled = computed(() => {
     return globalSettings.value?.general?.enableSafeMode !== false;
+});
+const perfLoggingEnabled = computed(() => {
+    return globalSettings.value?.general?.enablePerfLogs === true;
 });
 
 const openImagePreview = (url: any) => {
@@ -339,6 +341,8 @@ const editorSettings = ref({
 });
 
 const handleSettingsSave = (newSettings: any) => {
+    globalSettings.value = newSettings || {};
+
     // Update local editor settings
     if (newSettings && newSettings.editor) {
         editorSettings.value.fontFamily = newSettings.editor.fontFamily;
@@ -441,6 +445,7 @@ const {
     dbType: dbTypeRef,
     activeTab,
     safeModeEnabled,
+    perfLoggingEnabled,
     generateId,
     getSelectedQuery: () => workspaceRef.value?.getSelection() || '',
 });
@@ -588,8 +593,8 @@ const handleFolderCollapse = () => {
 
 const handleCopyRow = () => {
     // If the right-clicked row is part of our multi-selection, we'll just copy the entire selection
-    const isMultiSelected = Array.isArray(selectedRowIndex.value) 
-        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex)) 
+    const isMultiSelected = Array.isArray(selectedRowIndex.value)
+        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex))
         : false;
 
     if (isMultiSelected) {
@@ -606,17 +611,28 @@ const handleCopyRow = () => {
 };
 
 const handleCopyCellValue = () => {
+    // If we right-clicked a cell that is currently part of a selection (especially multi-cell), copy the whole selection
+    if (contextMenu.targetRowIndex !== null && contextMenu.targetColumn) {
+        if (resultsPaneRef.value?.isCellSelected(contextMenu.targetRowIndex as string | number, contextMenu.targetColumn)) {
+            resultsPaneRef.value?.copyCurrentSelection();
+            closeContextMenu();
+            if (toastRef.value) toastRef.value.success('Selection copied to clipboard');
+            return;
+        }
+    }
+
     if (contextMenu.targetRow && contextMenu.targetColumn) {
         const val = contextMenu.targetRow[contextMenu.targetColumn];
         const str = val === null ? 'NULL' : String(val);
         navigator.clipboard.writeText(str);
+        if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
         closeContextMenu();
     }
 };
 
 const handleCopyRowWithHeader = () => {
-    const isMultiSelected = Array.isArray(selectedRowIndex.value) 
-        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex)) 
+    const isMultiSelected = Array.isArray(selectedRowIndex.value)
+        ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex))
         : false;
 
     if (isMultiSelected) {
@@ -718,20 +734,20 @@ const copySelectedCell = () => {
 const copySelectedRow = (withHeader: boolean = false) => {
     const isSelected = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value.length > 0 : selectedRowIndex.value !== null;
     if (isSelected && activeTab.value) {
-        const indices = Array.isArray(selectedRowIndex.value) 
-            ? selectedRowIndex.value.slice().sort((a,b) => {
+        const indices = Array.isArray(selectedRowIndex.value)
+            ? selectedRowIndex.value.slice().sort((a, b) => {
                 if (typeof a === 'number' && typeof b === 'number') return a - b;
                 return String(a).localeCompare(String(b));
-              }) 
+            })
             : [selectedRowIndex.value];
-        
+
         let headersStr = '';
         let rowsStrs: string[] = [];
-        
+
         for (const selVal of indices) {
             let rowData: any = null;
             let columns: string[] = [];
-            
+
             if (typeof selVal === 'number') {
                 rowData = filteredResults.value[selVal];
                 if (activeTab.value.resultSets && activeTab.value.resultSets[0]) {
@@ -756,7 +772,7 @@ const copySelectedRow = (withHeader: boolean = false) => {
                 rowsStrs.push(valueLine);
             }
         }
-        
+
         if (rowsStrs.length > 0) {
             if (withHeader) {
                 navigator.clipboard.writeText(`${headersStr}\n${rowsStrs.join('\n')}`);
@@ -1434,7 +1450,7 @@ const openSqlTemplateTab = (tabName: string, sql: string) => {
         activeTab.value.query = sql;
         activeTab.value.error = '';
         activeTab.value.queryExecuted = false;
-        activeTab.value.resultSets = [];
+        activeTab.value.resultSets = markRaw([]);
         activeTab.value.resultViewTab = 'data';
     }
 };
@@ -2006,23 +2022,8 @@ const handleKeydown = (e: KeyboardEvent) => {
         beautifyQuery();
     }
 
-    // Datatable Copy Keybindings
-    if (!isInput && (e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-        if (selectedRowIndex.value !== null) {
-            e.preventDefault();
-            if (e.shiftKey) {
-                copySelectedRow(true);
-            } else {
-                // If a column is selected, copy cell. Otherwise copy row? 
-                // Standard behavior: Ctrl+C copies selected cell if active.
-                if (selectedColumn.value) {
-                    copySelectedCell();
-                } else {
-                    handleCopyRow();
-                }
-            }
-        }
-    }
+    // Datatable Copy Keybindings are now handled natively inside DbQueryResultsPane.vue 
+    // to support complex multi-cell drag selections seamlessly.
 };
 
 onMounted(async () => {

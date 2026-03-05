@@ -1,7 +1,7 @@
 import { markRaw, reactive } from 'vue';
 import type { Ref } from 'vue';
 
-import { ExecuteQuery, ExecuteQueryStream, CancelQuery, SaveQueryHistory } from '../../wailsjs/go/main/App';
+import { CancelQuery, ExecuteQuery, ExecuteQueryStream, LogClientEvent, SaveQueryHistory } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 import type { QueryTab } from '../types/dashboard';
@@ -13,12 +13,29 @@ export interface UseQueryExecutionOptions {
     dbType: Ref<string>;
     activeTab: Ref<QueryTab | undefined>;
     safeModeEnabled: Ref<boolean>;
+    perfLoggingEnabled: Ref<boolean>;
     generateId: () => string;
     getSelectedQuery: () => string;
 }
 
 export function useQueryExecution(options: UseQueryExecutionOptions) {
     const activeStreamCleanups = new Set<() => void>();
+    const logPerf = (event: 'success' | 'error' | 'cancelled', payload: Record<string, unknown>) => {
+        if (!options.perfLoggingEnabled.value) {
+            return;
+        }
+
+        const serializedPayload = JSON.stringify(payload);
+        const compactPayload = serializedPayload.length > 1500
+            ? `${serializedPayload.slice(0, 1500)}...`
+            : serializedPayload;
+        const message = `[QueryPerf] ${event} ${compactPayload}`;
+
+        void LogClientEvent('INFO', message).catch((err) => {
+            console.warn('Failed to write query perf event to app logs', err);
+        });
+        console.info(message);
+    };
 
     const safeModeConfirmation = reactive({
         isOpen: false,
@@ -127,19 +144,20 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
     };
 
     const mapRowsToObjects = (columns: string[], rows: any[]) => {
-        return (rows || []).map((row: any) => {
+        const mapped = (rows || []).map((row: any) => {
             if (Array.isArray(row)) {
-                return Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]));
+                return markRaw(Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]])));
             }
-            return row;
+            return markRaw(row);
         });
+        return markRaw(mapped);
     };
 
     const runQuery = async (forceBypassSafeMode: boolean = false) => {
         if (!options.activeTab.value) return;
 
         options.activeTab.value.error = '';
-        options.activeTab.value.resultSets = [];
+        options.activeTab.value.resultSets = markRaw([]);
         options.activeTab.value.filters = {};
         options.activeTab.value.queryExecuted = false;
         options.activeTab.value.isLoading = true;
@@ -253,18 +271,16 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
                         const columnTypes = batch.columnTypes || [];
                         const batchRows = batch.rows || [];
 
-                        const mappedRows = batchRows.map((row: any[]) =>
-                            Object.fromEntries(columns.map((col: string, i: number) => [col, row[i]]))
-                        );
+                        const mappedRows = mapRowsToObjects(columns, batchRows);
 
                         while (tab.resultSets.length <= rsIdx) {
-                            tab.resultSets.push({ columns: [], columnTypes: [], rows: [] });
+                            tab.resultSets.push(markRaw({ columns: markRaw([]), columnTypes: markRaw([]), rows: markRaw([]) }));
                         }
 
                         const rs = tab.resultSets[rsIdx];
                         if (columns.length > 0 && rs.columns.length === 0) {
-                            rs.columns = columns;
-                            rs.columnTypes = columnTypes;
+                            rs.columns = markRaw(columns.slice());
+                            rs.columnTypes = markRaw(columnTypes.slice());
 
                             columns.forEach((col: string, i: number) => {
                                 if (!tab.columnWidths[col]) {
@@ -273,7 +289,7 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
                                 }
                             });
                         }
-                        rs.rows = markRaw(rs.rows.concat(mappedRows));
+                        rs.rows = markRaw((rs.rows || []).concat(mappedRows));
 
                         if (!tab.queryExecuted || (!isFirstStatementDataReceived && mappedRows.length > 0)) {
                             tab.queryExecuted = true;
@@ -332,13 +348,44 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
             }
 
         } catch (e: any) {
-            tab.error = e.toString();
+            tab.error = e.toString().replace(/^Error:\s*/, '');
             tab.isLoading = false;
             tab.executionTime = Math.round(performance.now() - startTime);
             tab.completionTime = new Date().toLocaleString();
             tab.queryExecuted = true;
-            tab.resultViewTab = 'messages';
+            tab.resultViewTab = 'data';
+            const elapsedMs = Math.round(performance.now() - startTime);
+            const resultSetCount = tab.resultSets?.length || 0;
+            const totalRowsFromSets = (tab.resultSets || []).reduce((sum: number, rs: any) => sum + (rs.rows?.length || 0), 0);
+            logPerf('error', {
+                connection: options.connectionName.value || options.dbType.value || '',
+                statements: statements.length,
+                resultSets: resultSetCount,
+                rows: totalRowsFromSets,
+                elapsedMs,
+                executionMs: tab.executionTime,
+                fetchMs: tab.fetchTime,
+                error: tab.error,
+            });
         } finally {
+            const elapsedMs = Math.round(performance.now() - startTime);
+            const resultSetCount = tab.resultSets?.length || 0;
+            const totalRowsFromSets = (tab.resultSets || []).reduce((sum: number, rs: any) => sum + (rs.rows?.length || 0), 0);
+            const hasError = !!tab.error;
+            if (!hasError) {
+                const event: 'success' | 'cancelled' = tab.queryExecuted ? 'success' : 'cancelled';
+                logPerf(event, {
+                    connection: options.connectionName.value || options.dbType.value || '',
+                    statements: statements.length,
+                    resultSets: resultSetCount,
+                    rows: totalRowsFromSets,
+                    elapsedMs,
+                    executionMs: tab.executionTime,
+                    fetchMs: tab.fetchTime,
+                    totalRowCount: tab.totalRowCount,
+                    partialStats: tab.isPartialStats,
+                });
+            }
             tab.activeQueryIds = tab.activeQueryIds.filter((id: string) => !id.startsWith(reqId));
         }
     };

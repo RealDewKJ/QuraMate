@@ -80,6 +80,8 @@ export function LoadAIProviderKey(arg1:string):Promise<string>;
 
 export function LoadSetting(arg1:string):Promise<string>;
 
+export function LogClientEvent(arg1:string,arg2:string):Promise<string>;
+
 export function OpenDownloadURL(arg1:string):Promise<string>;
 
 export function PerformUpdate(arg1:string):Promise<void>;
@@ -93,6 +95,8 @@ export function SaveCredential(arg1:string,arg2:string,arg3:string):Promise<void
 export function SaveQueryHistory(arg1:string,arg2:string):Promise<string>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<string>;
+
+export function SearchQueryHistory(arg1:string,arg2:string,arg3:boolean,arg4:string,arg5:string,arg6:number):Promise<Array<main.QueryHistoryEntry>>;
 
 export function SelectExportFile(arg1:string):Promise<string>;
 

@@ -20,7 +20,8 @@ type QueryHistoryEntry struct {
 }
 
 type LocalDB struct {
-	conn *sql.DB
+	conn    *sql.DB
+	hasFTS5 bool
 }
 
 func NewLocalDB() (*LocalDB, error) {
@@ -66,8 +67,64 @@ func NewLocalDB() (*LocalDB, error) {
 	}
 
 	l := &LocalDB{conn: conn}
+	if err := l.initQueryHistoryIndexes(); err != nil {
+		return nil, err
+	}
+	l.initQueryHistoryFTS()
 	l.CleanupOldQueries()
 	return l, nil
+}
+
+func (l *LocalDB) initQueryHistoryIndexes() error {
+	_, err := l.conn.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_query_history_db_type ON query_history(db_type);
+		CREATE INDEX IF NOT EXISTS idx_query_history_timestamp ON query_history(timestamp);
+		CREATE INDEX IF NOT EXISTS idx_query_history_is_favorite ON query_history(is_favorite);
+	`)
+	if err != nil {
+		return fmt.Errorf("create query history indexes: %w", err)
+	}
+	return nil
+}
+
+func (l *LocalDB) initQueryHistoryFTS() {
+	_, err := l.conn.Exec(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS query_history_fts
+		USING fts5(query, db_type, content='query_history', content_rowid='id');
+	`)
+	if err != nil {
+		// FTS5 can be unavailable on some builds; keep search working via LIKE fallback.
+		log.Printf("Query history FTS disabled: %v", err)
+		l.hasFTS5 = false
+		return
+	}
+
+	_, err = l.conn.Exec(`
+		CREATE TRIGGER IF NOT EXISTS query_history_ai AFTER INSERT ON query_history BEGIN
+			INSERT INTO query_history_fts(rowid, query, db_type) VALUES (new.id, new.query, new.db_type);
+		END;
+		CREATE TRIGGER IF NOT EXISTS query_history_ad AFTER DELETE ON query_history BEGIN
+			INSERT INTO query_history_fts(query_history_fts, rowid, query, db_type) VALUES ('delete', old.id, old.query, old.db_type);
+		END;
+		CREATE TRIGGER IF NOT EXISTS query_history_au AFTER UPDATE OF query, db_type ON query_history BEGIN
+			INSERT INTO query_history_fts(query_history_fts, rowid, query, db_type) VALUES ('delete', old.id, old.query, old.db_type);
+			INSERT INTO query_history_fts(rowid, query, db_type) VALUES (new.id, new.query, new.db_type);
+		END;
+	`)
+	if err != nil {
+		log.Printf("Query history FTS triggers disabled: %v", err)
+		l.hasFTS5 = false
+		return
+	}
+
+	_, err = l.conn.Exec(`INSERT INTO query_history_fts(query_history_fts) VALUES('rebuild')`)
+	if err != nil {
+		log.Printf("Query history FTS rebuild failed: %v", err)
+		l.hasFTS5 = false
+		return
+	}
+
+	l.hasFTS5 = true
 }
 
 func (l *LocalDB) SaveSetting(key string, value string) error {
@@ -116,6 +173,96 @@ func (l *LocalDB) GetQueries(dbType string) ([]QueryHistoryEntry, error) {
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly bool, dateRange string, sortMode string, limit int) ([]QueryHistoryEntry, error) {
+	baseQuery := `SELECT id, query, db_type, timestamp, is_favorite FROM query_history`
+	var conditions []string
+	var args []interface{}
+
+	if dbType != "" && dbType != "all" {
+		conditions = append(conditions, "db_type = ?")
+		args = append(args, dbType)
+	}
+
+	if favoritesOnly {
+		conditions = append(conditions, "is_favorite = 1")
+	}
+
+	switch dateRange {
+	case "today":
+		conditions = append(conditions, "timestamp >= datetime('now', 'start of day')")
+	case "7d":
+		conditions = append(conditions, "timestamp >= datetime('now', '-7 days')")
+	case "30d":
+		conditions = append(conditions, "timestamp >= datetime('now', '-30 days')")
+	}
+
+	cleanedQuery := strings.TrimSpace(queryText)
+	if cleanedQuery != "" {
+		appliedTextFilter := false
+		if l.hasFTS5 {
+			ftsQuery := buildFTSQuery(cleanedQuery)
+			if ftsQuery != "" {
+				conditions = append(conditions, "id IN (SELECT rowid FROM query_history_fts WHERE query_history_fts MATCH ?)")
+				args = append(args, ftsQuery)
+				appliedTextFilter = true
+			}
+		}
+		if !appliedTextFilter {
+			conditions = append(conditions, "(LOWER(query) LIKE LOWER(?) OR LOWER(db_type) LIKE LOWER(?))")
+			likePattern := "%" + cleanedQuery + "%"
+			args = append(args, likePattern, likePattern)
+		}
+	}
+
+	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString(baseQuery)
+	if len(conditions) > 0 {
+		queryBuilder.WriteString(" WHERE ")
+		queryBuilder.WriteString(strings.Join(conditions, " AND "))
+	}
+
+	orderBy := " ORDER BY is_favorite DESC, id DESC"
+	if sortMode == "oldest" {
+		orderBy = " ORDER BY is_favorite DESC, id ASC"
+	}
+	queryBuilder.WriteString(orderBy)
+
+	if limit > 0 {
+		queryBuilder.WriteString(" LIMIT ?")
+		args = append(args, limit)
+	}
+
+	rows, err := l.conn.Query(queryBuilder.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []QueryHistoryEntry
+	for rows.Next() {
+		var entry QueryHistoryEntry
+		if err := rows.Scan(&entry.ID, &entry.Query, &entry.DBType, &entry.Timestamp, &entry.IsFavorite); err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+func buildFTSQuery(searchText string) string {
+	tokens := strings.Fields(searchText)
+	var parts []string
+	for _, token := range tokens {
+		trimmed := strings.TrimSpace(token)
+		if trimmed == "" {
+			continue
+		}
+		escaped := strings.ReplaceAll(trimmed, `"`, `""`)
+		parts = append(parts, fmt.Sprintf(`"%s"*`, escaped))
+	}
+	return strings.Join(parts, " AND ")
 }
 
 func (l *LocalDB) ToggleFavorite(id int, isFavorite bool) error {

@@ -158,6 +158,10 @@ export function LoadSetting(arg1) {
   return window['go']['main']['App']['LoadSetting'](arg1);
 }
 
+export function LogClientEvent(arg1, arg2) {
+  return window['go']['main']['App']['LogClientEvent'](arg1, arg2);
+}
+
 export function OpenDownloadURL(arg1) {
   return window['go']['main']['App']['OpenDownloadURL'](arg1);
 }
@@ -184,6 +188,10 @@ export function SaveQueryHistory(arg1, arg2) {
 
 export function SaveSetting(arg1, arg2) {
   return window['go']['main']['App']['SaveSetting'](arg1, arg2);
+}
+
+export function SearchQueryHistory(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['SearchQueryHistory'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function SelectExportFile(arg1) {

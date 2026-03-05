@@ -13,6 +13,7 @@ interface Props {
     selectedColumn?: string | null;
     lastClickedRow?: number | string | null;
     isRowSelected?: (index: number | string) => boolean;
+    isCellSelected?: (rowIndex: number | string, col: string) => boolean;
 }
 
 const props = defineProps<Props>();
@@ -31,6 +32,9 @@ const emit = defineEmits<{
     (e: 'saveCellEdit', item: any, col: string): void;
     (e: 'openImagePreview', url: string): void;
     (e: 'toggleSort', col: string): void;
+    (e: 'cellDragStart', rowIndex: number | string, col: string): void;
+    (e: 'cellDragEnter', rowIndex: number | string, col: string): void;
+    (e: 'cellDragEnd'): void;
 }>();
 
 // Removed unused computed properties 
@@ -74,21 +78,21 @@ const localFilteredResults = computed(() => {
 });
 
 const { list: virtualList, containerProps, wrapperProps } = useVirtualList(localFilteredResults, {
-    itemHeight: 37,
+    itemHeight: 28,
     overscan: 10,
 });
 
 const padTop = computed(() => {
     if (virtualList.value.length === 0) return 0;
     const start = virtualList.value[0].index;
-    return start * 37;
+    return start * 28;
 });
 
 const padBottom = computed(() => {
     if (virtualList.value.length === 0) return 0;
     const end = virtualList.value[virtualList.value.length - 1].index;
     const total = localFilteredResults.value.length;
-    return (total - end - 1) * 37;
+    return (total - end - 1) * 28;
 });
 
 const getFormattedRowIndex = (rIndex: number) => {
@@ -101,6 +105,13 @@ const getFormattedRowIndex = (rIndex: number) => {
 const isRowSelected = (rIndex: number) => {
     if (props.isRowSelected) {
         return props.isRowSelected(getFormattedRowIndex(rIndex));
+    }
+    return false;
+};
+
+const isCellSelected = (rIndex: number, col: string) => {
+    if (props.isCellSelected) {
+        return props.isCellSelected(getFormattedRowIndex(rIndex), col);
     }
     return false;
 };
@@ -154,16 +165,45 @@ const isCellEditing = (index: number, col: string) => {
         props.activeTab.editingCell.resultSetIndex === props.resultSetIndex;
 };
 
+// --- Cell Selection Dragging --- 
+const isDragging = ref(false);
+
+const handleCellMouseDown = (rIndex: number | string, col: string, e: MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+
+    // Allow interacting with the editor inputs if editing
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('input')) return;
+
+    e.preventDefault(); // Prevents browser text-selection cursor issues during drag
+
+    isDragging.value = true;
+    emit('cellDragStart', rIndex, col);
+
+    const handleMouseUp = () => {
+        isDragging.value = false;
+        emit('cellDragEnd');
+        document.removeEventListener('mouseup', handleMouseUp);
+    };
+    document.addEventListener('mouseup', handleMouseUp);
+};
+
+const handleCellMouseEnter = (rIndex: number | string, col: string) => {
+    if (isDragging.value) {
+        emit('cellDragEnter', rIndex, col);
+    }
+};
+
 </script>
 
 <template>
-    <div class="flex-1 overflow-auto bg-card" v-bind="containerProps">
+    <div class="flex-1 overflow-auto bg-card" v-bind="containerProps" @mouseleave="isDragging = false">
         <table v-if="resultSet.columns && resultSet.columns.length > 0" class="w-full text-sm text-left relative">
             <thead class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-20 font-medium">
                 <tr>
                     <th scope="col" class="w-8 min-w-8 sticky left-0 z-30 bg-muted border-b border-border"></th>
                     <th v-for="(col, index) in resultSet.columns" :key="index + '-' + col" scope="col"
-                        class="px-4 py-3 whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
+                        class="px-3 py-1.5 text-xs whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                         @click="emit('toggleSort', col)">
                         <div class="flex flex-col gap-2">
@@ -203,7 +243,8 @@ const isCellEditing = (index: number, col: string) => {
             </thead>
             <tbody class="divide-y divide-border">
                 <tr :style="{ height: `${padTop}px` }"></tr>
-                <tr v-for="item in virtualList" :key="item.index" class="transition-colors h-[37px] cursor-pointer group"
+                <tr v-for="item in virtualList" :key="item.index"
+                    class="transition-colors h-[28px] cursor-pointer group"
                     :class="isRowSelected(item.index) ? 'bg-primary/5' : 'bg-card hover:bg-muted/50'"
                     @click="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), '')">
                     <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-accent transition-colors"
@@ -211,17 +252,23 @@ const isCellEditing = (index: number, col: string) => {
                         @click.stop="emit('update:selectedRowData', item.data); emit('rowSelectorClick', $event, getFormattedRowIndex(item.index))"
                         @mousedown="e => { if (e.shiftKey) e.preventDefault(); }">
                         <div class="flex items-center justify-center w-full h-full">
-                            <span v-if="isRowSelected(item.index)" class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
-                            <span v-else class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 inline-block opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                            <span v-if="isRowSelected(item.index)"
+                                class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                            <span v-else
+                                class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 inline-block opacity-0 group-hover:opacity-100 transition-opacity"></span>
                         </div>
                     </td>
                     <td v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
-                        class="px-4 py-2 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden"
+                        class="px-3 py-1 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden select-none"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                         :class="{
                             'bg-accent/50': isCellEditing(item.index, col),
+                            'bg-primary/20': isCellSelected(item.index, col),
                             'ring-1 ring-inset ring-primary z-10': props.lastClickedRow === getFormattedRowIndex(item.index) && selectedColumn === col && (!activeTab.editingCell || activeTab.editingCell.resultSetIndex !== resultSetIndex)
-                        }" @click.stop="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), col)" @dblclick="emit('handleCellClick', item, col, resultSetIndex)"
+                        }" @mousedown="handleCellMouseDown(getFormattedRowIndex(item.index), col, $event)"
+                        @mouseenter="handleCellMouseEnter(getFormattedRowIndex(item.index), col)"
+                        @click.stop="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), col)"
+                        @dblclick="emit('handleCellClick', item, col, resultSetIndex)"
                         @contextmenu.prevent="emit('update:selectedRowData', item.data); emit('handleRowContextMenu', $event, item.data, col, getFormattedRowIndex(item.index))">
 
                         <div v-if="isCellEditing(item.index, col) && activeTab.editingCell"
@@ -263,8 +310,7 @@ const isCellEditing = (index: number, col: string) => {
 
     <div
         class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center shrink-0 h-10">
-        <span>Showing {{ localFilteredResults.length }} rows {{ localFilteredResults.length !== (resultSet.rows ?
-            resultSet.rows.length : 0) ? `(out of ${resultSet.rows ? resultSet.rows.length : 0})` : '' }}</span>
+        <div></div>
         <div class="flex items-center gap-3" v-if="resultSetIndex === 0">
             <button v-if="activeTab.tableName && !isReadOnly" @click="emit('openMockDataModal')"
                 class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors">

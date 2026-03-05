@@ -32,20 +32,29 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
+## Latest Release (v1.1.4)
+
+- Backend SQL history search with indexed filters (connection/favorites/date/sort)
+- Lower memory overhead for very large query result sets
+- Optional Query Performance Logs written to System Logs
+- Lazy-loaded heavy UI modules (SQL editor and ER diagram) for faster cold start
+
 ## Features
 
-- **Multi-connection** — open multiple database connections in parallel, each with its own tab workspace
-- **SQL Editor** — syntax-highlighted editor with auto-complete, beautifier, and selected-text execution
-- **Streaming Results** — query results stream in real-time with virtual scrolling for millions of rows
-- **Table Designer** — visually modify columns, types, nullability, defaults, and primary keys
-- **ER Diagrams** — auto-generated entity-relationship diagrams with foreign key visualization
-- **Query Analysis** — built-in `EXPLAIN` support for query execution plan inspection
-- **Inline Editing** — click any cell to edit, with type-aware inputs and row insertion
-- **SSH Tunneling** — connect to remote databases through SSH with password or key-based auth
-- **Read-Only Mode** — prevent accidental writes with a per-connection read-only toggle
-- **Dark / Light Theme** — system-aware theme with manual toggle
-- **Saved Connections** — persist and recall connection configurations locally
-- **Import / Export** — CSV and JSON export from any result set
+QuraMate provides a robust set of tools right out of the box. For a comprehensive, detailed breakdown of all system capabilities, please see our [Detailed Features Document (FEATURES.md)](FEATURES.md).
+
+### Core Highlights
+
+- **Multi-connection & Safe Mode** — Open multiple simultaneous connections with optional "Read-Only" safeguards to prevent accidental writes
+- **Advanced SQL Editor** — Syntax-highlighted editor with auto-complete, formatter, selected-text execution, and strict execution mode
+- **Streaming Results** — Query results stream in real-time with optimized virtual scrolling, handling millions of rows effortlessly
+- **Visual Table Designer** — Visually modify schemas, columns, types, nullability, defaults, and primary keys directly
+- **ER Diagrams** — Auto-generated entity-relationship diagrams bridging complex foreign key shapes visually
+- **Diagnostic & Performance Tools** — Built-in `EXPLAIN`, real-time Activity Monitor for tracking locking/headblocks, and streaming statistics
+- **Inline Editing** — Click any cell to edit dynamically using context-aware inputs and smart encoding/decoding
+- **Advanced Lifecycle Management** — Complete GUI for Stored Procedures/Functions and safe schema modifications
+- **SSH Tunneling** — Connect to remote databases securely through standard password or private key-based auth
+- **System Integrity** — Fast export (CSV/JSON), built-in i18n support, single-instance locking, and system-aware dark/light themes
 
 ## Supported Databases
 
