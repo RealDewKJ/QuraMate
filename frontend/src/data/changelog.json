@@ -1,5 +1,27 @@
 [
     {
+        "version":  "v1.1.6",
+        "date":  "2026-03-06",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added database productivity key bindings: Ctrl/Cmd+S (save SQL), Ctrl/Cmd+Shift+S (save as), F5/Ctrl/Cmd+R (refresh context), Ctrl/Cmd+Shift+R (refresh database), and Ctrl/Cmd+N/W (new/close query tab)"
+                        },
+                        {
+                            "type":  "feat",
+                            "text":  "Added SQL file write support and persisted SQL file path per query tab for seamless save workflows"
+                        },
+                        {
+                            "type":  "docs",
+                            "text":  "Added FEATURE.md with an English overview of product capabilities"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm manifests to 1.1.6"
+                        }
+                    ]
+    },
+    {
         "version":  "v1.1.5",
         "date":  "2026-03-05",
         "changes":  [

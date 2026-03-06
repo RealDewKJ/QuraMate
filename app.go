@@ -1132,6 +1132,18 @@ func (a *App) ReadTextFile(path string) (string, error) {
 	return string(content), nil
 }
 
+func (a *App) WriteTextFile(path string, content string) string {
+	if strings.TrimSpace(path) == "" {
+		return "file path is required"
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return err.Error()
+	}
+
+	return ""
+}
+
 func decodeUTF16(b []byte, isBE bool) string {
 	if len(b)%2 != 0 {
 		// Just append a null byte to make it even

@@ -229,3 +229,7 @@ export function ToggleFavoriteQuery(arg1, arg2) {
 export function UpdateRecord(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UpdateRecord'](arg1, arg2, arg3, arg4);
 }
+
+export function WriteTextFile(arg1, arg2) {
+  return window['go']['main']['App']['WriteTextFile'](arg1, arg2);
+}

@@ -2110,11 +2110,23 @@ func (d *Database) generatePostgresAlterStatements(tableName string, changes Tab
 
 	for _, col := range changes.AddColumns {
 		def := fmt.Sprintf("%s %s", col.Name, col.Type)
-		if !col.Nullable {
-			def += " NOT NULL"
-		}
-		if col.DefaultValue != nil {
-			def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+		if col.AutoIncrement {
+			upperType := strings.ToUpper(col.Type)
+			switch {
+			case strings.Contains(upperType, "BIGINT"):
+				def = fmt.Sprintf("%s BIGSERIAL", col.Name)
+			case strings.Contains(upperType, "SMALLINT"):
+				def = fmt.Sprintf("%s SMALLSERIAL", col.Name)
+			default:
+				def = fmt.Sprintf("%s SERIAL", col.Name)
+			}
+		} else {
+			if !col.Nullable {
+				def += " NOT NULL"
+			}
+			if col.DefaultValue != nil {
+				def += fmt.Sprintf(" DEFAULT '%v'", col.DefaultValue)
+			}
 		}
 		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", tableName, def))
 	}
@@ -2133,6 +2145,13 @@ func (d *Database) generatePostgresAlterStatements(tableName string, changes Tab
 			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s DROP NOT NULL", tableName, change.NewDefinition.Name))
 		} else {
 			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET NOT NULL", tableName, change.NewDefinition.Name))
+		}
+
+		if change.NewDefinition.AutoIncrement {
+			seqName := fmt.Sprintf("%s_%s_seq", tableName, change.NewDefinition.Name)
+			stmts = append(stmts, fmt.Sprintf("CREATE SEQUENCE IF NOT EXISTS %s", seqName))
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT nextval('%s')", tableName, change.NewDefinition.Name, seqName))
+			stmts = append(stmts, fmt.Sprintf("ALTER SEQUENCE %s OWNED BY %s.%s", seqName, tableName, change.NewDefinition.Name))
 		}
 	}
 
@@ -2241,6 +2260,12 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 	if changes.RenameTable != "" && changes.RenameTable != tableName {
 		stmts = append(stmts, fmt.Sprintf("EXEC sp_rename '%s', '%s'", tableName, changes.RenameTable))
 		tableName = changes.RenameTable
+	}
+
+	for _, change := range changes.AlterColumns {
+		if change.NewDefinition.AutoIncrement {
+			return nil, fmt.Errorf("changing auto increment on existing MSSQL columns is not supported")
+		}
 	}
 
 	// Collect columns that are being dropped or altered

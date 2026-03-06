@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="flex h-full bg-background text-foreground font-sans">
         <DbSidebar :connection-name="connectionName" :db-type="dbType" :activity-task-count="activityTaskCount"
             :table-search="tableSearch" :view-search="viewSearch" :stored-procedure-search="storedProcedureSearch"
@@ -225,7 +225,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory } from '../../wailsjs/go/main/App';
+import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 
 // Components
@@ -403,6 +403,7 @@ interface PersistedDashboardTab {
     isRoutine?: boolean;
     routineName?: string;
     routineType?: 'PROCEDURE' | 'FUNCTION';
+    sqlFilePath?: string;
 }
 
 interface PersistedDashboardSession {
@@ -445,6 +446,7 @@ const toPersistedDashboardTab = (tab: QueryTab): PersistedDashboardTab => ({
     isRoutine: !!tab.isRoutine,
     routineName: tab.routineName,
     routineType: tab.routineType,
+    sqlFilePath: tab.sqlFilePath,
 });
 
 const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
@@ -485,6 +487,7 @@ const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
         isRoutine: !!saved.isRoutine,
         routineName: saved.routineName,
         routineType: saved.routineType,
+        sqlFilePath: saved.sqlFilePath,
     };
 };
 
@@ -748,12 +751,74 @@ const handleGenerateDatabaseERDiagram = () => {
 
 // Redundant handleNewView and handleNewRoutine removed as they are defined later in the file.
 
-const refreshDatabase = async () => {
+const getFileNameFromPath = (filePath: string): string => {
+    if (!filePath) return 'query.sql';
+    const parts = filePath.split(/[/\\]/);
+    return parts[parts.length - 1] || 'query.sql';
+};
+
+const getDefaultSqlFileName = (tab: QueryTab): string => {
+    const baseName = (tab.name || 'query')
+        .replace(/^File:\s*/i, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    const normalized = baseName || 'query';
+    return normalized.toLowerCase().endsWith('.sql') ? normalized : `${normalized}.sql`;
+};
+
+const saveCurrentQueryToFile = async (saveAs: boolean = false) => {
+    if (!activeTab.value || activeTab.value.isERView || activeTab.value.isDesignView) {
+        return;
+    }
+
+    if (activeTab.value.isRoutine) {
+        await handleSaveRoutine();
+        return;
+    }
+
+    let targetPath = saveAs ? '' : (activeTab.value.sqlFilePath || '');
+    if (!targetPath) {
+        targetPath = await SelectExportFile(getDefaultSqlFileName(activeTab.value));
+        if (!targetPath) {
+            return;
+        }
+    }
+
+    const result = await WriteTextFile(targetPath, activeTab.value.query || '');
+    if (result) {
+        toastRef.value?.error(`Failed to save SQL file: ${result}`);
+        return;
+    }
+
+    activeTab.value.sqlFilePath = targetPath;
+    const fileName = getFileNameFromPath(targetPath);
+    activeTab.value.name = `File: ${fileName}`;
+    toastRef.value?.success(`Saved SQL file: ${fileName}`);
+};
+const refreshDatabase = async (showToast: boolean = true) => {
     closeContextMenu();
     await loadTables();
-    if (toastRef.value) {
+    if (showToast && toastRef.value) {
         toastRef.value.success('Database refreshed successfully.');
     }
+};
+
+const refreshCurrentContext = async () => {
+    if (!activeTab.value || activeTab.value.isERView || activeTab.value.isDesignView) {
+        await refreshDatabase();
+        return;
+    }
+
+    if (activeTab.value.isLoading) {
+        return;
+    }
+
+    if (activeTab.value.query && activeTab.value.query.trim().length > 0) {
+        await runQuery(true);
+        return;
+    }
+
+    await refreshDatabase();
 };
 
 const handleDesignerSuccess = (message: string) => {
@@ -2211,27 +2276,81 @@ const saveCellEdit = async (item: any, col: string) => {
 // Update functions moved to useRecordOperations
 
 
-const handleKeydown = (e: KeyboardEvent) => {
-    // Check if user is typing in an input or textarea
-    const target = e.target as HTMLElement;
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+const isEditableFormElement = (target: HTMLElement | null): boolean => {
+    if (!target) return false;
 
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        runQuery();
+    const tag = target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
+        const insideMonaco = !!target.closest('.monaco-editor') || target.classList.contains('inputarea');
+        return !insideMonaco;
     }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+
+    return false;
+};
+
+const handleKeydown = (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (isEditableFormElement(target)) {
+        return;
+    }
+
+    const withModifier = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+
+    if (withModifier && key === 'enter') {
+        e.preventDefault();
+        void runQuery();
+        return;
+    }
+
+    if (withModifier && key === 's') {
+        e.preventDefault();
+        void saveCurrentQueryToFile(e.shiftKey);
+        return;
+    }
+
+    if (e.key === 'F5') {
+        e.preventDefault();
+        void refreshCurrentContext();
+        return;
+    }
+
+    if (withModifier && key === 'r') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            void refreshDatabase();
+        } else {
+            void refreshCurrentContext();
+        }
+        return;
+    }
+
+    if (withModifier && key === 'n') {
+        e.preventDefault();
+        addTab();
+        return;
+    }
+
+    if (withModifier && key === 'w') {
+        e.preventDefault();
+        if (activeTab.value) {
+            closeTab(activeTab.value.id);
+        }
+        return;
+    }
+
+    if (withModifier && key === 'd') {
         e.preventDefault();
         if (activeTab.value && activeTab.value.tableName) {
             openDesignView(activeTab.value.tableName);
         }
+        return;
     }
-    if (e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) {
+
+    if (e.shiftKey && e.altKey && key === 'f') {
         e.preventDefault();
         beautifyQuery();
     }
-
-    // Datatable Copy Keybindings are now handled natively inside DbQueryResultsPane.vue 
-    // to support complex multi-cell drag selections seamlessly.
 };
 
 onMounted(async () => {
@@ -2267,7 +2386,14 @@ onUnmounted(() => {
     stopMonitorTimer();
 });
 
-const handleOpenSqlFile = (e: CustomEvent) => {
+interface OpenSqlFileDetail {
+    content: string;
+    fileName?: string;
+    filePath?: string;
+    connectionId: string;
+}
+
+const handleOpenSqlFile = (e: CustomEvent<OpenSqlFileDetail>) => {
     const detail = e.detail;
     if (detail && detail.connectionId === props.connectionId) {
         let targetTab = activeTab.value;
@@ -2285,14 +2411,14 @@ const handleOpenSqlFile = (e: CustomEvent) => {
 
         if (targetTab) {
             targetTab.name = `File: ${detail.fileName || '.sql'}`;
-            targetTab.query = detail.content;
+            targetTab.query = detail.content || '';
+            targetTab.sqlFilePath = detail.filePath || '';
 
             // Optionally run the query immediately (or let user do it)
-            // setTimeout(() => runQuery(), 50); 
+            // setTimeout(() => runQuery(), 50);
         }
     }
 };
-
 // Handlers for record operations (exposed for template)
 const handleSetNull = () => initiateQuickUpdate(null, contextMenu.targetRow, contextMenu.targetColumn);
 const handleSetEmpty = () => initiateQuickUpdate('', contextMenu.targetRow, contextMenu.targetColumn);

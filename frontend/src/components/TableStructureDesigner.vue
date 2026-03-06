@@ -36,7 +36,7 @@
 
         <!-- Tabs -->
         <div class="flex items-center border-b border-border bg-muted/20 px-4 pt-1 gap-1">
-            <button v-for="tab in ['Columns', 'Indexes', 'Foreign Keys']" :key="tab" @click="activeTab = tab"
+            <button v-for="tab in displayedTabs" :key="tab" @click="activeTab = tab"
                 class="px-4 py-2 text-sm font-medium rounded-t-md transition-all border-l border-r border-t border-transparent select-none"
                 :class="activeTab === tab ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
                 {{ tab }}
@@ -57,6 +57,7 @@
             <div v-else>
                 <!-- Columns Tab -->
                 <div v-if="activeTab === 'Columns'" class="space-y-4">
+                    <div v-if="isMssql" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">For MSSQL, Auto Increment (IDENTITY) cannot be changed on existing columns. Add a new column instead.</div>
                     <div class="border border-border rounded-lg overflow-hidden bg-card">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-muted text-muted-foreground text-xs uppercase font-medium">
@@ -91,7 +92,7 @@
                                             </select>
                                             <input v-if="typesWithLength.includes(col.baseType)" v-model="col.length"
                                                 class="w-12 bg-transparent px-1 py-1 rounded border border-border focus:border-primary focus:outline-none text-xs"
-                                                :disabled="col.status === 'deleted'" placeholder="255" />
+                                                :disabled="col.status === 'deleted'" :placeholder="getDefaultLengthByType(col.baseType) || 'Length'" />
                                         </div>
                                     </td>
                                     <td class="p-2 text-center">
@@ -106,7 +107,8 @@
                                     </td>
                                     <td class="p-2 text-center">
                                         <input type="checkbox" v-model="col.autoIncrement"
-                                            :disabled="col.status === 'deleted'"
+                                            :disabled="isAutoIncrementDisabled(col)"
+                                            :title="isMssql && col.status === 'existing' ? 'MSSQL cannot alter IDENTITY on existing columns' : ''"
                                             class="rounded border-input text-primary focus:ring-primary" />
                                     </td>
                                     <td class="p-2">
@@ -159,71 +161,41 @@
 
                 <!-- Indexes Tab -->
                 <div v-if="activeTab === 'Indexes'" class="space-y-4">
-                    <div class="border border-border rounded-lg overflow-hidden bg-card">
-                        <table class="w-full text-sm text-left">
-                            <thead class="bg-muted text-muted-foreground text-xs uppercase font-medium">
-                                <tr>
-                                    <th class="p-3 border-b border-border">Name</th>
-                                    <th class="p-3 border-b border-border">Columns</th>
-                                    <th class="p-3 border-b border-border text-center">Unique</th>
-                                    <th class="p-3 border-b border-border text-center">Primary</th>
-                                    <th class="p-3 border-b border-border">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-border">
-                                <tr v-for="(idx, i) in localIndexes" :key="i"
-                                    class="transition-colors hover:bg-muted/30"
-                                    :class="{ 'bg-destructive/10 hover:bg-destructive/20': idx.status === 'deleted', 'bg-green-500/10 hover:bg-green-500/20': idx.status === 'new' }">
-                                    <td class="p-2">
-                                        <input v-model="idx.name"
-                                            class="w-full bg-transparent px-2 py-1 rounded border border-transparent focus:border-primary focus:outline-none"
-                                            :disabled="idx.status === 'deleted'" placeholder="Index Name" />
-                                    </td>
-                                    <td class="p-2">
-                                        <input v-model="idx.columnsStr"
-                                            class="w-full bg-transparent px-2 py-1 rounded border border-transparent focus:border-primary focus:outline-none"
-                                            :disabled="idx.status === 'deleted'" placeholder="col1, col2"
-                                            @change="updateIndexColumns(idx)" />
-                                    </td>
-                                    <td class="p-2 text-center">
-                                        <input type="checkbox" v-model="idx.unique" :disabled="idx.status === 'deleted'"
-                                            class="rounded border-input text-primary focus:ring-primary" />
-                                    </td>
-                                    <td class="p-2 text-center">
-                                        <input type="checkbox" v-model="idx.primary"
-                                            :disabled="idx.status === 'deleted'"
-                                            class="rounded border-input text-primary focus:ring-primary" />
-                                    </td>
-                                    <td class="p-2">
-                                        <button @click="markIndexDeleted(i)" v-if="idx.status !== 'deleted'"
-                                            class="text-destructive hover:text-destructive/80 transition-colors p-1 rounded hover:bg-destructive/10"
-                                            title="Delete Index">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                                stroke-linecap="round" stroke-linejoin="round"
-                                                class="lucide lucide-trash-2">
-                                                <path d="M3 6h18" />
-                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                                <line x1="10" x2="10" y1="11" y2="17" />
-                                                <line x1="14" x2="14" y1="11" y2="17" />
-                                            </svg>
-                                        </button>
-                                        <button @click="restoreIndex(i)" v-else
-                                            class="text-primary hover:text-primary/80 transition-colors p-1 rounded hover:bg-primary/10"
-                                            title="Restore Index">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                                stroke-linecap="round" stroke-linejoin="round"
-                                                class="lucide lucide-undo-2">
-                                                <path d="M9 14 4 9l5-5" />
-                                                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
-                                            </svg>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">Select columns below to build indexes quickly.</div>
+                    <div class="space-y-3">
+                        <div v-for="(idx, i) in localIndexes" :key="i" class="rounded-lg border p-3"
+                            :class="{ 'border-destructive/40 bg-destructive/10': idx.status === 'deleted', 'border-green-500/40 bg-green-500/10': idx.status === 'new', 'border-border bg-card': idx.status === 'existing' }">
+                            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+                                <input v-model="idx.name"
+                                    class="w-full bg-transparent px-3 py-2 rounded border border-input focus:border-primary focus:outline-none"
+                                    :disabled="idx.status === 'deleted'" placeholder="Index Name" />
+                                <div class="flex items-center gap-3 text-sm">
+                                    <label class="flex items-center gap-2"><input type="checkbox" v-model="idx.unique"
+                                            :disabled="idx.status === 'deleted'" class="rounded border-input text-primary focus:ring-primary" />Unique</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" v-model="idx.primary"
+                                            :disabled="idx.status === 'deleted'" class="rounded border-input text-primary focus:ring-primary" />Primary</label>
+                                    <button @click="markIndexDeleted(i)" v-if="idx.status !== 'deleted'"
+                                        class="text-destructive hover:text-destructive/80 transition-colors p-1 rounded hover:bg-destructive/10"
+                                        title="Delete Index">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+                                    </button>
+                                    <button @click="restoreIndex(i)" v-else
+                                        class="text-primary hover:text-primary/80 transition-colors p-1 rounded hover:bg-primary/10"
+                                        title="Restore Index">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-undo-2"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <button v-for="columnName in selectableColumnNames" :key="idx.name + '-' + columnName"
+                                    @click="toggleIndexColumn(idx, columnName)" :disabled="idx.status === 'deleted'"
+                                    class="px-3 py-1 rounded-full text-xs border transition-colors"
+                                    :class="idx.columns.includes(columnName) ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 border-border hover:border-primary/50'">
+                                    {{ columnName }}
+                                </button>
+                                <span v-if="selectableColumnNames.length === 0" class="text-xs text-muted-foreground">Add columns first to create an index</span>
+                            </div>
+                        </div>
                     </div>
                     <button @click="addIndex"
                         class="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors flex items-center gap-2">
@@ -239,9 +211,57 @@
 
                 <!-- Foreign Keys Tab -->
                 <div v-if="activeTab === 'Foreign Keys'" class="space-y-4">
-                    <div class="p-8 text-center text-muted-foreground">
-                        <p>Foreign Key editing coming soon.</p>
+                    <div class="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+                        Build foreign keys by selecting local column, reference table, and reference column.
                     </div>
+                    <div v-for="(fk, i) in localForeignKeys" :key="i" class="rounded-lg border p-3"
+                        :class="{ 'border-destructive/40 bg-destructive/10': fk.status === 'deleted', 'border-green-500/40 bg-green-500/10': fk.status === 'new', 'border-border bg-card': fk.status === 'existing' }">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <input v-model="fk.constraint"
+                                class="bg-transparent px-3 py-2 rounded border border-input focus:border-primary focus:outline-none"
+                                :disabled="fk.status === 'deleted'" placeholder="Constraint Name" />
+                            <select v-model="fk.column"
+                                class="bg-transparent px-3 py-2 rounded border border-input focus:border-primary focus:outline-none"
+                                :disabled="fk.status === 'deleted'">
+                                <option value="">Local Column</option>
+                                <option v-for="columnName in selectableColumnNames" :key="'local-' + columnName" :value="columnName">{{ columnName }}</option>
+                            </select>
+                            <select v-model="fk.refTable" @change="onForeignTableChanged(fk)"
+                                class="bg-transparent px-3 py-2 rounded border border-input focus:border-primary focus:outline-none"
+                                :disabled="fk.status === 'deleted'">
+                                <option value="">Reference Table</option>
+                                <option v-for="tableItem in allTables.filter(t => t !== props.tableName)" :key="'table-' + tableItem" :value="tableItem">{{ tableItem }}</option>
+                            </select>
+                            <select v-model="fk.refColumn"
+                                class="bg-transparent px-3 py-2 rounded border border-input focus:border-primary focus:outline-none"
+                                :disabled="fk.status === 'deleted' || !fk.refTable">
+                                <option value="">Reference Column</option>
+                                <option v-for="refCol in getRefColumns(fk.refTable)" :key="'ref-' + refCol" :value="refCol">{{ refCol }}</option>
+                            </select>
+                        </div>
+                        <div class="mt-2 flex justify-end gap-2">
+                            <button @click="markForeignKeyDeleted(i)" v-if="fk.status !== 'deleted'"
+                                class="text-destructive hover:text-destructive/80 transition-colors p-1 rounded hover:bg-destructive/10"
+                                title="Delete Foreign Key">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+                            </button>
+                            <button @click="restoreForeignKey(i)" v-else
+                                class="text-primary hover:text-primary/80 transition-colors p-1 rounded hover:bg-primary/10"
+                                title="Restore Foreign Key">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-undo-2"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button @click="addForeignKey"
+                        class="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-plus">
+                            <path d="M5 12h14" />
+                            <path d="M12 5v14" />
+                        </svg>
+                        Add Foreign Key
+                    </button>
                 </div>
 
             </div>
@@ -265,6 +285,8 @@ const emit = defineEmits(['close', 'refresh', 'success']);
 
 const inputTableName = ref(props.tableName || '');
 const isCreateMode = computed(() => !props.tableName);
+const displayedTabs = computed(() => isCreateMode.value ? ['Columns'] : ['Columns', 'Indexes', 'Foreign Keys']);
+const isMssql = computed(() => (props.dbType || '').toLowerCase() === 'mssql');
 
 const activeTab = ref('Columns');
 const isLoading = ref(true);
@@ -290,10 +312,36 @@ function parseType(fullType) {
     return { base: fullType.toUpperCase(), length: '' };
 }
 
+function isAutoIncrementDisabled(col) {
+    if (col.status === 'deleted') return true;
+    if (isMssql.value && col.status === 'existing') return true;
+    return false;
+}
+
+function getDefaultLengthByType(baseType) {
+    if (baseType === 'DECIMAL' || baseType === 'NUMERIC') {
+        return '18,2';
+    }
+    if (baseType === 'VARCHAR' || baseType === 'NVARCHAR') {
+        return '255';
+    }
+    return '';
+}
+
 const originalColumns = ref([]);
 const localColumns = ref([]);
 const originalIndexes = ref([]);
 const localIndexes = ref([]);
+const originalForeignKeys = ref([]);
+const localForeignKeys = ref([]);
+const allTables = ref([]);
+const referencedTableColumns = ref({});
+
+const selectableColumnNames = computed(() =>
+    localColumns.value
+        .filter(col => col.status !== 'deleted' && col.name && col.name.trim())
+        .map(col => col.name.trim())
+);
 
 
 onMounted(async () => {
@@ -302,6 +350,9 @@ onMounted(async () => {
 
 async function fetchData() {
     if (isCreateMode.value) {
+        if (localColumns.value.length === 0) {
+            addColumn();
+        }
         isLoading.value = false;
         return;
     }
@@ -326,7 +377,21 @@ async function fetchData() {
             // Fetch Indexes
             const indexes = await window.go.main.App.GetTableIndexes(props.connectionId, props.tableName);
             originalIndexes.value = JSON.parse(JSON.stringify(indexes));
-            localIndexes.value = indexes.map(i => ({ ...i, columnsStr: i.columns.join(', '), originalName: i.name, status: 'existing' }));
+            localIndexes.value = indexes.map(i => ({ ...i, originalName: i.name, status: 'existing' }));
+
+            const fks = await window.go.main.App.GetForeignKeys(props.connectionId, props.tableName);
+            const outgoingFks = (fks || []).filter(fk => fk.table === props.tableName);
+            originalForeignKeys.value = JSON.parse(JSON.stringify(outgoingFks));
+            localForeignKeys.value = outgoingFks.map(fk => ({ ...fk, originalConstraint: fk.constraint, status: 'existing' }));
+
+            allTables.value = await window.go.main.App.GetTables(props.connectionId);
+
+            for (const fk of localForeignKeys.value) {
+                if (fk.refTable && !referencedTableColumns.value[fk.refTable]) {
+                    const refCols = await window.go.main.App.GetTableDefinition(props.connectionId, fk.refTable);
+                    referencedTableColumns.value[fk.refTable] = (refCols || []).map(c => c.name);
+                }
+            }
         }
     } catch (e) {
         console.error("Failed to load table definition", e);
@@ -363,9 +428,8 @@ function restoreColumn(index) {
 // Index Actions
 function addIndex() {
     localIndexes.value.push({
-        name: `idx_${props.tableName}_new`,
+        name: 'idx_' + (props.tableName || inputTableName.value || 'table') + '_' + (localIndexes.value.length + 1),
         columns: [],
-        columnsStr: '',
         unique: false,
         primary: false,
         status: 'new'
@@ -381,15 +445,62 @@ function markIndexDeleted(index) {
 function restoreIndex(index) {
     localIndexes.value[index].status = 'existing';
 }
-function updateIndexColumns(idx) {
-    idx.columns = idx.columnsStr.split(',').map(s => s.trim()).filter(s => s);
+function toggleIndexColumn(idx, columnName) {
+    if (idx.status === 'deleted') return;
+    if (idx.columns.includes(columnName)) {
+        idx.columns = idx.columns.filter(c => c !== columnName);
+    } else {
+        idx.columns = [...idx.columns, columnName];
+    }
+}
+
+// Foreign Key Actions
+async function ensureRefTableColumns(tableName) {
+    if (!tableName || referencedTableColumns.value[tableName]) return;
+    if (window.go && window.go.main && window.go.main.App) {
+        const cols = await window.go.main.App.GetTableDefinition(props.connectionId, tableName);
+        referencedTableColumns.value[tableName] = (cols || []).map(c => c.name);
+    }
+}
+function getRefColumns(tableName) {
+    return referencedTableColumns.value[tableName] || [];
+}
+async function onForeignTableChanged(fk) {
+    fk.refColumn = '';
+    await ensureRefTableColumns(fk.refTable);
+}
+function addForeignKey() {
+    const localCol = selectableColumnNames.value[0] || '';
+    const refTable = allTables.value.find(t => t !== props.tableName) || '';
+    localForeignKeys.value.push({
+        table: props.tableName,
+        column: localCol,
+        refTable,
+        refColumn: '',
+        constraint: 'fk_' + (props.tableName || inputTableName.value || 'table') + '_' + (localCol || 'column'),
+        originalConstraint: '',
+        status: 'new'
+    });
+    if (refTable) {
+        void ensureRefTableColumns(refTable);
+    }
+}
+function markForeignKeyDeleted(index) {
+    if (localForeignKeys.value[index].status === 'new') {
+        localForeignKeys.value.splice(index, 1);
+    } else {
+        localForeignKeys.value[index].status = 'deleted';
+    }
+}
+function restoreForeignKey(index) {
+    localForeignKeys.value[index].status = 'existing';
 }
 
 // Change Detection
 const hasChanges = computed(() => {
     // In Create Mode, we need at least a table name and one valid column
     if (isCreateMode.value) {
-        return !!inputTableName.value && localColumns.value.some(c => c.status === 'new' && c.name && c.type);
+        return !!inputTableName.value && localColumns.value.some(c => c.status !== 'deleted' && c.name && c.type);
     }
 
     // Check Columns
@@ -425,18 +536,46 @@ const hasChanges = computed(() => {
         }
     }
 
+    // Check Foreign Keys
+    for (const fk of localForeignKeys.value) {
+        if (fk.status === 'new' || fk.status === 'deleted') return true;
+        if (fk.status === 'existing') {
+            const orig = originalForeignKeys.value.find(f => f.constraint === fk.originalConstraint);
+            if (orig) {
+                if (fk.constraint !== orig.constraint) return true;
+                if (fk.column !== orig.column) return true;
+                if (fk.refTable !== orig.refTable) return true;
+                if (fk.refColumn !== orig.refColumn) return true;
+            }
+        }
+    }
+
     return false;
 });
 
 async function saveChanges() {
     isSaving.value = true;
     try {
+        for (const idx of localIndexes.value.filter(i => i.status !== 'deleted')) {
+            if (!idx.columns || idx.columns.length === 0) {
+                toastRef.value?.error('Each index must include at least one column.');
+                return;
+            }
+        }
+
+        for (const fk of localForeignKeys.value.filter(f => f.status !== 'deleted')) {
+            if (!fk.column || !fk.refTable || !fk.refColumn) {
+                toastRef.value?.error('Each foreign key must select local column, reference table, and reference column.');
+                return;
+            }
+        }
+
         // Construct full type string for each column
         localColumns.value.forEach(col => {
             if (typesWithLength.includes(col.baseType)) {
                 let len = col.length;
                 if (!len || len.trim() === '') {
-                    len = '255'; // Default to 255 if empty
+                    len = getDefaultLengthByType(col.baseType) || '255';
                 }
                 col.type = `${col.baseType}(${len})`;
             } else {
@@ -446,7 +585,7 @@ async function saveChanges() {
 
         if (isCreateMode.value) {
             const columnsToCreate = localColumns.value
-                .filter(c => c.status === 'new')
+                .filter(c => c.status !== 'deleted')
                 .map(c => ({
                     name: c.name,
                     type: c.type,
@@ -555,6 +694,54 @@ async function saveChanges() {
             }
         }
 
+        // Process Foreign Keys
+        const dropFkSet = new Set();
+        for (const fk of localForeignKeys.value) {
+            const constraintName = fk.constraint && fk.constraint.trim()
+                ? fk.constraint.trim()
+                : 'fk_' + (props.tableName || inputTableName.value || 'table') + '_' + fk.column + '_' + fk.refTable + '_' + fk.refColumn;
+
+            if (fk.status === 'new') {
+                if (fk.column && fk.refTable && fk.refColumn) {
+                    changes.addFKs.push({
+                        table: props.tableName,
+                        column: fk.column,
+                        refTable: fk.refTable,
+                        refColumn: fk.refColumn,
+                        constraint: constraintName
+                    });
+                }
+            } else if (fk.status === 'deleted') {
+                if (fk.originalConstraint) {
+                    dropFkSet.add(fk.originalConstraint);
+                }
+            } else if (fk.status === 'existing') {
+                const orig = originalForeignKeys.value.find(f => f.constraint === fk.originalConstraint);
+                if (orig) {
+                    const isModified =
+                        constraintName !== orig.constraint ||
+                        fk.column !== orig.column ||
+                        fk.refTable !== orig.refTable ||
+                        fk.refColumn !== orig.refColumn;
+
+                    if (isModified) {
+                        if (fk.originalConstraint) {
+                            dropFkSet.add(fk.originalConstraint);
+                        }
+                        if (fk.column && fk.refTable && fk.refColumn) {
+                            changes.addFKs.push({
+                                table: props.tableName,
+                                column: fk.column,
+                                refTable: fk.refTable,
+                                refColumn: fk.refColumn,
+                                constraint: constraintName
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        changes.dropFKs = Array.from(dropFkSet);
         console.log("Saving changes:", changes);
 
         if (window.go && window.go.main && window.go.main.App) {
@@ -577,14 +764,52 @@ async function saveChanges() {
     }
 }
 
+watch(selectableColumnNames, (newNames) => {
+    const allowed = new Set(newNames);
+    localIndexes.value.forEach(idx => {
+        idx.columns = (idx.columns || []).filter(col => allowed.has(col));
+    });
+    localForeignKeys.value.forEach(fk => {
+        if (fk.column && !allowed.has(fk.column)) {
+            fk.column = '';
+        }
+    });
+});
+
 // Auto-fill default length when type changes
 watch(localColumns, (newCols) => {
     newCols.forEach(col => {
-        if (typesWithLength.includes(col.baseType) && (!col.length || col.length.trim() === '')) {
-            if (col.baseType === 'VARCHAR' || col.baseType === 'NVARCHAR') {
-                col.length = '255';
+        if (!typesWithLength.includes(col.baseType)) {
+            return;
+        }
+
+        const currentLength = (col.length || '').trim();
+        const defaultLength = getDefaultLengthByType(col.baseType);
+        const looksLikeOldDefault =
+            (col.baseType === 'DECIMAL' || col.baseType === 'NUMERIC')
+                ? currentLength === '255'
+                : (col.baseType === 'VARCHAR' || col.baseType === 'NVARCHAR')
+                    ? (currentLength === '18,2' || currentLength === '18,0')
+                    : false;
+
+        if (!currentLength || looksLikeOldDefault) {
+            if (defaultLength) {
+                col.length = defaultLength;
             }
         }
     });
 }, { deep: true });
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+

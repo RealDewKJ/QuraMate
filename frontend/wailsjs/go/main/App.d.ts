@@ -115,3 +115,5 @@ export function TestConnection(arg1:main.DBConfig):Promise<string>;
 export function ToggleFavoriteQuery(arg1:number,arg2:boolean):Promise<string>;
 
 export function UpdateRecord(arg1:string,arg2:string,arg3:Record<string, any>,arg4:Record<string, any>):Promise<string>;
+
+export function WriteTextFile(arg1:string,arg2:string):Promise<string>;

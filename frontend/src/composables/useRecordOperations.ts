@@ -1,4 +1,4 @@
-﻿import { computed, nextTick, ref, toValue } from 'vue';
+import { computed, nextTick, ref, toValue } from 'vue';
 import type { MaybeRefOrGetter, Ref } from 'vue';
 import { ExecuteTransientQuery, GetTableDefinition, InsertRowsBatch, UpdateRecord } from '../../wailsjs/go/main/App';
 import { QueryTab } from '../types/dashboard';
@@ -112,6 +112,11 @@ export function useRecordOperations(
         return null;
     };
 
+    const normalizePastedScalar = (raw: string): string => {
+        // Remove hidden zero-width / NBSP chars that often come from spreadsheets.
+        return raw.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, '').trim();
+    };
+
     const hasDefaultValue = (value: any): boolean => {
         if (value === null || value === undefined) return false;
         const asString = String(value).trim().toLowerCase();
@@ -177,14 +182,17 @@ export function useRecordOperations(
 
         for (const col of columns) {
             const rawValue = rowValues[col] ?? '';
-            const trimmed = rawValue.trim();
+            const normalizedValue = normalizePastedScalar(rawValue);
             const def = columnDefs[col];
 
-            if (trimmed === '') {
+            if (normalizedValue === '') {
+                if (def?.nullable) {
+                    payload[col] = null;
+                }
                 continue;
             }
 
-            if (/^null$/i.test(trimmed)) {
+            if (/^null$/i.test(normalizedValue)) {
                 if (!def?.nullable) {
                     return {
                         isValid: false,
@@ -199,8 +207,18 @@ export function useRecordOperations(
             const inputType = def ? getInputTypeForColumn(def.type) : 'text';
 
             if (inputType === 'number') {
-                const parsed = Number(trimmed);
+                const lower = normalizedValue.toLowerCase();
+                if (def?.nullable && ['na', 'n/a', '-', '--'].includes(lower)) {
+                    payload[col] = null;
+                    continue;
+                }
+
+                const parsed = Number(normalizedValue);
                 if (!Number.isFinite(parsed)) {
+                    if (def?.nullable) {
+                        payload[col] = null;
+                        continue;
+                    }
                     return {
                         isValid: false,
                         error: `Row ${sourceRowNumber}: column ${col} expects a number`,
@@ -212,7 +230,7 @@ export function useRecordOperations(
             }
 
             if (inputType === 'checkbox') {
-                const parsed = parseBooleanValue(trimmed);
+                const parsed = parseBooleanValue(normalizedValue);
                 if (parsed === null) {
                     return {
                         isValid: false,
@@ -224,12 +242,12 @@ export function useRecordOperations(
                 continue;
             }
 
-            if (inputType === 'datetime-local' && trimmed.includes('T')) {
-                payload[col] = trimmed.replace('T', ' ');
+            if (inputType === 'datetime-local' && normalizedValue.includes('T')) {
+                payload[col] = normalizedValue.replace('T', ' ');
                 continue;
             }
 
-            payload[col] = trimmed;
+            payload[col] = normalizedValue;
         }
 
         for (const col of columns) {
@@ -728,6 +746,9 @@ export function useRecordOperations(
         }
     };
 }
+
+
+
 
 
 

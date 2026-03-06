@@ -41,6 +41,7 @@ export interface QueryTab {
     isRoutine?: boolean;
     routineName?: string;
     routineType?: 'PROCEDURE' | 'FUNCTION';
+    sqlFilePath?: string;
 }
 
 export interface ContextMenuState {
