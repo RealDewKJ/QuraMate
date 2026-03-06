@@ -663,6 +663,10 @@ async function saveChanges() {
         // Process Indexes
         for (const idx of localIndexes.value) {
             if (idx.status === 'new') {
+                if (!idx.columns || idx.columns.length === 0) {
+                    toastRef.value?.error('Each index must include at least one column.');
+                    return;
+                }
                 changes.addIndexes.push({
                     name: idx.name,
                     columns: idx.columns,
@@ -681,6 +685,10 @@ async function saveChanges() {
                         JSON.stringify(idx.columns) !== JSON.stringify(orig.columns);
 
                     if (isModified) {
+                        if (!idx.columns || idx.columns.length === 0) {
+                            toastRef.value?.error('Each index must include at least one column.');
+                            return;
+                        }
                         // Treat modification as Drop + Add
                         changes.dropIndexes.push(idx.originalName);
                         changes.addIndexes.push({
@@ -766,10 +774,28 @@ async function saveChanges() {
 
 watch(selectableColumnNames, (newNames) => {
     const allowed = new Set(newNames);
+    const renamedColumns = new Map(
+        localColumns.value
+            .filter(col =>
+                col.status !== 'deleted' &&
+                col.originalName &&
+                col.name &&
+                col.originalName !== col.name
+            )
+            .map(col => [col.originalName, col.name])
+    );
+
     localIndexes.value.forEach(idx => {
-        idx.columns = (idx.columns || []).filter(col => allowed.has(col));
+        const mappedColumns = (idx.columns || [])
+            .map(col => renamedColumns.get(col) || col)
+            .filter(col => allowed.has(col));
+        idx.columns = Array.from(new Set(mappedColumns));
     });
+
     localForeignKeys.value.forEach(fk => {
+        if (fk.column && renamedColumns.has(fk.column)) {
+            fk.column = renamedColumns.get(fk.column);
+        }
         if (fk.column && !allowed.has(fk.column)) {
             fk.column = '';
         }
@@ -800,16 +826,3 @@ watch(localColumns, (newCols) => {
     });
 }, { deep: true });
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
-

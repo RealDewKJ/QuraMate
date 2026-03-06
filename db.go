@@ -2419,6 +2419,7 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 	}
 
 	// 3. Recreate Dependencies
+	recreatedIndexNames := make(map[string]struct{})
 	for _, idx := range droppedIndexes {
 		// Skip if any of the columns were dropped
 		skip := false
@@ -2454,6 +2455,7 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 		} else {
 			stmts = append(stmts, fmt.Sprintf("CREATE INDEX %s ON %s (%s)", idx.Name, tableName, colsJoined))
 		}
+		recreatedIndexNames[idx.Name] = struct{}{}
 	}
 
 	// Restore or add default constraints
@@ -2478,12 +2480,17 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 		}
 	}
 	for _, idx := range changes.AddIndexes {
-		unique := ""
-		if idx.Unique {
-			unique = "UNIQUE"
+		if _, wasRecreated := recreatedIndexNames[idx.Name]; wasRecreated {
+			continue
 		}
 		cols := strings.Join(idx.Columns, ", ")
-		stmts = append(stmts, fmt.Sprintf("CREATE %s INDEX %s ON %s (%s)", unique, idx.Name, tableName, cols))
+		if idx.Primary {
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, idx.Name, cols))
+		} else if idx.Unique {
+			stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s UNIQUE (%s)", tableName, idx.Name, cols))
+		} else {
+			stmts = append(stmts, fmt.Sprintf("CREATE INDEX %s ON %s (%s)", idx.Name, tableName, cols))
+		}
 	}
 
 	for _, fk := range changes.DropFKs {

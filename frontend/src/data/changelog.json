@@ -1,5 +1,27 @@
 [
     {
+        "version":  "v1.1.7",
+        "date":  "2026-03-06",
+        "changes":  [
+                        {
+                            "type":  "fix",
+                            "text":  "Preserved New Table draft state when switching tabs so table name and added columns are not lost"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed Design->Columns rename flow to remap index and foreign-key column references instead of clearing them"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed MSSQL alter-table flow to avoid duplicate primary key/index recreation and create PK/UNIQUE with proper constraints"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm manifests to 1.1.7"
+                        }
+                    ]
+    },
+    {
         "version":  "v1.1.6",
         "date":  "2026-03-06",
         "changes":  [

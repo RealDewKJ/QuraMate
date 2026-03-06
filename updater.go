@@ -14,7 +14,7 @@ import (
 
 // AppVersion is the current version of the application.
 // This is overridden at build time via: -ldflags "-X main.AppVersion=x.y.z"
-var AppVersion = "1.1.6"
+var AppVersion = "1.1.7"
 
 // GitHubRepo is the GitHub repository for update checks.
 const GitHubRepo = "RealDewKJ/QuraMate"

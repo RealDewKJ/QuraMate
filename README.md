@@ -32,7 +32,7 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.1.6)
+## Latest Release (v1.1.7)
 
 - Fixed issue where insert/paste modal did not open in dashboard flow
 - Added Paste from Excel support via Ctrl+V in table results
@@ -241,5 +241,3 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 <p align="center">
   Built with ❤️ using <a href="https://wails.io">Wails</a> + <a href="https://vuejs.org">Vue</a> + <a href="https://go.dev">Go</a>
 </p>
-
-

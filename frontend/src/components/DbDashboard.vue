@@ -102,12 +102,12 @@
                 </div>
 
                 <!-- Table Designer View -->
-                <div v-if="activeTab.isDesignView" class="flex-1 overflow-hidden bg-background">
-                    <TableStructureDesigner :key="activeTab.id" :table-name="activeTab.tableName || ''"
-                        :connection-id="props.connectionId" :db-type="props.dbType" @close="closeTab(activeTab.id)"
-                        @refresh="loadTables" @success="handleDesignerSuccess" />
-                </div>
-
+                <KeepAlive>
+                    <TableStructureDesigner v-if="activeTab.isDesignView" :key="activeTab.id"
+                        :table-name="activeTab.tableName || ''" :connection-id="props.connectionId"
+                        :db-type="props.dbType" @close="closeTab(activeTab.id)" @refresh="loadTables"
+                        @success="handleDesignerSuccess" />
+                </KeepAlive>
             </div>
 
             <div v-else
