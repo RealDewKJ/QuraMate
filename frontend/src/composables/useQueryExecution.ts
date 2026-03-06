@@ -142,7 +142,15 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
 
         return statements;
     };
-
+    const createUniqueColumns = (columns: string[]): string[] => {
+        const seen = new Map<string, number>();
+        return columns.map((column) => {
+            const base = String(column ?? '');
+            const count = (seen.get(base) || 0) + 1;
+            seen.set(base, count);
+            return count === 1 ? base : `${base} (${count})`;
+        });
+    };
     const mapRowsToObjects = (columns: string[], rows: any[]) => {
         const mapped = (rows || []).map((row: any) => {
             if (Array.isArray(row)) {
@@ -268,10 +276,11 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
 
                         const rsIdx = rsOffset + batch.resultSetIdx;
                         const columns = batch.columns || [];
+                        const uniqueColumns = createUniqueColumns(columns);
                         const columnTypes = batch.columnTypes || [];
                         const batchRows = batch.rows || [];
 
-                        const mappedRows = mapRowsToObjects(columns, batchRows);
+                        const mappedRows = mapRowsToObjects(uniqueColumns, batchRows);
 
                         while (tab.resultSets.length <= rsIdx) {
                             tab.resultSets.push(markRaw({ columns: markRaw([]), columnTypes: markRaw([]), rows: markRaw([]) }));
@@ -279,10 +288,10 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
 
                         const rs = tab.resultSets[rsIdx];
                         if (columns.length > 0 && rs.columns.length === 0) {
-                            rs.columns = markRaw(columns.slice());
+                            rs.columns = markRaw(uniqueColumns.slice());
                             rs.columnTypes = markRaw(columnTypes.slice());
 
-                            columns.forEach((col: string, i: number) => {
+                            uniqueColumns.forEach((col: string, i: number) => {
                                 if (!tab.columnWidths[col]) {
                                     const meta = columnTypes[i];
                                     tab.columnWidths[col] = calculateInitialWidth(meta);
@@ -428,3 +437,4 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
         cleanupAllStreams,
     };
 }
+

@@ -314,12 +314,16 @@ const copyCurrentSelection = () => {
 };
 
 useEventListener(document, 'keydown', (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
 
     if (!rootRef.value || getComputedStyle(rootRef.value).display === 'none') return;
 
+    const focusInResults = containsTarget(target) || containsTarget(document.activeElement);
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (!focusInResults) return;
+
         // Only skip to native copy if they natively selected something AND we don't have grid cells selected
         const hasSelection = window.getSelection()?.toString();
 
@@ -333,6 +337,8 @@ useEventListener(document, 'keydown', (e: KeyboardEvent) => {
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (!focusInResults) return;
+
         if (!props.isReadOnly && props.activeTab?.tableName && props.activeTab?.resultViewTab === 'data') {
             e.preventDefault();
             e.stopPropagation();
