@@ -118,7 +118,7 @@ const {
                     <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
                     <path d="M12 12V8" />
                 </svg>
-                View ER Diagram
+                Schema Visualizer
             </button>
             <button @click="handleViewDesign"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
@@ -321,7 +321,7 @@ const {
                     <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
                     <path d="M12 12V8" />
                 </svg>
-                Generate ER Diagram
+                Schema Visualizer
             </button>
             <button @click="handleDatabaseInfo"
                 class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
@@ -646,4 +646,3 @@ const {
         </div>
 
 </template>
-

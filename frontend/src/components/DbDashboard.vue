@@ -744,7 +744,7 @@ const handleGenerateDatabaseERDiagram = () => {
     closeContextMenu();
     addTab();
     if (activeTab.value) {
-        activeTab.value.name = 'ER Diagram';
+        activeTab.value.name = 'Schema Visualizer';
         activeTab.value.isERView = true;
     }
 };
@@ -1951,7 +1951,7 @@ const handleCopyTableName = async () => {
 
 
 const openERDiagramTab = async (tableName: string) => {
-    const existingTab = tabs.value.find(t => t.name === `ER: ${tableName}`);
+    const existingTab = tabs.value.find(t => t.name === `Schema: ${tableName}` || t.name === `ER: ${tableName}`);
     if (existingTab) {
         activeTabId.value = existingTab.id;
         return;
@@ -1962,7 +1962,7 @@ const openERDiagramTab = async (tableName: string) => {
     // Create tab
     const newTab: QueryTab = {
         id: newId,
-        name: `ER: ${tableName}`,
+        name: `Schema: ${tableName}`,
         tableName: tableName,
         query: '',
         resultSets: [],
@@ -2001,6 +2001,7 @@ const openERDiagramTab = async (tableName: string) => {
         // 3. Fetch Schema for EACH table
         const tablesData: Record<string, { name: string, type: string }[]> = {};
         const type = (props.dbType || '').toLowerCase();
+        const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
 
         // Helper to get query for a table
         const getSchemaQuery = (tbl: string) => {
@@ -2011,7 +2012,7 @@ const openERDiagramTab = async (tableName: string) => {
             } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
                 return `DESCRIBE ${tbl}`;
             } else if (type.includes('sqlite') || type.includes('libsql')) {
-                return `PRAGMA table_info(${tbl})`;
+                return `SELECT name AS column_name, type AS data_type FROM pragma_table_info('${escapeSqlLiteral(tbl)}')`;
             } else {
                 return `SELECT * FROM ${tbl} LIMIT 1`;
             }
@@ -2027,13 +2028,18 @@ const openERDiagramTab = async (tableName: string) => {
                 // Need to handle resultSets here too
                 if (!res.error && res.resultSets && res.resultSets.length > 0) {
                     const rs = res.resultSets[0];
-                    // Convert array rows to object rows
-                    const rows = (rs.rows || []).map((row: any[]) =>
-                        Object.fromEntries((rs.columns || []).map((col: string, i: number) => [col, row[i]]))
-                    );
+                    const rows = (rs.rows || []).map((row: any) => {
+                        if (Array.isArray(row)) {
+                            return Object.fromEntries((rs.columns || []).map((col: string, i: number) => [col, row[i]]));
+                        }
+                        if (row && typeof row === 'object') {
+                            return row;
+                        }
+                        return {};
+                    });
                     tablesData[tbl] = rows.map((col: any) => {
-                        const name = col.COLUMN_NAME || col.column_name || col.Field || col.name || col.Name || 'unknown';
-                        const type = col.DATA_TYPE || col.data_type || col.Type || col.type || 'string';
+                        const name = col.COLUMN_NAME || col.column_name || col.Field || col.field || col.name || col.Name || col.column || 'unknown';
+                        const type = col.DATA_TYPE || col.data_type || col.Type || col.type || col.dataType || 'string';
                         return { name, type };
                     });
                 }
@@ -2451,8 +2457,6 @@ watch(activeTabId, () => {
     selectedColumn.value = null;
 });
 </script>
-
-
 
 
 
