@@ -87,6 +87,9 @@
                     :openAiCopilot="openAiCopilot" :getEditorType="getEditorType" :saveCellEdit="saveCellEdit"
                     :toggleSort="toggleSort" :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
                     :handleRowContextMenu="handleRowContextMenu" :isImageValue="isImageValue"
+                    :screenshotShortcutLabel="screenshotShortcutLabel"
+                    :showScreenshotShortcutHint="showScreenshotShortcutHint"
+                    :exportGridImage="exportQueryResultGridImage"
                     :openImagePreview="openImagePreview"
                     :openMockDataModal="openMockDataModal"
                     :openInsertRowModal="openInsertRowModal"
@@ -213,6 +216,12 @@
             @run-query="handleRunHistoryQuery" />
 
         <DbImagePreviewModal :image-url="imagePreviewUrl" @close="imagePreviewUrl = null" />
+        <DbResultImageDialog :is-open="resultImageDialog.isOpen" :image-url="resultImageDialog.imageUrl"
+            :file-name="resultImageDialog.fileName" :table-name="resultImageDialog.tableName"
+            :timestamp-label="resultImageDialog.timestampLabel" :rendered-rows="resultImageDialog.renderedRows"
+            :total-rows="resultImageDialog.totalRows" @close="closeResultImageDialog" @copy="copyResultImage"
+            @save="saveResultImage" @share="shareResultImage" @open-new-tab="openResultImageFull"
+            @copy-file-name="copyResultImageFileName" />
 
         <DbAICopilotOverlay :is-open="aiCopilot.isOpen" :mode="aiCopilot.mode" :mode-options="aiCopilotModeOptions"
             :prompt="aiCopilot.prompt" :backend-language="aiCopilot.backendLanguage" :is-loading="aiCopilot.isLoading"
@@ -249,6 +258,7 @@ import DbInsertRowModal from './dashboard/DbInsertRowModal.vue';
 import DbPastePreviewModal from './dashboard/DbPastePreviewModal.vue';
 import DbUpdateConfirmationModal from './dashboard/DbUpdateConfirmationModal.vue';
 import DbImagePreviewModal from './dashboard/DbImagePreviewModal.vue';
+import DbResultImageDialog from './dashboard/DbResultImageDialog.vue';
 import DbAICopilotOverlay from './dashboard/DbAICopilotOverlay.vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 import { completeWithSavedProvider } from '../composables/useAiProvider';
@@ -266,6 +276,14 @@ import { useResultSetLayout } from '../composables/useResultSetLayout';
 import { useDashboardContextMenus } from '../composables/useDashboardContextMenus';
 import { useDatabaseAdminModals } from '../composables/useDatabaseAdminModals';
 import { useMockDataModal } from '../composables/useMockDataModal';
+import {
+    DEFAULT_GRID_SCREENSHOT_SHORTCUT,
+    buildResultGridImage,
+    copyImageBlobToClipboard,
+    downloadBlobAsFile,
+    normalizeShortcutString,
+    shortcutMatchesEvent
+} from '../composables/useResultGridScreenshot';
 import { useTableActions } from '../composables/useTableActions';
 import { useSchemaVisualizer } from '../composables/useSchemaVisualizer';
 
@@ -288,6 +306,35 @@ const safeModeEnabled = computed(() => {
 });
 const perfLoggingEnabled = computed(() => {
     return globalSettings.value?.general?.enablePerfLogs === true;
+});
+const screenshotPreviewDialogEnabled = computed(() => {
+    return globalSettings.value?.general?.screenshotPreviewDialog !== false;
+});
+const showScreenshotShortcutHint = computed(() => {
+    return globalSettings.value?.general?.showScreenshotShortcutHint !== false;
+});
+const screenshotShortcutLabel = computed(() => {
+    return normalizeShortcutString(globalSettings.value?.shortcuts?.screenshotResultGrid || DEFAULT_GRID_SCREENSHOT_SHORTCUT);
+});
+
+const resultImageDialog = ref<{
+    isOpen: boolean;
+    imageUrl: string;
+    blob: Blob | null;
+    fileName: string;
+    tableName: string;
+    timestampLabel: string;
+    renderedRows: number;
+    totalRows: number;
+}>({
+    isOpen: false,
+    imageUrl: '',
+    blob: null,
+    fileName: '',
+    tableName: '',
+    timestampLabel: '',
+    renderedRows: 0,
+    totalRows: 0
 });
 
 const openImagePreview = (url: any) => {
@@ -359,6 +406,132 @@ const handleSettingsSave = (newSettings: any) => {
         editorSettings.value.fontFamily = newSettings.editor.fontFamily;
         editorSettings.value.fontSize = newSettings.editor.fontSize;
     }
+};
+
+const clearResultImageDialogPreview = () => {
+    if (resultImageDialog.value.imageUrl) {
+        URL.revokeObjectURL(resultImageDialog.value.imageUrl);
+    }
+    resultImageDialog.value.imageUrl = '';
+    resultImageDialog.value.blob = null;
+};
+
+const closeResultImageDialog = () => {
+    resultImageDialog.value.isOpen = false;
+    clearResultImageDialogPreview();
+};
+
+const generateQueryResultGridImage = async () => {
+    const tab = activeTab.value;
+    if (!tab || tab.resultViewTab !== 'data' || tab.isERView || tab.isDesignView) {
+        throw new Error('Switch to a data result grid before taking a screenshot.');
+    }
+
+    const primaryResultSet = tab.resultSets?.[0];
+    if (!primaryResultSet || !primaryResultSet.columns || primaryResultSet.columns.length === 0) {
+        throw new Error('No query result grid available to export.');
+    }
+
+    const tableName = String(tab.tableName || tab.name || 'query_result');
+    const image = await buildResultGridImage({
+        resultSet: primaryResultSet,
+        tableName,
+        filters: tab.filters || {},
+        sortColumn: tab.sortColumn,
+        sortDirection: tab.sortDirection,
+        maxRows: 16
+    });
+
+    return { image, tableName };
+};
+
+const exportQueryResultGridImage = async () => {
+    try {
+        const { image, tableName } = await generateQueryResultGridImage();
+
+        if (screenshotPreviewDialogEnabled.value) {
+            clearResultImageDialogPreview();
+            resultImageDialog.value.isOpen = true;
+            resultImageDialog.value.blob = image.blob;
+            resultImageDialog.value.fileName = image.fileName;
+            resultImageDialog.value.tableName = tableName;
+            resultImageDialog.value.timestampLabel = image.timestampLabel;
+            resultImageDialog.value.renderedRows = image.renderedRows;
+            resultImageDialog.value.totalRows = image.totalRows;
+            resultImageDialog.value.imageUrl = URL.createObjectURL(image.blob);
+            return;
+        }
+
+        const copied = await copyImageBlobToClipboard(image.blob);
+        downloadBlobAsFile(image.blob, image.fileName);
+
+        if (copied) {
+            toastRef.value?.success(`Screenshot exported (${image.renderedRows}/${image.totalRows} rows), copied to clipboard, and downloaded.`);
+        } else {
+            toastRef.value?.success(`Screenshot exported (${image.renderedRows}/${image.totalRows} rows) and downloaded.`);
+        }
+    } catch (e) {
+        console.error('Failed to export query result screenshot', e);
+        toastRef.value?.error(`Failed to export screenshot: ${e}`);
+    }
+};
+
+const copyResultImage = async () => {
+    if (!resultImageDialog.value.blob) return;
+    const copied = await copyImageBlobToClipboard(resultImageDialog.value.blob);
+    if (copied) {
+        toastRef.value?.success('Image copied to clipboard.');
+    } else {
+        toastRef.value?.error('Clipboard image copy is not supported on this system.');
+    }
+};
+
+const saveResultImage = () => {
+    if (!resultImageDialog.value.blob) return;
+    downloadBlobAsFile(resultImageDialog.value.blob, resultImageDialog.value.fileName || 'query_result.png');
+    toastRef.value?.success('Image saved.');
+};
+
+const shareResultImage = async () => {
+    if (!resultImageDialog.value.blob) return;
+
+    const nav = navigator as Navigator & {
+        share?: (data: ShareData) => Promise<void>;
+        canShare?: (data?: ShareData) => boolean;
+    };
+    const file = new File([resultImageDialog.value.blob], resultImageDialog.value.fileName || 'query_result.png', { type: 'image/png' });
+
+    try {
+        if (nav.share && nav.canShare && nav.canShare({ files: [file] })) {
+            await nav.share({
+                title: resultImageDialog.value.tableName || 'Query Result',
+                text: `${resultImageDialog.value.tableName || 'Query Result'} • ${resultImageDialog.value.timestampLabel}`,
+                files: [file]
+            });
+            toastRef.value?.success('Image shared.');
+            return;
+        }
+    } catch (e) {
+        console.error('Share failed', e);
+    }
+
+    const copied = await copyImageBlobToClipboard(resultImageDialog.value.blob);
+    if (copied) {
+        toastRef.value?.success('Share is unavailable here. Image copied to clipboard instead.');
+    } else {
+        toastRef.value?.error('Share is unavailable on this system.');
+    }
+};
+
+const openResultImageFull = () => {
+    if (!resultImageDialog.value.imageUrl) return;
+    window.open(resultImageDialog.value.imageUrl, '_blank', 'noopener,noreferrer');
+};
+
+const copyResultImageFileName = async () => {
+    if (!resultImageDialog.value.fileName) return;
+    await navigator.clipboard.writeText(resultImageDialog.value.fileName);
+    toastRef.value?.success('File name copied.');
 };
 
 // Emits/Props setup
@@ -2330,6 +2503,13 @@ const handleKeydown = (e: KeyboardEvent) => {
 
     const withModifier = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
+    const screenshotBinding = globalSettings.value?.shortcuts?.screenshotResultGrid || DEFAULT_GRID_SCREENSHOT_SHORTCUT;
+
+    if (shortcutMatchesEvent(e, screenshotBinding)) {
+        e.preventDefault();
+        void exportQueryResultGridImage();
+        return;
+    }
 
     if (withModifier && key === 'enter') {
         e.preventDefault();
@@ -2418,6 +2598,7 @@ onUnmounted(() => {
     window.removeEventListener('open-sql-file', handleOpenSqlFile as EventListener);
     stopAllResizing();
     stopMonitorTimer();
+    clearResultImageDialogPreview();
 });
 
 interface OpenSqlFileDetail {

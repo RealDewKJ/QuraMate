@@ -102,6 +102,48 @@
                                             row-count logs to the browser console</span>
                                     </div>
                                 </div>
+
+                                <div class="grid gap-2 pt-4 border-t border-border">
+                                    <label
+                                        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Screenshot to Image Shortcut
+                                    </label>
+                                    <p class="text-xs text-muted-foreground">
+                                        Capture the current query result grid as a shareable image with table name and timestamp.
+                                    </p>
+                                    <div class="flex flex-wrap items-center gap-2 max-w-xl">
+                                        <input
+                                            :value="settings.shortcuts.screenshotResultGrid"
+                                            @keydown="captureScreenshotShortcut"
+                                            readonly
+                                            class="flex h-10 min-w-[220px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                            :class="isRecordingScreenshotShortcut ? 'border-primary ring-2 ring-primary/20' : ''"
+                                            :placeholder="DEFAULT_GRID_SCREENSHOT_SHORTCUT">
+                                        <button @click="toggleScreenshotShortcutCapture"
+                                            class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3">
+                                            {{ isRecordingScreenshotShortcut ? 'Press keys...' : 'Record Shortcut' }}
+                                        </button>
+                                        <button @click="resetScreenshotShortcut"
+                                            class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3">
+                                            Reset
+                                        </button>
+                                    </div>
+                                    <p class="text-[11px] text-muted-foreground">
+                                        Tip: Click <strong>Record Shortcut</strong> then press a combination like Ctrl + Shift + I.
+                                    </p>
+                                    <div class="flex flex-col gap-2 pt-2">
+                                        <label class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                                            <input type="checkbox" v-model="settings.general.screenshotPreviewDialog"
+                                                class="h-4 w-4 rounded border-input text-primary focus:ring-ring">
+                                            Show preview popup before saving image
+                                        </label>
+                                        <label class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                                            <input type="checkbox" v-model="settings.general.showScreenshotShortcutHint"
+                                                class="h-4 w-4 rounded border-input text-primary focus:ring-ring">
+                                            Show shortcut hint on Screenshot button
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -622,6 +664,11 @@ import { colorMode } from '../composables/useTheme';
 import changelogData from '../data/changelog.json';
 import { AI_PROVIDER_DEFINITIONS, AI_PROVIDER_DEFAULT_CONFIGS } from '../lib/ai/config';
 import { completeWithProvider } from '../lib/ai/client';
+import {
+    DEFAULT_GRID_SCREENSHOT_SHORTCUT,
+    keyboardEventToShortcut,
+    normalizeShortcutString
+} from '../composables/useResultGridScreenshot';
 
 const props = defineProps({
     isOpen: {
@@ -646,6 +693,7 @@ const tabs = [
 
 const activeTab = ref('general');
 const showAiKey = ref(false);
+const isRecordingScreenshotShortcut = ref(false);
 const isTestingProvider = ref(false);
 const providerTestResult = ref(null);
 const appVersion = ref('');
@@ -710,7 +758,9 @@ const settings = reactive({
     general: {
         language: 'en',
         enableSafeMode: true,
-        enablePerfLogs: false
+        enablePerfLogs: false,
+        screenshotPreviewDialog: true,
+        showScreenshotShortcutHint: true
     },
     appearance: {
         theme: 'system',
@@ -720,11 +770,50 @@ const settings = reactive({
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 14
     },
+    shortcuts: {
+        screenshotResultGrid: DEFAULT_GRID_SCREENSHOT_SHORTCUT
+    },
     ai: {
         provider: 'openai',
         providerConfigs: JSON.parse(JSON.stringify(defaultAiProviderConfigs))
     }
 });
+
+const normalizeShortcutSettings = () => {
+    if (!settings.shortcuts || typeof settings.shortcuts !== 'object') {
+        settings.shortcuts = {
+            screenshotResultGrid: DEFAULT_GRID_SCREENSHOT_SHORTCUT
+        };
+        return;
+    }
+    settings.shortcuts.screenshotResultGrid = normalizeShortcutString(settings.shortcuts.screenshotResultGrid);
+};
+
+const toggleScreenshotShortcutCapture = () => {
+    isRecordingScreenshotShortcut.value = !isRecordingScreenshotShortcut.value;
+};
+
+const captureScreenshotShortcut = (event) => {
+    event.preventDefault();
+
+    if (!isRecordingScreenshotShortcut.value) {
+        isRecordingScreenshotShortcut.value = true;
+        return;
+    }
+
+    const shortcut = keyboardEventToShortcut(event);
+    if (!shortcut) {
+        return;
+    }
+
+    settings.shortcuts.screenshotResultGrid = normalizeShortcutString(shortcut);
+    isRecordingScreenshotShortcut.value = false;
+};
+
+const resetScreenshotShortcut = () => {
+    settings.shortcuts.screenshotResultGrid = DEFAULT_GRID_SCREENSHOT_SHORTCUT;
+    isRecordingScreenshotShortcut.value = false;
+};
 
 const extractLegacyAiApiKeys = (parsedSettings) => {
     const legacyApiKeys = { ...defaultAiApiKeys };
@@ -1060,6 +1149,14 @@ const loadSettings = async () => {
     if (settings.general.enablePerfLogs === undefined) {
         settings.general.enablePerfLogs = false;
     }
+    if (settings.general.screenshotPreviewDialog === undefined) {
+        settings.general.screenshotPreviewDialog = true;
+    }
+    if (settings.general.showScreenshotShortcutHint === undefined) {
+        settings.general.showScreenshotShortcutHint = true;
+    }
+
+    normalizeShortcutSettings();
 };
 
 // Load actual theme on mount to show correct active state
@@ -1076,6 +1173,8 @@ onMounted(async () => {
 watch(() => props.isOpen, (newVal) => {
     if (newVal) {
         loadSettings();
+    } else {
+        isRecordingScreenshotShortcut.value = false;
     }
 });
 

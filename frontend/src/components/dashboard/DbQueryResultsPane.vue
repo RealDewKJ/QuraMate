@@ -10,7 +10,10 @@ interface Props {
     activeTab: any;
     isReadOnly?: boolean;
     filteredResults?: any[];
+    screenshotShortcutLabel?: string;
+    showScreenshotShortcutHint?: boolean;
     openAiCopilot: (mode?: any) => void;
+    exportGridImage: () => void | Promise<void>;
     toggleSort: (col: string) => void;
     startColumnResize: (e: MouseEvent, col: string) => void;
     handleCellClick: (item: any, col: string, rsIndex: number) => void;
@@ -603,7 +606,21 @@ defineExpose({
                     Fetch: {{ activeTab.fetchTime }}ms
                 </span>
             </div>
-            <div class="flex items-center">
+            <div class="flex items-center gap-2">
+                <button
+                    v-if="activeTab.resultSets && activeTab.resultSets.length > 0"
+                    @click="void exportGridImage()"
+                    class="inline-flex items-center gap-1.5 rounded border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/70"
+                    :title="`Export query result as image (${screenshotShortcutLabel || 'Ctrl+Shift+I'})`">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-camera">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                        <circle cx="12" cy="13" r="3" />
+                    </svg>
+                    Screenshot
+                    <span v-if="showScreenshotShortcutHint !== false" class="text-[10px] opacity-80">{{ screenshotShortcutLabel || 'Ctrl+Shift+I' }}</span>
+                </button>
                 <span class="flex items-center gap-1.5 opacity-80" v-if="activeTab.completionTime">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
