@@ -82,6 +82,13 @@ export function useActivityMonitor(options: UseActivityMonitorOptions) {
         monitorHistory.value.length > 0 ? monitorHistory.value[monitorHistory.value.length - 1] : makeEmptySample()
     );
 
+    const isConnectionNotFoundError = (err: unknown): boolean => {
+        const message = err && typeof err === 'object' && 'message' in err
+            ? String((err as { message?: unknown }).message ?? '')
+            : String(err ?? '');
+        return message.toLowerCase().includes('connection not found');
+    };
+
 
 
     const fetchServerProcesses = async () => {
@@ -116,6 +123,11 @@ export function useActivityMonitor(options: UseActivityMonitorOptions) {
                 activityTasksList.value = [];
             }
         } catch (e) {
+            // Avoid noisy logs during disconnect/reconnect windows.
+            if (isConnectionNotFoundError(e)) {
+                activityTasksList.value = [];
+                return;
+            }
             console.error('Failed to fetch server processes', e);
         }
     };
@@ -274,3 +286,4 @@ export function useActivityMonitor(options: UseActivityMonitorOptions) {
         stopMonitorTimer,
     };
 }
+

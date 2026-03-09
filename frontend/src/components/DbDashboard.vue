@@ -96,7 +96,7 @@
                 <!-- ER Diagram View -->
                 <div v-if="activeTab.isERView" class="flex-1 overflow-hidden bg-background">
                     <ERDiagram :tableName="activeTab.tableName || ''"
-                        :columns="activeTab.tablesData && activeTab.tableName ? activeTab.tablesData[activeTab.tableName] : []"
+                        :columns="(activeTab.tablesData && activeTab.tableName ? activeTab.tablesData[activeTab.tableName] : []) || []"
                         :relationships="activeTab.relationships || []" :tablesData="activeTab.tablesData || {}"
                         :isDark="isDarkTheme" />
                 </div>
@@ -225,7 +225,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/main/App';
+import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, GetTables, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/main/App';
 import { format } from 'sql-formatter';
 
 // Components
@@ -267,6 +267,7 @@ import { useDashboardContextMenus } from '../composables/useDashboardContextMenu
 import { useDatabaseAdminModals } from '../composables/useDatabaseAdminModals';
 import { useMockDataModal } from '../composables/useMockDataModal';
 import { useTableActions } from '../composables/useTableActions';
+import { useSchemaVisualizer } from '../composables/useSchemaVisualizer';
 
 // Types
 import { QueryTab } from '../types/dashboard';
@@ -740,13 +741,23 @@ const {
     },
 });
 
-const handleGenerateDatabaseERDiagram = () => {
+const { generateDatabaseERDiagram } = useSchemaVisualizer({
+    connectionId: props.connectionId,
+    dbType: props.dbType,
+    executeQuery: ExecuteQuery,
+    getTables: GetTables,
+    getForeignKeys: GetForeignKeys,
+    generateId,
+});
+
+const handleGenerateDatabaseERDiagram = async () => {
     closeContextMenu();
     addTab();
-    if (activeTab.value) {
-        activeTab.value.name = 'Schema Visualizer';
-        activeTab.value.isERView = true;
+    if (!activeTab.value) {
+        return;
     }
+
+    await generateDatabaseERDiagram(activeTab.value);
 };
 
 // Redundant handleNewView and handleNewRoutine removed as they are defined later in the file.
@@ -1984,10 +1995,16 @@ const openERDiagramTab = async (tableName: string) => {
     tabs.value.push(newTab);
     activeTabId.value = newId;
 
+    // Important: use the reactive tab instance after push so async updates trigger UI immediately.
+    const erTab = tabs.value.find(t => t.id === newId);
+    if (!erTab) {
+        return;
+    }
+
     try {
         // 1. Get Foreign Keys First (Bidirectional)
         const fks = (await GetForeignKeys(props.connectionId, tableName)) || [];
-        newTab.relationships = fks;
+        erTab.relationships = fks;
 
         // 2. Identify all tables involved (Main table + any referenced/referencing tables)
         const relatedTables = new Set<string>();
@@ -2006,6 +2023,18 @@ const openERDiagramTab = async (tableName: string) => {
         // Helper to get query for a table
         const getSchemaQuery = (tbl: string) => {
             if (type.includes('mssql') || type.includes('sqlserver')) {
+                const dot = tbl.indexOf('.');
+                if (dot > 0) {
+                    const schemaName = tbl.slice(0, dot);
+                    const tableName = tbl.slice(dot + 1);
+                    const escapedSchema = schemaName.replace(/]/g, ']]');
+                    const escapedTable = tableName.replace(/]/g, ']]');
+                    return `SELECT c.name AS COLUMN_NAME, typ.name AS DATA_TYPE
+FROM sys.columns c
+INNER JOIN sys.types typ ON c.user_type_id = typ.user_type_id
+WHERE c.object_id = OBJECT_ID(N'[${escapedSchema}].[${escapedTable}]')
+ORDER BY c.column_id`;
+                }
                 return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl}'`;
             } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
                 return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tbl}'`;
@@ -2013,16 +2042,15 @@ const openERDiagramTab = async (tableName: string) => {
                 return `DESCRIBE ${tbl}`;
             } else if (type.includes('sqlite') || type.includes('libsql')) {
                 return `SELECT name AS column_name, type AS data_type FROM pragma_table_info('${escapeSqlLiteral(tbl)}')`;
-            } else {
-                return `SELECT * FROM ${tbl} LIMIT 1`;
             }
+            return `SELECT * FROM ${tbl} LIMIT 1`;
         };
 
         // Execute queries in parallel
         const promises = Array.from(relatedTables).map(async (tbl) => {
             const query = getSchemaQuery(tbl);
             const reqId = generateId();
-            newTab.activeQueryIds.push(reqId);
+            erTab.activeQueryIds.push(reqId);
             try {
                 const res = await ExecuteQuery(props.connectionId, query, reqId);
                 // Need to handle resultSets here too
@@ -2046,12 +2074,12 @@ const openERDiagramTab = async (tableName: string) => {
             } catch (e) {
                 console.warn(`Failed to fetch schema for ${tbl}`, e);
             } finally {
-                newTab.activeQueryIds = newTab.activeQueryIds.filter(id => id !== reqId);
+                erTab.activeQueryIds = erTab.activeQueryIds.filter(id => id !== reqId);
             }
         });
 
         await Promise.all(promises);
-        newTab.tablesData = tablesData;
+        erTab.tablesData = tablesData;
 
         // Keep main table columns in results for legacy/other uses if needed
         // IF we want to show it in grid? ER view handles its own rendering.
@@ -2062,9 +2090,9 @@ const openERDiagramTab = async (tableName: string) => {
         }
 
     } catch (e: any) {
-        newTab.error = e.toString();
+        erTab.error = e.toString();
     } finally {
-        newTab.isLoading = false;
+        erTab.isLoading = false;
     }
 };
 
@@ -2457,6 +2485,32 @@ watch(activeTabId, () => {
     selectedColumn.value = null;
 });
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

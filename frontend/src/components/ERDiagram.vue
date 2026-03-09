@@ -82,13 +82,18 @@ type RenderedLink = { path: string; start: LinkPoint; end: LinkPoint; active: bo
 
 type Bounds = { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number };
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     tableName: string;
-    columns: any[];
-    relationships: ForeignKey[];
+    columns?: any[];
+    relationships?: ForeignKey[];
     tablesData?: Record<string, any[]>;
     isDark?: boolean;
-}>();
+}>(), {
+    columns: () => [],
+    relationships: () => [],
+    tablesData: () => ({}),
+    isDark: false,
+});
 
 const viewportRef = ref<HTMLElement | null>(null);
 const error = ref('');
@@ -539,9 +544,11 @@ const fitToView = async () => {
     pan.y = (viewport.clientHeight - contentBounds.value.height * zoom.value) / 2 - contentBounds.value.minY * zoom.value;
 };
 
+const getInitialSelectedTable = () => props.tableName || normalizedTables.value[0]?.name || '';
+
 watch([() => props.tableName, () => props.tablesData, () => props.relationships], async () => {
     error.value = '';
-    selectedTableName.value = props.tableName || '';
+    selectedTableName.value = getInitialSelectedTable();
     focusMode.value = false;
     loadLayout();
     await fitToView();
@@ -559,12 +566,8 @@ onMounted(async () => {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 
-    if (!props.tableName) {
-        error.value = 'No table selected.';
-        return;
-    }
-
-    selectedTableName.value = props.tableName;
+    error.value = '';
+    selectedTableName.value = getInitialSelectedTable();
     loadLayout();
     await fitToView();
 });
@@ -829,3 +832,4 @@ onUnmounted(() => {
     }
 }
 </style>
+
