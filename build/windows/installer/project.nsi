@@ -1,4 +1,4 @@
-﻿Unicode true
+Unicode true
 
 ####
 ## Please note: Template replacements don't work in this file. They are provided with default defines like
@@ -63,10 +63,8 @@ Var AssociateFiles
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "assets\quramate-left-164x314.bmp"
 !define MUI_HEADERIMAGE
 !define MUI_HEADERIMAGE_RIGHT
-!define MUI_HEADERIMAGE_BITMAP "assets\quramate-header-150x57.bmp"
 
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_NOAUTOCLOSE
