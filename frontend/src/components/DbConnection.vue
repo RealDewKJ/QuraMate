@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useToggle, onKeyStroke } from "@vueuse/core";
 import SettingsDialog from "./SettingsDialog.vue";
 import Toast from "./Toast.vue";
@@ -33,6 +33,20 @@ const {
   testSuccess,
   isLoading,
   isTesting,
+  isTrustingHost,
+  isLoadingHostKeyInfo,
+  sshHostKeyInfo,
+  expectedSshFingerprint,
+  sshRotationReason,
+  sshRotationConfirmText,
+  isFingerprintMatch,
+  isFingerprintMismatch,
+  isPinnedFingerprintMismatch,
+  pinnedSshFingerprint,
+  sshTrustAudit,
+  sshTrustAuditSearch,
+  filteredSshTrustAudit,
+  canTrustCurrentSshHost,
   isQuickConnecting,
   savedConnections,
   connectionLabel,
@@ -44,6 +58,13 @@ const {
   selectConnection,
   editConnection,
   migrateSavedConnections,
+  loadCurrentSshHostKeyInfo,
+  trustCurrentSshHost,
+  acceptPinnedFingerprintRotation,
+  copyCurrentSshFingerprint,
+  clearSshTrustAudit,
+  exportSshTrustAudit,
+  importSshTrustAudit,
 } = useConnectionForm(
   () => props.activeConnections,
   (conn) => emit("connected", conn),
@@ -55,6 +76,9 @@ const [showSettings, toggleSettings] = useToggle(false);
 const [showSavedModal, toggleSavedModal] = useToggle(false);
 const [showPassword, togglePassword] = useToggle(false);
 const [showSshPassword, toggleSshPassword] = useToggle(false);
+const supportsSsh = computed(
+  () => !["sqlite", "duckdb", "libsql"].includes(config.type),
+);
 
 onKeyStroke("Escape", () => {
   showSettings.value = false;
@@ -252,7 +276,8 @@ onMounted(() => {
           <div class="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300"></div>
 
           <!-- SSH Tunnel Config -->
-          <div class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300 border-t pt-3 border-border">
+          <div v-if="supportsSsh"
+            class="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300 border-t pt-3 border-border">
             <div class="flex items-center space-x-2">
               <input type="checkbox" id="sshEnabled" v-model="config.sshEnabled"
                 class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
@@ -372,7 +397,85 @@ onMounted(() => {
               <line x1="12" x2="12" y1="8" y2="12" />
               <line x1="12" x2="12.01" y1="16" y2="16" />
             </svg>
-            {{ error }}
+            <div class="flex-1">
+              <p>{{ error }}</p>
+              <div v-if="canTrustCurrentSshHost" class="mt-2 space-y-2">
+                <button v-if="!sshHostKeyInfo" @click="loadCurrentSshHostKeyInfo" :disabled="isLoadingHostKeyInfo"
+                  class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {{ isLoadingHostKeyInfo ? "Loading..." : "Show SSH Fingerprint" }}
+                </button>
+                <div v-else class="text-xs rounded-md border border-destructive/30 bg-destructive/5 p-2">
+                  <p><span class="font-medium">Host:</span> {{ sshHostKeyInfo.pattern }}</p>
+                  <p><span class="font-medium">Type:</span> {{ sshHostKeyInfo.keyType }}</p>
+                  <p class="break-all"><span class="font-medium">Fingerprint:</span> {{ sshHostKeyInfo.fingerprint }}
+                  </p>
+                  <button @click="copyCurrentSshFingerprint"
+                    class="mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1">
+                    Copy Fingerprint
+                  </button>
+                  <div class="mt-2 space-y-1">
+                    <label for="expectedSshFingerprint" class="font-medium">Expected Fingerprint (Optional)</label>
+                    <input id="expectedSshFingerprint" v-model="expectedSshFingerprint" type="text"
+                      placeholder="SHA256:..."
+                      class="w-full rounded-md border border-destructive/40 bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" />
+                    <p v-if="expectedSshFingerprint.trim()" :class="isFingerprintMatch ? 'text-green-600' : 'text-destructive'">
+                      {{ isFingerprintMatch ? "Fingerprint matches expected value." : "Fingerprint does not match expected value." }}
+                    </p>
+                    <p v-if="pinnedSshFingerprint" class="break-all text-muted-foreground">
+                      Pinned fingerprint: {{ pinnedSshFingerprint }}
+                    </p>
+                    <p v-if="isPinnedFingerprintMismatch" class="text-destructive">
+                      Fingerprint differs from previously trusted host key for this host.
+                    </p>
+                    <div v-if="isPinnedFingerprintMismatch" class="mt-2 rounded-md border border-destructive/30 bg-background/70 p-2 space-y-1">
+                      <label for="sshRotationReason" class="font-medium">Rotation Reason</label>
+                      <input id="sshRotationReason" v-model="sshRotationReason" type="text"
+                        placeholder="Explain why this host key changed"
+                        class="w-full rounded-md border border-destructive/30 bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" />
+                      <label for="sshRotationConfirmText" class="font-medium">Type ROTATE to confirm</label>
+                      <input id="sshRotationConfirmText" v-model="sshRotationConfirmText" type="text"
+                        placeholder="ROTATE"
+                        class="w-full rounded-md border border-destructive/30 bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" />
+                      <button @click="acceptPinnedFingerprintRotation"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1">
+                        Accept Rotation
+                      </button>
+                    </div>
+                  </div>
+                  <button @click="trustCurrentSshHost" :disabled="isTrustingHost || isFingerprintMismatch || isPinnedFingerprintMismatch"
+                    class="mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {{ isTrustingHost ? "Trusting..." : "Trust SSH Host Key" }}
+                  </button>
+                </div>
+                <div v-if="sshTrustAudit.length" class="mt-3 rounded-md border border-destructive/30 bg-background/70 p-2">
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <p class="font-medium">Recent Trusted Hosts</p>
+                    <div class="flex items-center gap-1">
+                      <button @click="importSshTrustAudit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        Import
+                      </button>
+                      <button @click="exportSshTrustAudit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        Export
+                      </button>
+                      <button @click="clearSshTrustAudit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <input v-model="sshTrustAuditSearch" type="text" placeholder="Search host or fingerprint"
+                    class="mb-1 w-full rounded-md border border-destructive/30 bg-background px-2 py-1 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" />
+                  <div v-for="entry in filteredSshTrustAudit.slice(0, 3)" :key="`${entry.pattern}-${entry.trustedAt}`"
+                    class="py-1 border-t border-destructive/20 first:border-t-0">
+                    <p class="break-all">{{ entry.pattern }}</p>
+                    <p class="break-all text-[11px]">{{ entry.fingerprint }}</p>
+                    <p class="text-[11px] text-muted-foreground">{{ new Date(entry.trustedAt).toLocaleString() }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-if="testSuccess"

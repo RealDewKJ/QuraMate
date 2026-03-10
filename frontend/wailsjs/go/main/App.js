@@ -110,6 +110,10 @@ export function GetRoutineDefinition(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetRoutineDefinition'](arg1, arg2, arg3);
 }
 
+export function GetSSHHostKeyInfo(arg1, arg2) {
+  return window['go']['main']['App']['GetSSHHostKeyInfo'](arg1, arg2);
+}
+
 export function GetServerProcesses(arg1) {
   return window['go']['main']['App']['GetServerProcesses'](arg1);
 }
@@ -224,6 +228,10 @@ export function TestConnection(arg1) {
 
 export function ToggleFavoriteQuery(arg1, arg2) {
   return window['go']['main']['App']['ToggleFavoriteQuery'](arg1, arg2);
+}
+
+export function TrustSSHHost(arg1, arg2) {
+  return window['go']['main']['App']['TrustSSHHost'](arg1, arg2);
 }
 
 export function UpdateRecord(arg1, arg2, arg3, arg4) {

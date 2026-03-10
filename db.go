@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"unicode/utf8"
 
@@ -15,6 +19,7 @@ import (
 	"golang.org/x/text/transform"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -49,13 +54,108 @@ type Database struct {
 	persistentConn *sql.Conn
 	sshClient      *ssh.Client
 	sshListener    net.Listener
+	logf           func(level string, message string)
 	Type           string
 	Encoding       string
 	ReadOnly       bool
 }
 
-func NewDatabase() *Database {
-	return &Database{}
+const sshDialTimeout = 15 * time.Second
+
+func NewDatabase(logger ...func(level string, message string)) *Database {
+	db := &Database{}
+	if len(logger) > 0 {
+		db.logf = logger[0]
+	}
+	return db
+}
+
+func (d *Database) log(level string, message string) {
+	if d.logf != nil {
+		d.logf(level, message)
+	}
+}
+
+func isLocalDatabaseType(dbType string) bool {
+	switch strings.ToLower(strings.TrimSpace(dbType)) {
+	case "sqlite", "duckdb", "libsql":
+		return true
+	default:
+		return false
+	}
+}
+
+func existingKnownHostsFiles() []string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || homeDir == "" {
+		return nil
+	}
+
+	candidates := []string{
+		filepath.Join(homeDir, ".ssh", "known_hosts"),
+		filepath.Join(homeDir, ".ssh", "known_hosts2"),
+	}
+
+	files := make([]string, 0, len(candidates))
+	for _, path := range candidates {
+		info, statErr := os.Stat(path)
+		if statErr == nil && !info.IsDir() {
+			files = append(files, path)
+		}
+	}
+
+	return files
+}
+
+func buildSSHHostKeyCallback() (ssh.HostKeyCallback, error) {
+	knownHostFiles := existingKnownHostsFiles()
+	if len(knownHostFiles) == 0 {
+		return nil, fmt.Errorf("no SSH known_hosts file found (expected ~/.ssh/known_hosts). Please add the SSH host key first")
+	}
+
+	baseCallback, err := knownhosts.New(knownHostFiles...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load known_hosts: %w", err)
+	}
+
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		err := baseCallback(hostname, remote, key)
+		if err == nil {
+			return nil
+		}
+
+		var keyErr *knownhosts.KeyError
+		if errors.As(err, &keyErr) {
+			gotFingerprint := ssh.FingerprintSHA256(key)
+			if len(keyErr.Want) == 0 {
+				return fmt.Errorf("ssh host key for %s is not trusted (fingerprint: %s); add it to ~/.ssh/known_hosts", hostname, gotFingerprint)
+			}
+			return fmt.Errorf("ssh host key mismatch for %s (got: %s); check ~/.ssh/known_hosts", hostname, gotFingerprint)
+		}
+
+		return err
+	}, nil
+}
+
+func proxyBidirectional(localConn net.Conn, remoteConn net.Conn) {
+	var closeOnce sync.Once
+	closeAll := func() {
+		_ = localConn.Close()
+		_ = remoteConn.Close()
+	}
+
+	relay := func(dst net.Conn, src net.Conn, done chan<- struct{}) {
+		_, _ = io.Copy(dst, src)
+		closeOnce.Do(closeAll)
+		done <- struct{}{}
+	}
+
+	done := make(chan struct{}, 2)
+	go relay(localConn, remoteConn, done)
+	go relay(remoteConn, localConn, done)
+
+	<-done
+	<-done
 }
 
 func (d *Database) Connect(config DBConfig) error {
@@ -63,19 +163,41 @@ func (d *Database) Connect(config DBConfig) error {
 		d.Disconnect()
 	}
 
+	if isLocalDatabaseType(config.Type) {
+		config.SSHEnabled = false
+	}
+
 	var dbHost string
 	var dbPort int
 
 	// Handle SSH Tunneling
 	if config.SSHEnabled {
+		if strings.TrimSpace(config.SSHHost) == "" {
+			return fmt.Errorf("ssh host is required")
+		}
+		if config.SSHPort <= 0 || config.SSHPort > 65535 {
+			return fmt.Errorf("ssh port must be between 1 and 65535")
+		}
+		if strings.TrimSpace(config.SSHUser) == "" {
+			return fmt.Errorf("ssh user is required")
+		}
+		if strings.TrimSpace(config.SSHKeyFile) == "" && config.SSHPassword == "" {
+			return fmt.Errorf("ssh password or ssh key file is required")
+		}
+
+		hostKeyCallback, err := buildSSHHostKeyCallback()
+		if err != nil {
+			return err
+		}
+
 		// 1. Setup SSH Client Config
 		sshConfig := &ssh.ClientConfig{
 			User:            config.SSHUser,
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(), // For simplicity, we ignore host key verification. In prod, prompt user.
-			Timeout:         0,                           // No timeout for now
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         sshDialTimeout,
 		}
 
-		if config.SSHKeyFile != "" {
+		if strings.TrimSpace(config.SSHKeyFile) != "" {
 			key, err := os.ReadFile(config.SSHKeyFile)
 			if err != nil {
 				return fmt.Errorf("unable to read private key: %v", err)
@@ -114,23 +236,20 @@ func (d *Database) Connect(config DBConfig) error {
 			for {
 				localConn, err := listener.Accept()
 				if err != nil {
-					// Listener closed
+					d.log("INFO", fmt.Sprintf("SSH tunnel listener stopped: %v", err))
 					return
 				}
 
 				go func(lc net.Conn) {
-					defer lc.Close()
 					remoteAddr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 					remoteConn, err := client.Dial("tcp", remoteAddr)
 					if err != nil {
-						fmt.Printf("SSH tunnel dial error: %v\n", err)
+						d.log("ERROR", fmt.Sprintf("SSH tunnel dial error: %v", err))
+						_ = lc.Close()
 						return
 					}
-					defer remoteConn.Close()
 
-					// Bidirectional copy
-					go io.Copy(lc, remoteConn)
-					io.Copy(remoteConn, lc)
+					proxyBidirectional(lc, remoteConn)
 				}(localConn)
 			}
 		}()

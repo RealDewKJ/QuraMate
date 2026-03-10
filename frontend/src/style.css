@@ -132,3 +132,24 @@
   background-size: 100% 100%;
   background-origin: content-box;
 }
+
+html.pref-pointer-cursors button:not(:disabled),
+html.pref-pointer-cursors a[href],
+html.pref-pointer-cursors [role="button"],
+html.pref-pointer-cursors input[type="checkbox"],
+html.pref-pointer-cursors input[type="radio"],
+html.pref-pointer-cursors select,
+html.pref-pointer-cursors summary {
+  cursor: pointer;
+}
+
+html.pref-disable-pointer-cursors .cursor-pointer,
+html.pref-disable-pointer-cursors button:not(:disabled),
+html.pref-disable-pointer-cursors a[href],
+html.pref-disable-pointer-cursors [role="button"],
+html.pref-disable-pointer-cursors input[type="checkbox"],
+html.pref-disable-pointer-cursors input[type="radio"],
+html.pref-disable-pointer-cursors select,
+html.pref-disable-pointer-cursors summary {
+  cursor: default !important;
+}

@@ -56,6 +56,8 @@ export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntr
 
 export function GetRoutineDefinition(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function GetSSHHostKeyInfo(arg1:string,arg2:number):Promise<main.SSHHostKeyInfo>;
+
 export function GetServerProcesses(arg1:string):Promise<Array<main.ServerProcess>>;
 
 export function GetStartupFile():Promise<string>;
@@ -113,6 +115,8 @@ export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 export function TestConnection(arg1:main.DBConfig):Promise<string>;
 
 export function ToggleFavoriteQuery(arg1:number,arg2:boolean):Promise<string>;
+
+export function TrustSSHHost(arg1:string,arg2:number):Promise<string>;
 
 export function UpdateRecord(arg1:string,arg2:string,arg3:Record<string, any>,arg4:Record<string, any>):Promise<string>;
 

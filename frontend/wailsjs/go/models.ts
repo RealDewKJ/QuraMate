@@ -272,6 +272,28 @@ export namespace main {
 		}
 	}
 	
+	export class SSHHostKeyInfo {
+	    host: string;
+	    port: number;
+	    pattern: string;
+	    keyType: string;
+	    fingerprint: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SSHHostKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.pattern = source["pattern"];
+	        this.keyType = source["keyType"];
+	        this.fingerprint = source["fingerprint"];
+	        this.error = source["error"];
+	    }
+	}
 	export class ServerProcess {
 	    sessionId: string;
 	    user: string;
@@ -374,4 +396,3 @@ export namespace main {
 	}
 
 }
-

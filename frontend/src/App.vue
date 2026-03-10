@@ -484,6 +484,16 @@ const recoverSelectedConnections = async () => {
   await recoverConnections(targets);
 };
 
+const applyAppearancePreferences = (appearance?: {
+  usePointerCursors?: boolean;
+}) => {
+  const root = document.documentElement;
+  const usePointerCursors = appearance?.usePointerCursors !== false;
+
+  root.classList.toggle('pref-pointer-cursors', usePointerCursors);
+  root.classList.toggle('pref-disable-pointer-cursors', !usePointerCursors);
+};
+
 onMounted(async () => {
   try {
     const savedSettingsJson = await LoadSetting('user_settings');
@@ -496,6 +506,9 @@ onMounted(async () => {
       if (parsed.appearance && parsed.appearance.appFont) {
         appFont = parsed.appearance.appFont;
       }
+      applyAppearancePreferences(parsed.appearance);
+    } else {
+      applyAppearancePreferences();
     }
     document.documentElement.style.fontFamily = appFont;
   } catch (e) {
@@ -667,3 +680,5 @@ onUnmounted(() => {
 </template>
 
 <style></style>
+
+

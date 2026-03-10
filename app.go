@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +21,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/xuri/excelize/v2"
 	"github.com/zalando/go-keyring"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // App struct
@@ -81,6 +85,15 @@ type ConnectResult struct {
 	Error string `json:"error"`
 }
 
+type SSHHostKeyInfo struct {
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Pattern     string `json:"pattern"`
+	KeyType     string `json:"keyType"`
+	Fingerprint string `json:"fingerprint"`
+	Error       string `json:"error"`
+}
+
 func (a *App) ConnectDB(config DBConfig) ConnectResult {
 	if config.ID != "" {
 		if config.Password == "" {
@@ -95,7 +108,7 @@ func (a *App) ConnectDB(config DBConfig) ConnectResult {
 		}
 	}
 
-	newDB := NewDatabase()
+	newDB := NewDatabase(a.logEvent)
 	err := newDB.Connect(config)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Failed to connect to %s: %s", config.Type, err.Error()))
@@ -126,7 +139,7 @@ func (a *App) TestConnection(config DBConfig) string {
 		}
 	}
 
-	newDB := NewDatabase()
+	newDB := NewDatabase(a.logEvent)
 	err := newDB.Connect(config)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Connection test failed for %s: %s", config.Type, err.Error()))
@@ -134,6 +147,121 @@ func (a *App) TestConnection(config DBConfig) string {
 	}
 	newDB.Disconnect()
 	a.logEvent("INFO", fmt.Sprintf("Connection test successful for %s", config.Type))
+	return "Success"
+}
+
+func fetchSSHHostKey(host string, port int) (ssh.PublicKey, error) {
+	trimmedHost := strings.TrimSpace(host)
+	if trimmedHost == "" {
+		return nil, fmt.Errorf("host is required")
+	}
+	if port <= 0 || port > 65535 {
+		return nil, fmt.Errorf("port must be between 1 and 65535")
+	}
+
+	var capturedKey ssh.PublicKey
+	sshConfig := &ssh.ClientConfig{
+		User: "quramate-probe",
+		Auth: []ssh.AuthMethod{
+			ssh.Password("quramate-probe"),
+		},
+		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
+			capturedKey = key
+			return fmt.Errorf("host key captured")
+		},
+		Timeout: sshDialTimeout,
+	}
+
+	addr := net.JoinHostPort(trimmedHost, strconv.Itoa(port))
+	_, _ = ssh.Dial("tcp", addr, sshConfig)
+	if capturedKey == nil {
+		return nil, fmt.Errorf("unable to fetch host key from %s", addr)
+	}
+
+	return capturedKey, nil
+}
+
+func ensureKnownHostsFilePath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || homeDir == "" {
+		return "", fmt.Errorf("unable to locate user home directory")
+	}
+
+	sshDir := filepath.Join(homeDir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return "", fmt.Errorf("unable to create .ssh directory: %w", err)
+	}
+
+	knownHostsPath := filepath.Join(sshDir, "known_hosts")
+	if _, err := os.Stat(knownHostsPath); errors.Is(err, os.ErrNotExist) {
+		file, createErr := os.OpenFile(knownHostsPath, os.O_CREATE|os.O_WRONLY, 0600)
+		if createErr != nil {
+			return "", fmt.Errorf("unable to create known_hosts: %w", createErr)
+		}
+		_ = file.Close()
+	}
+
+	return knownHostsPath, nil
+}
+
+func knownHostsPattern(host string, port int) string {
+	trimmedHost := strings.TrimSpace(host)
+	if port == 22 {
+		return trimmedHost
+	}
+	return net.JoinHostPort(trimmedHost, strconv.Itoa(port))
+}
+
+func (a *App) GetSSHHostKeyInfo(host string, port int) SSHHostKeyInfo {
+	key, err := fetchSSHHostKey(host, port)
+	if err != nil {
+		return SSHHostKeyInfo{Error: fmt.Sprintf("Error: %s", err.Error())}
+	}
+
+	trimmedHost := strings.TrimSpace(host)
+	return SSHHostKeyInfo{
+		Host:        trimmedHost,
+		Port:        port,
+		Pattern:     knownHostsPattern(trimmedHost, port),
+		KeyType:     key.Type(),
+		Fingerprint: ssh.FingerprintSHA256(key),
+	}
+}
+
+func (a *App) TrustSSHHost(host string, port int) string {
+	key, err := fetchSSHHostKey(host, port)
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+
+	knownHostsPath, err := ensureKnownHostsFilePath()
+	if err != nil {
+		return fmt.Sprintf("Error: %s", err.Error())
+	}
+
+	pattern := knownHostsPattern(host, port)
+	newLine := knownhosts.Line([]string{pattern}, key)
+
+	existing, err := os.ReadFile(knownHostsPath)
+	if err == nil {
+		existingText := string(existing)
+		if strings.Contains(existingText, newLine) {
+			a.logEvent("INFO", fmt.Sprintf("SSH host already trusted: %s", pattern))
+			return "Success"
+		}
+	}
+
+	file, err := os.OpenFile(knownHostsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Sprintf("Error: unable to open known_hosts: %s", err.Error())
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(newLine + "\n"); err != nil {
+		return fmt.Sprintf("Error: unable to write known_hosts: %s", err.Error())
+	}
+
+	a.logEvent("INFO", fmt.Sprintf("Trusted SSH host key for %s (%s)", pattern, ssh.FingerprintSHA256(key)))
 	return "Success"
 }
 

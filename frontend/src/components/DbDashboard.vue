@@ -281,7 +281,6 @@ import {
     buildResultGridImage,
     copyImageBlobToClipboard,
     downloadBlobAsFile,
-    normalizeShortcutString,
     shortcutMatchesEvent
 } from '../composables/useResultGridScreenshot';
 import { useTableActions } from '../composables/useTableActions';
@@ -307,15 +306,8 @@ const safeModeEnabled = computed(() => {
 const perfLoggingEnabled = computed(() => {
     return globalSettings.value?.general?.enablePerfLogs === true;
 });
-const screenshotPreviewDialogEnabled = computed(() => {
-    return globalSettings.value?.general?.screenshotPreviewDialog !== false;
-});
-const showScreenshotShortcutHint = computed(() => {
-    return globalSettings.value?.general?.showScreenshotShortcutHint !== false;
-});
-const screenshotShortcutLabel = computed(() => {
-    return normalizeShortcutString(globalSettings.value?.shortcuts?.screenshotResultGrid || DEFAULT_GRID_SCREENSHOT_SHORTCUT);
-});
+const showScreenshotShortcutHint = computed(() => true);
+const screenshotShortcutLabel = computed(() => DEFAULT_GRID_SCREENSHOT_SHORTCUT);
 
 const resultImageDialog = ref<{
     isOpen: boolean;
@@ -449,27 +441,15 @@ const exportQueryResultGridImage = async () => {
     try {
         const { image, tableName } = await generateQueryResultGridImage();
 
-        if (screenshotPreviewDialogEnabled.value) {
-            clearResultImageDialogPreview();
-            resultImageDialog.value.isOpen = true;
-            resultImageDialog.value.blob = image.blob;
-            resultImageDialog.value.fileName = image.fileName;
-            resultImageDialog.value.tableName = tableName;
-            resultImageDialog.value.timestampLabel = image.timestampLabel;
-            resultImageDialog.value.renderedRows = image.renderedRows;
-            resultImageDialog.value.totalRows = image.totalRows;
-            resultImageDialog.value.imageUrl = URL.createObjectURL(image.blob);
-            return;
-        }
-
-        const copied = await copyImageBlobToClipboard(image.blob);
-        downloadBlobAsFile(image.blob, image.fileName);
-
-        if (copied) {
-            toastRef.value?.success(`Screenshot exported (${image.renderedRows}/${image.totalRows} rows), copied to clipboard, and downloaded.`);
-        } else {
-            toastRef.value?.success(`Screenshot exported (${image.renderedRows}/${image.totalRows} rows) and downloaded.`);
-        }
+        clearResultImageDialogPreview();
+        resultImageDialog.value.isOpen = true;
+        resultImageDialog.value.blob = image.blob;
+        resultImageDialog.value.fileName = image.fileName;
+        resultImageDialog.value.tableName = tableName;
+        resultImageDialog.value.timestampLabel = image.timestampLabel;
+        resultImageDialog.value.renderedRows = image.renderedRows;
+        resultImageDialog.value.totalRows = image.totalRows;
+        resultImageDialog.value.imageUrl = URL.createObjectURL(image.blob);
     } catch (e) {
         console.error('Failed to export query result screenshot', e);
         toastRef.value?.error(`Failed to export screenshot: ${e}`);
@@ -2503,9 +2483,8 @@ const handleKeydown = (e: KeyboardEvent) => {
 
     const withModifier = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
-    const screenshotBinding = globalSettings.value?.shortcuts?.screenshotResultGrid || DEFAULT_GRID_SCREENSHOT_SHORTCUT;
 
-    if (shortcutMatchesEvent(e, screenshotBinding)) {
+    if (shortcutMatchesEvent(e, DEFAULT_GRID_SCREENSHOT_SHORTCUT)) {
         e.preventDefault();
         void exportQueryResultGridImage();
         return;
