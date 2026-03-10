@@ -376,9 +376,9 @@ export const buildResultGridImage = async (options: BuildGridImageOptions): Prom
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const gradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-    gradient.addColorStop(0, '#1f3b62');
-    gradient.addColorStop(0.45, '#2e5b8f');
-    gradient.addColorStop(1, '#14b8a6');
+    gradient.addColorStop(0, '#9a3412');
+    gradient.addColorStop(0.45, '#ea580c');
+    gradient.addColorStop(1, '#f59e0b');
     drawRoundedRect(ctx, 10, 10, canvasWidth - 20, canvasHeight - 20, outerRadius, '#ffffff');
     drawRoundedRect(ctx, 10, 10, canvasWidth - 20, heroHeight + 56, outerRadius, gradient);
     drawRoundedRect(ctx, 10, heroHeight + 34, canvasWidth - 20, canvasHeight - (heroHeight + 44), outerRadius, '#f8fafc');
@@ -391,23 +391,23 @@ export const buildResultGridImage = async (options: BuildGridImageOptions): Prom
     ctx.textBaseline = 'middle';
     ctx.fillText(options.tableName || 'Query Result', contentX, cursorY + 50);
 
-    ctx.fillStyle = '#dbeafe';
+    ctx.fillStyle = '#ffedd5';
     ctx.font = `500 14px ${FONT_FAMILY}`;
     ctx.fillText(`Captured ${timestampLabel}`, contentX, cursorY + 78);
     cursorY += heroHeight;
 
     let chipX = contentX;
     chipX += drawChip(ctx, `${rows.length} rows`, chipX, cursorY, {
-        fill: '#e0ecff',
-        textColor: '#1d4ed8',
+        fill: '#fed7aa',
+        textColor: '#9a3412',
         font: `600 12px ${FONT_FAMILY}`,
-        stroke: '#bfdbfe'
+        stroke: '#fdba74'
     }) + 8;
     drawChip(ctx, `${columns.length} columns`, chipX, cursorY, {
-        fill: '#dcfce7',
-        textColor: '#166534',
+        fill: '#ffedd5',
+        textColor: '#c2410c',
         font: `600 12px ${FONT_FAMILY}`,
-        stroke: '#bbf7d0'
+        stroke: '#fed7aa'
     });
 
     cursorY += chipAreaHeight + tablePanelTopGap;
@@ -426,17 +426,17 @@ export const buildResultGridImage = async (options: BuildGridImageOptions): Prom
     drawRoundedRect(ctx, tablePanelX, tablePanelY, tablePanelWidth, tablePanelHeight, tablePanelRadius, '#ffffff', '#dbe3ee');
 
     const headerGradient = ctx.createLinearGradient(tableX, cursorY, tableX + tableWidth, cursorY);
-    headerGradient.addColorStop(0, '#0f172a');
-    headerGradient.addColorStop(1, '#1e3a8a');
+    headerGradient.addColorStop(0, '#7c2d12');
+    headerGradient.addColorStop(1, '#ea580c');
     drawRoundedRect(ctx, tableX, cursorY, tableWidth, headerHeight, 12, headerGradient);
 
-    ctx.fillStyle = '#cbd5e1';
+    ctx.fillStyle = '#ffedd5';
     ctx.font = `600 12px ${FONT_FAMILY}`;
     ctx.fillText('#', tableX + 14, cursorY + headerHeight / 2 + 0.5);
 
     let x = tableX + indexWidth;
     columns.forEach((column, index) => {
-        drawCellText(ctx, String(column), x, cursorY, widths[index], headerHeight, '#e2e8f0', `600 12px ${FONT_FAMILY}`);
+        drawCellText(ctx, String(column), x, cursorY, widths[index], headerHeight, '#fff7ed', `600 12px ${FONT_FAMILY}`);
         x += widths[index];
     });
 
