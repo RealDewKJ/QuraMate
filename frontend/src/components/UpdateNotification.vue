@@ -35,8 +35,8 @@ const showUpdateToast = (info: UpdateInfo) => {
 
     if (info.available) {
         toastRef.value.info(
-            info.releaseNotes ? `${info.releaseNotes.substring(0, 120)}${info.releaseNotes.length > 120 ? '...' : ''}` : 'A new version is available.',
-            `🎉 New update available v${info.latestVersion}`,
+            'Click "Update Now" to download and install the latest version.',
+            `New update available v${info.latestVersion}`,
             15000, // Show longer for updates
             {
                 label: 'Update Now',
@@ -49,7 +49,7 @@ const showUpdateToast = (info: UpdateInfo) => {
     } else {
         toastRef.value.success(
             `You are on the latest version v${info.currentVersion}.`,
-            '✅ Up to date',
+            '\u2705 Up to date',
             4000
         );
     }
@@ -73,7 +73,7 @@ const downloadUpdate = async () => {
 
         const loadingId = toastRef.value.info(
             'Downloading and installing the update...',
-            '🔄 Updating...',
+            '\uD83D\uDD04 Updating...',
             0 // keep open
         );
 
@@ -82,14 +82,14 @@ const downloadUpdate = async () => {
             toastRef.value.remove(loadingId);
             toastRef.value.success(
                 'The update has been installed successfully. Please restart the application to apply changes.',
-                '✅ Update Complete',
+                '\u2705 Update Complete',
                 0 // Keep open until app restarts
             );
         } catch (err: any) {
             toastRef.value.remove(loadingId);
             toastRef.value.error(
                 err.toString() || 'Failed to apply the update',
-                '❌ Update Failed',
+                '\u274C Update Failed',
                 10000
             );
             // Fallback to opening browser
