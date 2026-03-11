@@ -32,13 +32,13 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.1.7)
+## Latest Release (v1.1.8)
 
-- Fixed issue where insert/paste modal did not open in dashboard flow
-- Added Paste from Excel support via Ctrl+V in table results
-- Added paste preview modal before insert with row-by-row validation status
-- Added inline preview editing and selectable skip/include per row
-- Added backend batch insert in a single transaction with rollback-safe behavior
+- Improved Query History safety with SQL redaction support for sensitive values before persistence
+- Added Query History settings for enable/disable and retention-day cleanup
+- Improved Query History UX and reliability with better error states and loading guards
+- Fixed MSSQL table designer behavior to avoid invalid ALTER TYPE for `timestamp` columns
+- Updated application version across app/frontend/npm manifests to 1.1.8
 
 ## Features
 
