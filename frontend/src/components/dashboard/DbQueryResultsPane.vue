@@ -420,21 +420,21 @@ defineExpose({
 
                 <!-- Primary Result Set (Virtual List) -->
                 <div v-if="activeTab.resultSets[0]"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0"
+                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0 dark:border-zinc-700/70 dark:bg-zinc-950/80"
                     :class="collapsedResultSets[0] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[0] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(activeTab.resultSets[0], 0)">
 
                     <!-- Header -->
-                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80"
+                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80 dark:bg-zinc-900/90 dark:border-zinc-700/70 dark:hover:bg-zinc-800/90"
                         @click="toggleResultSetCollapse(0)">
                         <div class="flex items-center gap-2">
                             <span class="font-semibold text-sm text-foreground">Result 1</span>
                             <span
-                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50">
+                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50 dark:text-zinc-300 dark:bg-zinc-950/80 dark:border-zinc-700/70">
                                 {{ activeTab.resultSets[0].rows ? activeTab.resultSets[0].rows.length : 0 }} rows
                             </span>
                         </div>
-                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1 dark:text-zinc-300 dark:hover:text-zinc-100"
                             @click.stop="toggleResultSetCollapse(0)">
                             <svg v-if="collapsedResultSets[0]" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -461,7 +461,7 @@ defineExpose({
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
                             @openImagePreview="openImagePreview" @toggleSort="toggleSort" />
-                        <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors"
+                        <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors dark:border-zinc-700/70 dark:bg-zinc-900/50 dark:hover:bg-primary/30"
                             title="Drag to resize this query result"
                             @mousedown="startResultSetResize($event, 0, activeTab.resultSets[0])"></div>
                     </template>
@@ -469,21 +469,21 @@ defineExpose({
 
                 <!-- Subsequent Result Sets (Standard Tables) -->
                 <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="Number(rsIndex) + 1"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0"
+                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0 dark:border-zinc-700/70 dark:bg-zinc-950/80"
                     :class="collapsedResultSets[Number(rsIndex) + 1] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[Number(rsIndex) + 1] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(resultSet, Number(rsIndex) + 1)">
 
                     <!-- Header -->
-                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80"
+                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80 dark:bg-zinc-900/90 dark:border-zinc-700/70 dark:hover:bg-zinc-800/90"
                         @click="toggleResultSetCollapse(Number(rsIndex) + 1)">
                         <div class="flex items-center gap-2">
                             <span class="font-semibold text-sm text-foreground">Result {{ Number(rsIndex) + 2 }}</span>
                             <span
-                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50">
+                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50 dark:text-zinc-300 dark:bg-zinc-950/80 dark:border-zinc-700/70">
                                 {{ resultSet.rows ? resultSet.rows.length : 0 }} rows
                             </span>
                         </div>
-                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1 dark:text-zinc-300 dark:hover:text-zinc-100"
                             @click.stop="toggleResultSetCollapse(Number(rsIndex) + 1)">
                             <svg v-if="collapsedResultSets[Number(rsIndex) + 1]" xmlns="http://www.w3.org/2000/svg"
                                 width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -511,7 +511,7 @@ defineExpose({
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
                             @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
                             @openImagePreview="openImagePreview" @toggleSort="toggleSort" />
-                        <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors"
+                        <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors dark:border-zinc-700/70 dark:bg-zinc-900/50 dark:hover:bg-primary/30"
                             title="Drag to resize this query result"
                             @mousedown="startResultSetResize($event, Number(rsIndex) + 1, resultSet)"></div>
                     </template>

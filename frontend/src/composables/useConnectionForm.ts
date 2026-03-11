@@ -54,6 +54,18 @@ export interface SSHTrustAuditEntry {
   rotationReason?: string;
 }
 
+type ConnectionFieldKey =
+  | "host"
+  | "port"
+  | "user"
+  | "database"
+  | "sshHost"
+  | "sshPort"
+  | "sshUser"
+  | "sshAuth";
+
+export type ConnectionFieldErrors = Partial<Record<ConnectionFieldKey, string>>;
+
 // ---------- helpers ----------
 
 const DEFAULT_CONFIG: ConnectionConfig = {
@@ -76,9 +88,64 @@ const DEFAULT_CONFIG: ConnectionConfig = {
 };
 
 const LOCAL_DATABASE_TYPES = new Set(["sqlite", "duckdb", "libsql"]);
+const ERROR_CODE_PATTERN = /^Error \[([A-Z0-9_]+)\]:/;
 
 const isLocalDatabaseType = (type: string): boolean =>
   LOCAL_DATABASE_TYPES.has((type || "").toLowerCase());
+
+const getDefaultPortByType = (type: string): number | null => {
+  switch ((type || "").toLowerCase()) {
+    case "postgres":
+    case "greenplum":
+    case "redshift":
+      return 5432;
+    case "cockroachdb":
+      return 26257;
+    case "mysql":
+    case "mariadb":
+      return 3306;
+    case "databend":
+      return 3307;
+    case "mssql":
+      return 1433;
+    default:
+      return null;
+  }
+};
+
+const extractErrorCode = (message: string): string => {
+  const match = (message || "").match(ERROR_CODE_PATTERN);
+  return match?.[1] || "";
+};
+
+const buildFieldErrors = (target: ConnectionConfig): ConnectionFieldErrors => {
+  const errors: ConnectionFieldErrors = {};
+  const isLocalType = isLocalDatabaseType(target.type);
+
+  if (!isLocalType) {
+    if (!target.host.trim()) errors.host = "Host is required.";
+    if (!target.user.trim()) errors.user = "User is required.";
+    if (!target.database.trim()) errors.database = "Database name is required.";
+    if (!Number.isInteger(target.port) || target.port < 1 || target.port > 65535) {
+      errors.port = "Port must be between 1 and 65535.";
+    }
+  } else if (!target.database.trim()) {
+    errors.database = "Database file path is required.";
+  }
+
+  if (target.sshEnabled && !isLocalType) {
+    if (!target.sshHost.trim()) errors.sshHost = "SSH host is required.";
+    if (!target.sshUser.trim()) errors.sshUser = "SSH user is required.";
+    if (!Number.isInteger(target.sshPort) || target.sshPort < 1 || target.sshPort > 65535) {
+      errors.sshPort = "SSH port must be between 1 and 65535.";
+    }
+    if (!target.sshPassword && !target.sshKeyFile.trim()) {
+      errors.sshAuth = "SSH password or SSH key file is required.";
+    }
+  }
+
+  return errors;
+};
 
 export function getConnectionLabel(conn: Partial<ConnectionConfig>): string {
   if (conn.name) return conn.name;
@@ -175,6 +242,7 @@ export function useConnectionForm(
   };
 
   const error = ref("");
+  const lastErrorCode = ref("");
   const testSuccess = ref("");
   const isTrustingHost = ref(false);
   const isLoadingHostKeyInfo = ref(false);
@@ -190,13 +258,24 @@ export function useConnectionForm(
   const sshTrustAudit = useLocalStorage<SSHTrustAuditEntry[]>("sshTrustAudit", []);
   const sshTrustAuditSearch = ref("");
 
+  const clearError = () => {
+    error.value = "";
+    lastErrorCode.value = "";
+  };
+  const setError = (message: string) => {
+    error.value = message;
+    lastErrorCode.value = extractErrorCode(message);
+  };
+
   const connectionLabel = computed(() => getConnectionLabel(config));
+  const fieldErrors = computed<ConnectionFieldErrors>(() => buildFieldErrors(config));
   const canTrustCurrentSshHost = computed(() => {
     if (!config.sshEnabled || isLocalDatabaseType(config.type)) return false;
     if (!config.sshHost.trim()) return false;
-
-    const message = (error.value || "").toLowerCase();
-    return message.includes("not trusted") || message.includes("known_hosts");
+    return (
+      lastErrorCode.value === "SSH_HOST_UNTRUSTED" ||
+      lastErrorCode.value === "SSH_HOST_KEY_MISMATCH"
+    );
   });
   const filteredSshTrustAudit = computed(() => {
     const query = sshTrustAuditSearch.value.trim().toLowerCase();
@@ -259,17 +338,21 @@ export function useConnectionForm(
   // Auto-adjust port when db type changes
   watchImmediate(
     () => config.type,
-    (newType) => {
+    (newType, oldType) => {
+      const nextDefaultPort = getDefaultPortByType(newType);
+      const previousDefaultPort = getDefaultPortByType(oldType || "");
+
       if (
-        newType === "postgres" ||
-        newType === "greenplum" ||
-        newType === "redshift"
-      )
-        config.port = 5432;
-      else if (newType === "cockroachdb") config.port = 26257;
-      else if (newType === "mysql" || newType === "mariadb") config.port = 3306;
-      else if (newType === "databend") config.port = 3307;
-      else if (newType === "mssql") config.port = 1433;
+        nextDefaultPort !== null &&
+        (
+          !Number.isInteger(config.port) ||
+          config.port <= 0 ||
+          oldType === undefined ||
+          (previousDefaultPort !== null && config.port === previousDefaultPort)
+        )
+      ) {
+        config.port = nextDefaultPort;
+      }
 
       if (isLocalDatabaseType(newType)) {
         config.sshEnabled = false;
@@ -283,31 +366,18 @@ export function useConnectionForm(
   );
 
   const validateConnectionConfig = (target: ConnectionConfig): string => {
-    const isLocalType = isLocalDatabaseType(target.type);
-
-    if (!isLocalType) {
-      if (!target.host.trim()) return "Host is required.";
-      if (!target.user.trim()) return "User is required.";
-      if (!target.database.trim()) return "Database name is required.";
-      if (!Number.isInteger(target.port) || target.port < 1 || target.port > 65535) {
-        return "Port must be between 1 and 65535.";
-      }
-    } else if (!target.database.trim()) {
-      return "Database file path is required.";
-    }
-
-    if (target.sshEnabled && !isLocalType) {
-      if (!target.sshHost.trim()) return "SSH host is required.";
-      if (!target.sshUser.trim()) return "SSH user is required.";
-      if (!Number.isInteger(target.sshPort) || target.sshPort < 1 || target.sshPort > 65535) {
-        return "SSH port must be between 1 and 65535.";
-      }
-      if (!target.sshPassword && !target.sshKeyFile.trim()) {
-        return "SSH password or SSH key file is required.";
-      }
-    }
-
-    return "";
+    const errors = buildFieldErrors(target);
+    return (
+      errors.host ||
+      errors.port ||
+      errors.user ||
+      errors.database ||
+      errors.sshHost ||
+      errors.sshPort ||
+      errors.sshUser ||
+      errors.sshAuth ||
+      ""
+    );
   };
 
   const handleSelectSqliteFile = async () => {
@@ -326,7 +396,7 @@ export function useConnectionForm(
     isLoading.value = false;
     isTesting.value = false;
     isQuickConnecting.value = false;
-    error.value = "Connection cancelled by user.";
+    setError("Connection cancelled by user.");
     testSuccess.value = "";
   };
 
@@ -370,13 +440,13 @@ export function useConnectionForm(
   };
 
   const performConnect = async () => {
-    error.value = "";
+    clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
 
     const validationError = validateConnectionConfig(config);
     if (validationError) {
-      error.value = validationError;
+      setError(validationError);
       return;
     }
 
@@ -424,11 +494,11 @@ export function useConnectionForm(
         });
         resetConfig();
       } else {
-        error.value = result.error || "Unknown error";
+        setError(result.error || "Unknown error");
       }
     } catch (e: any) {
       if (currentToken !== connectionToken.value) return;
-      error.value = e.toString();
+      setError(e.toString());
     } finally {
       if (currentToken === connectionToken.value) {
         isLoading.value = false;
@@ -442,13 +512,13 @@ export function useConnectionForm(
   };
 
   const testConnection = async () => {
-    error.value = "";
+    clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
 
     const validationError = validateConnectionConfig(config);
     if (validationError) {
-      error.value = validationError;
+      setError(validationError);
       return;
     }
 
@@ -466,11 +536,11 @@ export function useConnectionForm(
       if (result === "Success") {
         testSuccess.value = "Connection successful!";
       } else {
-        error.value = result;
+        setError(result);
       }
     } catch (e: any) {
       if (currentToken !== connectionToken.value) return;
-      error.value = e.toString();
+      setError(e.toString());
     } finally {
       if (currentToken === connectionToken.value) {
         isTesting.value = false;
@@ -550,7 +620,7 @@ export function useConnectionForm(
       );
 
       if (result.error) {
-        error.value = result.error;
+        setError(result.error);
         sshHostKeyInfo.value = null;
       } else {
         sshHostKeyInfo.value = result;
@@ -559,7 +629,7 @@ export function useConnectionForm(
         }
       }
     } catch (e: any) {
-      error.value = e?.toString?.() || "Failed to load SSH host key info.";
+      setError(e?.toString?.() || "Failed to load SSH host key info.");
       sshHostKeyInfo.value = null;
     } finally {
       isLoadingHostKeyInfo.value = false;
@@ -573,11 +643,11 @@ export function useConnectionForm(
       if (!sshHostKeyInfo.value) return;
     }
     if (isFingerprintMismatch.value) {
-      error.value = "Fingerprint does not match expected value. Please verify before trusting.";
+      setError("Fingerprint does not match expected value. Please verify before trusting.");
       return;
     }
     if (isPinnedFingerprintMismatch.value) {
-      error.value = "Current fingerprint differs from previously trusted fingerprint for this host. Possible MITM or host key rotation.";
+      setError("Current fingerprint differs from previously trusted fingerprint for this host. Possible MITM or host key rotation.");
       return;
     }
 
@@ -589,7 +659,7 @@ export function useConnectionForm(
       );
 
       if (result === "Success") {
-        error.value = "";
+        clearError();
         testSuccess.value = "SSH host trusted. Please retry Test Connection.";
         if (sshHostKeyInfo.value) {
           const nextEntry: SSHTrustAuditEntry = {
@@ -603,10 +673,10 @@ export function useConnectionForm(
           sshTrustAudit.value = [nextEntry, ...sshTrustAudit.value].slice(0, 20);
         }
       } else {
-        error.value = result || "Failed to trust SSH host.";
+        setError(result || "Failed to trust SSH host.");
       }
     } catch (e: any) {
-      error.value = e?.toString?.() || "Failed to trust SSH host.";
+      setError(e?.toString?.() || "Failed to trust SSH host.");
     } finally {
       isTrustingHost.value = false;
     }
@@ -617,11 +687,11 @@ export function useConnectionForm(
 
     const reason = sshRotationReason.value.trim();
     if (reason.length < 8) {
-      error.value = "Please provide a rotation reason (at least 8 characters).";
+      setError("Please provide a rotation reason (at least 8 characters).");
       return;
     }
     if (sshRotationConfirmText.value.trim().toUpperCase() !== "ROTATE") {
-      error.value = "Type ROTATE to confirm host key rotation.";
+      setError("Type ROTATE to confirm host key rotation.");
       return;
     }
 
@@ -640,7 +710,7 @@ export function useConnectionForm(
     expectedSshFingerprint.value = entry.fingerprint;
     sshRotationReason.value = "";
     sshRotationConfirmText.value = "";
-    error.value = "";
+    clearError();
     testSuccess.value = "Pinned fingerprint rotation accepted. You can trust this host key now.";
   };
 
@@ -663,7 +733,7 @@ export function useConnectionForm(
       }
       testSuccess.value = "Fingerprint copied to clipboard.";
     } catch (e: any) {
-      error.value = e?.toString?.() || "Failed to copy fingerprint.";
+      setError(e?.toString?.() || "Failed to copy fingerprint.");
     }
   };
 
@@ -675,7 +745,7 @@ export function useConnectionForm(
 
   const exportSshTrustAudit = async () => {
     if (!sshTrustAudit.value.length) {
-      error.value = "No SSH trust history to export.";
+      setError("No SSH trust history to export.");
       return;
     }
 
@@ -687,13 +757,13 @@ export function useConnectionForm(
       const payload = JSON.stringify(sshTrustAudit.value, null, 2);
       const writeError = await WriteTextFile(filePath, payload);
       if (writeError) {
-        error.value = writeError;
+        setError(writeError);
         return;
       }
 
       testSuccess.value = `SSH trust history exported to ${filePath}`;
     } catch (e: any) {
-      error.value = e?.toString?.() || "Failed to export SSH trust history.";
+      setError(e?.toString?.() || "Failed to export SSH trust history.");
     }
   };
 
@@ -705,7 +775,7 @@ export function useConnectionForm(
       const content = await ReadTextFile(filePath);
       const parsed = JSON.parse(content);
       if (!Array.isArray(parsed)) {
-        error.value = "Invalid SSH trust history file format.";
+        setError("Invalid SSH trust history file format.");
         return;
       }
 
@@ -721,7 +791,7 @@ export function useConnectionForm(
         .filter((item) => item.pattern && item.fingerprint);
 
       if (!incoming.length) {
-        error.value = "No valid SSH trust entries found in file.";
+        setError("No valid SSH trust entries found in file.");
         return;
       }
 
@@ -749,7 +819,7 @@ export function useConnectionForm(
 
       testSuccess.value = `Imported ${incoming.length} SSH trust entries.`;
     } catch (e: any) {
-      error.value = e?.toString?.() || "Failed to import SSH trust history.";
+      setError(e?.toString?.() || "Failed to import SSH trust history.");
     }
   };
 
@@ -777,6 +847,7 @@ export function useConnectionForm(
     isQuickConnecting,
     savedConnections,
     connectionLabel,
+    fieldErrors,
     handleSelectSqliteFile,
     cancelConnection,
     connect,

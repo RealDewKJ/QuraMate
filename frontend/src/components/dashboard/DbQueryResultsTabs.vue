@@ -10,10 +10,10 @@ const emit = defineEmits<{
 
 <template>
     <div v-if="activeTab.queryExecuted || activeTab.error"
-        class="flex items-center border-b border-border bg-muted/20 px-2 pt-1 gap-0.5 shrink-0">
+        class="flex items-center border-b border-border bg-muted/20 px-2 pt-1 gap-0.5 shrink-0 dark:border-zinc-700/70 dark:bg-zinc-950/70">
         <button @click="emit('change-tab', 'data')"
             class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
-            :class="activeTab.resultViewTab === 'data' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+            :class="activeTab.resultViewTab === 'data' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px] dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-700/70' : 'text-muted-foreground hover:text-foreground hover:bg-background/50 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900/70'">
             <div class="flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -27,7 +27,7 @@ const emit = defineEmits<{
         </button>
         <button @click="emit('change-tab', 'messages')"
             class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
-            :class="activeTab.resultViewTab === 'messages' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+            :class="activeTab.resultViewTab === 'messages' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px] dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-700/70' : 'text-muted-foreground hover:text-foreground hover:bg-background/50 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900/70'">
             <div class="flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -42,7 +42,7 @@ const emit = defineEmits<{
         </button>
         <button v-if="activeTab.explanation || activeTab.aiExplanation" @click="emit('change-tab', 'analysis')"
             class="relative px-4 py-1.5 text-xs font-medium rounded-t-md transition-all select-none border-l border-r border-t border-transparent"
-            :class="activeTab.resultViewTab === 'analysis' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px]' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'">
+            :class="activeTab.resultViewTab === 'analysis' ? 'bg-background text-foreground border-border shadow-sm mb-[-1px] dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-700/70' : 'text-muted-foreground hover:text-foreground hover:bg-background/50 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900/70'">
             <div class="flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

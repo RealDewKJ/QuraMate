@@ -197,13 +197,13 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
 </script>
 
 <template>
-    <div class="flex-1 overflow-auto bg-card" v-bind="containerProps" @mouseleave="isDragging = false">
+    <div class="flex-1 overflow-auto bg-card dark:bg-zinc-950/90" v-bind="containerProps" @mouseleave="isDragging = false">
         <table v-if="resultSet.columns && resultSet.columns.length > 0" class="w-full text-sm text-left relative">
-            <thead class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-20 font-medium">
+            <thead class="text-xs text-muted-foreground uppercase bg-muted sticky top-0 z-20 font-medium dark:text-zinc-300 dark:bg-zinc-900/90">
                 <tr>
-                    <th scope="col" class="w-8 min-w-8 sticky left-0 z-30 bg-muted border-b border-border"></th>
+                    <th scope="col" class="w-8 min-w-8 sticky left-0 z-30 bg-muted border-b border-border dark:bg-zinc-900/90 dark:border-zinc-700/70"></th>
                     <th v-for="(col, index) in resultSet.columns" :key="index + '-' + col" scope="col"
-                        class="px-3 py-1.5 text-xs whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th"
+                        class="px-3 py-1.5 text-xs whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th dark:border-zinc-700/70 dark:hover:bg-zinc-800/80"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                         @click="emit('toggleSort', col)">
                         <div class="flex flex-col gap-2">
@@ -225,14 +225,14 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                                     <svg v-if="activeTab.sortColumn !== col" xmlns="http://www.w3.org/2000/svg"
                                         width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                        class="lucide lucide-chevrons-up-down text-muted-foreground/30">
+                                        class="lucide lucide-chevrons-up-down text-muted-foreground/30 dark:text-zinc-500/70">
                                         <path d="m7 15 5 5 5-5" />
                                         <path d="m7 9 5-5 5 5" />
                                     </svg>
                                 </div>
                             </div>
                             <input type="text" v-model="activeTab.filters[col]" placeholder="Filter..."
-                                class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text placeholder:text-muted-foreground/70"
+                                class="w-full h-6 px-2 text-[10px] rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring font-normal normal-case text-foreground cursor-text placeholder:text-muted-foreground/70 dark:border-zinc-700/80 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-400"
                                 @click.stop />
                         </div>
                         <!-- Column Resizer -->
@@ -241,13 +241,13 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                     </th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-border">
+            <tbody class="divide-y divide-border dark:divide-zinc-800">
                 <tr :style="{ height: `${padTop}px` }"></tr>
                 <tr v-for="item in virtualList" :key="item.index"
                     class="transition-colors h-[28px] cursor-pointer group"
-                    :class="isRowSelected(item.index) ? 'bg-primary/5' : 'bg-card hover:bg-muted/50'"
+                    :class="isRowSelected(item.index) ? 'bg-primary/10 dark:bg-primary/20' : 'bg-card hover:bg-muted/50 dark:bg-zinc-950/90 dark:hover:bg-zinc-900/70'"
                     @click="emit('update:selectedRowData', item.data); emit('cellClickCustom', getFormattedRowIndex(item.index), '')">
-                    <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-accent transition-colors"
+                    <td class="w-8 min-w-8 sticky left-0 z-20 border-r border-border cursor-pointer select-none bg-muted hover:bg-accent transition-colors dark:border-zinc-700/70 dark:bg-zinc-900/80 dark:hover:bg-zinc-800/80"
                         :class="isRowSelected(item.index) ? 'border-l-2 border-l-primary' : ''"
                         @click.stop="emit('update:selectedRowData', item.data); emit('rowSelectorClick', $event, getFormattedRowIndex(item.index))"
                         @mousedown="e => { if (e.shiftKey) e.preventDefault(); }">
@@ -255,11 +255,11 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                             <span v-if="isRowSelected(item.index)"
                                 class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
                             <span v-else
-                                class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 inline-block opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                                class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 inline-block opacity-0 group-hover:opacity-100 transition-opacity dark:bg-zinc-500/70"></span>
                         </div>
                     </td>
                     <td v-for="(col, index) in resultSet.columns" :key="index + '-' + col"
-                        class="px-3 py-1 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden select-none"
+                        class="px-3 py-1 whitespace-nowrap text-foreground font-mono text-xs border-r border-transparent hover:border-border cursor-pointer relative overflow-hidden select-none dark:text-zinc-100 dark:hover:border-zinc-700/70"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', maxWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
                         :class="{
                             'bg-accent/50': isCellEditing(item.index, col),
@@ -286,12 +286,12 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                         </div>
                         <div v-else class="flex items-center gap-2 overflow-hidden w-full h-full">
                             <div v-if="isImageValue(item.data[col], col)"
-                                class="shrink-0 h-7 w-7 rounded border border-border overflow-hidden bg-muted flex items-center justify-center group/img relative cursor-pointer hover:bg-muted/80"
+                                class="shrink-0 h-7 w-7 rounded border border-border overflow-hidden bg-muted flex items-center justify-center group/img relative cursor-pointer hover:bg-muted/80 dark:border-zinc-700/70 dark:bg-zinc-900/80 dark:hover:bg-zinc-800/80"
                                 @click.stop="emit('openImagePreview', item.data[col])" title="Click to view full image">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                     stroke-linejoin="round"
-                                    class="lucide lucide-image text-muted-foreground group-hover/img:text-foreground transition-colors">
+                                    class="lucide lucide-image text-muted-foreground group-hover/img:text-foreground transition-colors dark:text-zinc-300 dark:group-hover/img:text-zinc-100">
                                     <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                                     <circle cx="9" cy="9" r="2" />
                                     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -309,7 +309,7 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
     </div>
 
     <div
-        class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center shrink-0 h-10">
+        class="bg-muted/30 px-4 py-2 border-t border-border text-xs text-muted-foreground flex justify-between items-center shrink-0 h-10 dark:bg-zinc-900/60 dark:border-zinc-700/70 dark:text-zinc-300">
         <div></div>
         <div class="flex items-center gap-3" v-if="resultSetIndex === 0">
             <button v-if="activeTab.tableName && !isReadOnly" @click="emit('openMockDataModal')"

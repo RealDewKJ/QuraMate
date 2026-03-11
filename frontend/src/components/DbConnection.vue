@@ -50,6 +50,7 @@ const {
   isQuickConnecting,
   savedConnections,
   connectionLabel,
+  fieldErrors,
   handleSelectSqliteFile,
   cancelConnection,
   connect,
@@ -76,6 +77,7 @@ const [showSettings, toggleSettings] = useToggle(false);
 const [showSavedModal, toggleSavedModal] = useToggle(false);
 const [showPassword, togglePassword] = useToggle(false);
 const [showSshPassword, toggleSshPassword] = useToggle(false);
+const savedConnectionsAnnouncement = ref("");
 const supportsSsh = computed(
   () => !["sqlite", "duckdb", "libsql"].includes(config.type),
 );
@@ -98,6 +100,8 @@ const handleRemoveConn = (conn: ConnectionConfig) => {
   const index = savedConnections.value.findIndex((c) => c.id === conn.id);
   if (index !== -1) {
     removeConnection(index);
+    const displayName = conn.name || conn.database || conn.host || conn.type;
+    savedConnectionsAnnouncement.value = `Deleted saved connection ${displayName}.`;
   }
 };
 
@@ -109,7 +113,7 @@ onMounted(() => {
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-300">
     <div class="absolute top-4 right-4">
-      <button @click="toggleSettings(true)"
+      <button @click="toggleSettings(true)" aria-label="Open settings"
         class="p-2 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -213,11 +217,13 @@ onMounted(() => {
                 <label class="text-sm font-medium leading-none" for="host">Host</label>
                 <input v-model="config.host" id="host" type="text" placeholder="localhost"
                   class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                <p v-if="fieldErrors.host" class="text-xs text-destructive">{{ fieldErrors.host }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="port">Port</label>
                 <input v-model.number="config.port" id="port" type="number"
                   class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                <p v-if="fieldErrors.port" class="text-xs text-destructive">{{ fieldErrors.port }}</p>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -225,13 +231,14 @@ onMounted(() => {
                 <label class="text-sm font-medium leading-none" for="user">User</label>
                 <input v-model="config.user" id="user" type="text"
                   class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                <p v-if="fieldErrors.user" class="text-xs text-destructive">{{ fieldErrors.user }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="password">Password</label>
                 <div class="relative">
                   <input v-model="config.password" id="password" :type="showPassword ? 'text' : 'password'"
                     class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
-                  <button type="button" @click="togglePassword()"
+                  <button type="button" @click="togglePassword()" aria-label="Toggle password visibility"
                     class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                     <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -256,6 +263,7 @@ onMounted(() => {
               <label class="text-sm font-medium leading-none" for="database">Database Name</label>
               <input v-model="config.database" id="database" type="text"
                 class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+              <p v-if="fieldErrors.database" class="text-xs text-destructive">{{ fieldErrors.database }}</p>
             </div>
           </div>
 
@@ -270,6 +278,7 @@ onMounted(() => {
                   Browse...
                 </button>
               </div>
+              <p v-if="fieldErrors.database" class="text-xs text-destructive">{{ fieldErrors.database }}</p>
             </div>
           </div>
 
@@ -293,24 +302,27 @@ onMounted(() => {
                   <label class="text-sm font-medium leading-none" for="sshHost">SSH Host</label>
                   <input v-model="config.sshHost" id="sshHost" type="text" placeholder="ssh.example.com"
                     class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  <p v-if="fieldErrors.sshHost" class="text-xs text-destructive">{{ fieldErrors.sshHost }}</p>
                 </div>
                 <div class="space-y-2">
                   <label class="text-sm font-medium leading-none" for="sshPort">SSH Port</label>
                   <input v-model.number="config.sshPort" id="sshPort" type="number" placeholder="22"
                     class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  <p v-if="fieldErrors.sshPort" class="text-xs text-destructive">{{ fieldErrors.sshPort }}</p>
                 </div>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshUser">SSH User</label>
                 <input v-model="config.sshUser" id="sshUser" type="text"
                   class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                <p v-if="fieldErrors.sshUser" class="text-xs text-destructive">{{ fieldErrors.sshUser }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
                 <div class="relative">
                   <input v-model="config.sshPassword" id="sshPassword" :type="showSshPassword ? 'text' : 'password'"
                     class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
-                  <button type="button" @click="toggleSshPassword()"
+                  <button type="button" @click="toggleSshPassword()" aria-label="Toggle SSH password visibility"
                     class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                     <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -329,6 +341,7 @@ onMounted(() => {
                     </svg>
                   </button>
                 </div>
+                <p v-if="fieldErrors.sshAuth" class="text-xs text-destructive">{{ fieldErrors.sshAuth }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshKeyFile">SSH Key File (Optional)</label>
@@ -377,7 +390,7 @@ onMounted(() => {
               class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-destructive text-destructive hover:bg-destructive/10 h-10 px-4 py-2">
               Cancel
             </button>
-            <button v-if="!isLoading && !isTesting" @click="toggleSavedModal(true)"
+            <button v-if="!isLoading && !isTesting" @click="toggleSavedModal(true)" aria-label="Open saved connections"
               class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -492,7 +505,9 @@ onMounted(() => {
       </div>
     </div>
 
-    <SavedConnectionsModal :isOpen="showSavedModal" :connections="savedConnections" @close="toggleSavedModal(false)"
+    <SavedConnectionsModal :isOpen="showSavedModal" :connections="savedConnections"
+      :status-announcement="savedConnectionsAnnouncement"
+      @close="toggleSavedModal(false)"
       @select="handleSelectConn" @edit="handleEditConn" @remove="handleRemoveConn" />
 
     <Toast ref="toastRef" />

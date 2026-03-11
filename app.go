@@ -94,6 +94,40 @@ type SSHHostKeyInfo struct {
 	Error       string `json:"error"`
 }
 
+const (
+	connectionErrorCodeSSHHostUntrusted   = "SSH_HOST_UNTRUSTED"
+	connectionErrorCodeSSHHostKeyMismatch = "SSH_HOST_KEY_MISMATCH"
+)
+
+func classifyConnectionErrorCode(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "ssh host key for") && strings.Contains(message, "not trusted") {
+		return connectionErrorCodeSSHHostUntrusted
+	}
+	if strings.Contains(message, "ssh host key mismatch") {
+		return connectionErrorCodeSSHHostKeyMismatch
+	}
+
+	return ""
+}
+
+func formatConnectionError(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	code := classifyConnectionErrorCode(err)
+	if code != "" {
+		return fmt.Sprintf("Error [%s]: %s", code, err.Error())
+	}
+
+	return fmt.Sprintf("Error: %s", err.Error())
+}
+
 func (a *App) ConnectDB(config DBConfig) ConnectResult {
 	if config.ID != "" {
 		if config.Password == "" {
@@ -112,7 +146,7 @@ func (a *App) ConnectDB(config DBConfig) ConnectResult {
 	err := newDB.Connect(config)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Failed to connect to %s: %s", config.Type, err.Error()))
-		return ConnectResult{Error: fmt.Sprintf("Error: %s", err.Error())}
+		return ConnectResult{Error: formatConnectionError(err)}
 	}
 
 	a.logEvent("INFO", fmt.Sprintf("Connected to %s database", config.Type))
@@ -143,7 +177,7 @@ func (a *App) TestConnection(config DBConfig) string {
 	err := newDB.Connect(config)
 	if err != nil {
 		a.logEvent("ERROR", fmt.Sprintf("Connection test failed for %s: %s", config.Type, err.Error()))
-		return fmt.Sprintf("Error: %s", err.Error())
+		return formatConnectionError(err)
 	}
 	newDB.Disconnect()
 	a.logEvent("INFO", fmt.Sprintf("Connection test successful for %s", config.Type))
