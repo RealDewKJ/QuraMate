@@ -152,6 +152,49 @@
                                     </div>
                                 </div>
 
+                                <div class="grid gap-2 pt-4 border-t border-border">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Query History
+                                    </label>
+                                    <div class="flex items-center space-x-2">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            :aria-checked="settings.general.enableQueryHistory"
+                                            @click="settings.general.enableQueryHistory = !settings.general.enableQueryHistory"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.enableQueryHistory ? 'bg-primary' : 'bg-input'"
+                                        >
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.enableQueryHistory ? 'translate-x-5' : 'translate-x-0'"
+                                            >
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Save executed SQL statements to local query history</span>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Query History Retention
+                                    </label>
+                                    <p class="text-xs text-muted-foreground">
+                                        Automatically remove non-favorite history older than this period.
+                                    </p>
+                                    <select
+                                        v-model.number="settings.general.queryHistoryRetentionDays"
+                                        :disabled="!settings.general.enableQueryHistory"
+                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
+                                    >
+                                        <option :value="7">7 days</option>
+                                        <option :value="30">30 days</option>
+                                        <option :value="90">90 days</option>
+                                        <option :value="180">180 days</option>
+                                        <option :value="365">365 days</option>
+                                    </select>
+                                </div>
+
                                 <!-- <div class="grid gap-2 pt-4 border-t border-border">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -1380,6 +1423,8 @@ const settings = reactive({
         language: "en",
         enableSafeMode: true,
         enablePerfLogs: false,
+        enableQueryHistory: true,
+        queryHistoryRetentionDays: 30,
     },
     appearance: {
         theme: "system",
@@ -1815,6 +1860,18 @@ const loadSettings = async () => {
     }
     if (settings.general.enablePerfLogs === undefined) {
         settings.general.enablePerfLogs = false;
+    }
+    if (settings.general.enableQueryHistory === undefined) {
+        settings.general.enableQueryHistory = true;
+    }
+    const retention = Number(settings.general.queryHistoryRetentionDays);
+    if (!Number.isFinite(retention) || retention <= 0) {
+        settings.general.queryHistoryRetentionDays = 30;
+    } else {
+        settings.general.queryHistoryRetentionDays = Math.min(
+            3650,
+            Math.max(1, Math.trunc(retention)),
+        );
     }
 
     applyAppearancePreferences(settings.appearance);

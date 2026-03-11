@@ -12,7 +12,7 @@ export function CheckPendingFile():Promise<string>;
 
 export function ClearAppLogs():Promise<string>;
 
-export function ClearQueryHistory():Promise<string>;
+export function ClearQueryHistory():Promise<main.ActionResult>;
 
 export function ConnectDB(arg1:main.DBConfig):Promise<main.ConnectResult>;
 
@@ -22,7 +22,7 @@ export function DeleteAIProviderKey(arg1:string):Promise<string>;
 
 export function DeleteCredential(arg1:string):Promise<void>;
 
-export function DeleteQueryHistory(arg1:number):Promise<string>;
+export function DeleteQueryHistory(arg1:number):Promise<main.ActionResult>;
 
 export function DisconnectDB(arg1:string):Promise<string>;
 
@@ -53,6 +53,8 @@ export function GetFunctions(arg1:string):Promise<Array<string>>;
 export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function GetQueryHistory(arg1:string):Promise<Array<main.QueryHistoryEntry>>;
+
+export function GetQueryHistorySummary():Promise<main.QueryHistorySummary>;
 
 export function GetRoutineDefinition(arg1:string,arg2:string,arg3:string):Promise<string>;
 
@@ -96,7 +98,7 @@ export function SaveAIProviderKey(arg1:string,arg2:string):Promise<string>;
 
 export function SaveCredential(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function SaveQueryHistory(arg1:string,arg2:string):Promise<string>;
+export function SaveQueryHistory(arg1:string,arg2:string,arg3:boolean,arg4:number):Promise<main.ActionResult>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<string>;
 
@@ -114,7 +116,7 @@ export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 
 export function TestConnection(arg1:main.DBConfig):Promise<string>;
 
-export function ToggleFavoriteQuery(arg1:number,arg2:boolean):Promise<string>;
+export function ToggleFavoriteQuery(arg1:number,arg2:boolean):Promise<main.ActionResult>;
 
 export function TrustSSHHost(arg1:string,arg2:number):Promise<string>;
 

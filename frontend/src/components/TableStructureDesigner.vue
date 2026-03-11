@@ -85,8 +85,8 @@
                                             <select v-model="col.baseType"
                                                 class="bg-transparent px-1 py-1 rounded border border-transparent focus:border-primary focus:outline-none text-xs"
                                                 :disabled="col.status === 'deleted'">
-                                                <option v-for="t in commonTypes" :key="t" :value="t">{{ t }}</option>
-                                                <option v-if="!commonTypes.includes(col.baseType)"
+                                                <option v-for="t in availableCommonTypes" :key="t" :value="t">{{ t }}</option>
+                                                <option v-if="!availableCommonTypes.includes(col.baseType)"
                                                     :value="col.baseType">{{
                                                         col.baseType }}</option>
                                             </select>
@@ -298,7 +298,25 @@ const commonTypes = [
     'REAL', 'DOUBLE', 'FLOAT', 'BLOB', 'JSON'
 ];
 
+const availableCommonTypes = computed(() => {
+    if (!isMssql.value) {
+        return commonTypes;
+    }
+    return commonTypes
+        .filter((type) => type !== 'TIMESTAMP')
+        .concat('DATETIME2');
+});
+
 const typesWithLength = ['VARCHAR', 'NVARCHAR', 'CHAR', 'NCHAR', 'DECIMAL', 'NUMERIC', 'VARBINARY', 'BINARY'];
+
+function normalizeBaseTypeForDb(baseType) {
+    const normalized = String(baseType || '').trim().toUpperCase();
+    if (!normalized) return 'VARCHAR';
+    if (isMssql.value && normalized === 'TIMESTAMP') {
+        return 'DATETIME2';
+    }
+    return normalized;
+}
 
 function parseType(fullType) {
     if (!fullType) return { base: 'VARCHAR', length: '255' };
@@ -572,14 +590,34 @@ async function saveChanges() {
 
         // Construct full type string for each column
         localColumns.value.forEach(col => {
-            if (typesWithLength.includes(col.baseType)) {
+            const originalCol = col.status === 'existing'
+                ? originalColumns.value.find(c => c.name === col.originalName)
+                : null;
+            const originalParsed = originalCol ? parseType(originalCol.type) : null;
+
+            if (isMssql.value && originalParsed?.base === 'TIMESTAMP' && col.baseType !== 'TIMESTAMP') {
+                throw new Error(`Column "${col.name}" is SQL Server TIMESTAMP/ROWVERSION and cannot be altered. Add a new DATETIME2 column instead.`);
+            }
+
+            const hasSameTypeAsOriginal = !!originalCol &&
+                col.baseType === originalParsed?.base &&
+                String(col.length || '') === String(originalParsed?.length || '');
+
+            if (hasSameTypeAsOriginal) {
+                // Keep original type text so "no changes" does not generate ALTER COLUMN.
+                col.type = originalCol.type;
+                return;
+            }
+
+            const effectiveBaseType = normalizeBaseTypeForDb(col.baseType);
+            if (typesWithLength.includes(effectiveBaseType)) {
                 let len = col.length;
                 if (!len || len.trim() === '') {
-                    len = getDefaultLengthByType(col.baseType) || '255';
+                    len = getDefaultLengthByType(effectiveBaseType) || '255';
                 }
-                col.type = `${col.baseType}(${len})`;
+                col.type = `${effectiveBaseType}(${len})`;
             } else {
-                col.type = col.baseType;
+                col.type = effectiveBaseType;
             }
         });
 

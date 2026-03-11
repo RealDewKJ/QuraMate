@@ -2756,7 +2756,7 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", tableName, col))
 	}
 	for _, col := range changes.AddColumns {
-		safeType := col.Type
+		safeType := normalizeMssqlColumnType(col.Type)
 		upperType := strings.ToUpper(safeType)
 		if (strings.HasPrefix(upperType, "VARCHAR") || strings.HasPrefix(upperType, "NVARCHAR")) && !strings.Contains(safeType, "(") {
 			safeType += "(255)"
@@ -2779,7 +2779,7 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 			renameMap[change.OldName] = change.NewDefinition.Name
 		}
 
-		safeType := change.NewDefinition.Type
+		safeType := normalizeMssqlColumnType(change.NewDefinition.Type)
 		upperType := strings.ToUpper(safeType)
 		if (strings.HasPrefix(upperType, "VARCHAR") || strings.HasPrefix(upperType, "NVARCHAR")) && !strings.Contains(safeType, "(") {
 			safeType += "(255)"
@@ -2880,6 +2880,20 @@ func (d *Database) generateMssqlAlterStatements(tableName string, changes TableC
 	}
 
 	return stmts, nil
+}
+
+func normalizeMssqlColumnType(typeName string) string {
+	cleanType := strings.TrimSpace(typeName)
+	if cleanType == "" {
+		return cleanType
+	}
+
+	upperType := strings.ToUpper(cleanType)
+	if strings.HasPrefix(upperType, "TIMESTAMP") {
+		return "DATETIME2"
+	}
+
+	return cleanType
 }
 
 func (d *Database) generateSqliteAlterStatements(tableName string, changes TableChanges) ([]string, error) {
@@ -3038,7 +3052,8 @@ func (d *Database) generateMssqlCreateTableStatement(tableName string, columns [
 	var pks []string
 
 	for _, col := range columns {
-		def := fmt.Sprintf("[%s] %s", col.Name, col.Type)
+		safeType := normalizeMssqlColumnType(col.Type)
+		def := fmt.Sprintf("[%s] %s", col.Name, safeType)
 		if col.AutoIncrement {
 			def += " IDENTITY(1,1)"
 		}

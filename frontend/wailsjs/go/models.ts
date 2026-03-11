@@ -1,5 +1,19 @@
 export namespace main {
 	
+	export class ActionResult {
+	    success: boolean;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ActionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.error = source["error"];
+	    }
+	}
 	export class BatchInsertResult {
 	    inserted: number;
 	    skipped: number;
@@ -235,6 +249,20 @@ export namespace main {
 	        this.db_type = source["db_type"];
 	        this.timestamp = source["timestamp"];
 	        this.is_favorite = source["is_favorite"];
+	    }
+	}
+	export class QueryHistorySummary {
+	    total: number;
+	    db_types: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryHistorySummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.db_types = source["db_types"];
 	    }
 	}
 	export class ResultSet {
