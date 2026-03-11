@@ -106,6 +106,10 @@ export function GetQueryHistory(arg1) {
   return window['go']['main']['App']['GetQueryHistory'](arg1);
 }
 
+export function GetQueryHistorySummary() {
+  return window['go']['main']['App']['GetQueryHistorySummary']();
+}
+
 export function GetRoutineDefinition(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetRoutineDefinition'](arg1, arg2, arg3);
 }
@@ -190,8 +194,8 @@ export function SaveCredential(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveCredential'](arg1, arg2, arg3);
 }
 
-export function SaveQueryHistory(arg1, arg2) {
-  return window['go']['main']['App']['SaveQueryHistory'](arg1, arg2);
+export function SaveQueryHistory(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveQueryHistory'](arg1, arg2, arg3, arg4);
 }
 
 export function SaveSetting(arg1, arg2) {

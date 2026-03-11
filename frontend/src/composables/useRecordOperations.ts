@@ -79,9 +79,35 @@ export function useRecordOperations(
     const getInputTypeForColumn = (sqlType: string): string => {
         const t = sqlType.toLowerCase();
         if (t.includes('int') || t === 'number' || t === 'decimal' || t === 'numeric' || t === 'float' || t === 'real' || t === 'double') return 'number';
-        if (t.includes('date') || t.includes('time') || t === 'timestamp') return 'datetime-local';
+        const isDateTimeLike = t.includes('datetime') || t.includes('timestamp') || t.includes('smalldatetime') || t.includes('datetime2');
+        if (isDateTimeLike) return 'datetime-local';
+        if (t.includes('date')) return 'date';
+        if (t.includes('time')) return 'time';
         if (t === 'boolean' || t === 'bit' || t === 'bool') return 'checkbox';
         return 'text';
+    };
+
+    const normalizeTemporalValueForSql = (inputType: string, rawValue: string): string => {
+        const value = rawValue.trim();
+        if (!value) return value;
+
+        if (inputType === 'datetime-local') {
+            let normalized = value.replace('T', ' ');
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) {
+                normalized += ':00';
+            }
+            return normalized;
+        }
+
+        if (inputType === 'time') {
+            let normalized = value;
+            if (/^\d{2}:\d{2}$/.test(normalized)) {
+                normalized += ':00';
+            }
+            return normalized;
+        }
+
+        return value;
     };
 
     const getInputType = (col: string): string => {
@@ -242,8 +268,8 @@ export function useRecordOperations(
                 continue;
             }
 
-            if (inputType === 'datetime-local' && normalizedValue.includes('T')) {
-                payload[col] = normalizedValue.replace('T', ' ');
+            if (inputType === 'datetime-local' || inputType === 'time' || inputType === 'date') {
+                payload[col] = normalizeTemporalValueForSql(inputType, normalizedValue);
                 continue;
             }
 
@@ -509,8 +535,8 @@ export function useRecordOperations(
                 const inputType = def ? getInputTypeForColumn(def.type) : 'text';
 
                 let processedVal = val;
-                if (inputType === 'datetime-local' && processedVal && processedVal.includes('T')) {
-                    processedVal = processedVal.replace('T', ' ');
+                if (inputType === 'datetime-local' || inputType === 'time' || inputType === 'date') {
+                    processedVal = normalizeTemporalValueForSql(inputType, processedVal || '');
                 }
 
                 if (inputType === 'number' || inputType === 'checkbox') {
@@ -654,6 +680,16 @@ export function useRecordOperations(
 
                 if (inputType === 'datetime-local') {
                     row.values[col] = trimmed.replace(' ', 'T');
+                    continue;
+                }
+
+                if (inputType === 'date') {
+                    row.values[col] = trimmed.split(' ')[0];
+                    continue;
+                }
+
+                if (inputType === 'time') {
+                    row.values[col] = trimmed.includes(' ') ? trimmed.split(' ')[1] : trimmed;
                     continue;
                 }
 

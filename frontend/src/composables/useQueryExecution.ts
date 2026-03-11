@@ -14,6 +14,8 @@ export interface UseQueryExecutionOptions {
     activeTab: Ref<QueryTab | undefined>;
     safeModeEnabled: Ref<boolean>;
     perfLoggingEnabled: Ref<boolean>;
+    queryHistoryEnabled: Ref<boolean>;
+    queryHistoryRetentionDays: Ref<number>;
     generateId: () => string;
     getSelectedQuery: () => string;
 }
@@ -209,7 +211,20 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
         
         try {
             if (queryToRun && queryToRun.trim().length > 0) {
-                SaveQueryHistory(queryToRun, options.connectionName.value || options.dbType.value || '');
+                SaveQueryHistory(
+                    queryToRun,
+                    options.connectionName.value || options.dbType.value || '',
+                    options.queryHistoryEnabled.value,
+                    options.queryHistoryRetentionDays.value
+                )
+                    .then((result: { success?: boolean; error?: string }) => {
+                        if (result && result.success === false) {
+                            console.warn('Save query history failed:', result.error || 'unknown error');
+                        }
+                    })
+                    .catch((err: unknown) => {
+                        console.warn('Save query history failed:', err);
+                    });
             }
 
             let totalExecutionTime = 0;

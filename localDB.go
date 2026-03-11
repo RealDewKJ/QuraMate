@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -19,10 +20,21 @@ type QueryHistoryEntry struct {
 	IsFavorite bool   `json:"is_favorite"`
 }
 
+type QueryHistorySummary struct {
+	Total   int      `json:"total"`
+	DBTypes []string `json:"db_types"`
+}
+
 type LocalDB struct {
 	conn    *sql.DB
 	hasFTS5 bool
 }
+
+const defaultQueryHistoryRetentionDays = 30
+
+var sensitiveQuotedValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*('(?:''|[^'])*'|"(?:\\"|[^"])*")`)
+var sensitiveBareValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*([^\s,;)\]}]+)`)
+var sensitiveURLCredentialPattern = regexp.MustCompile(`(?i)\b((?:postgres(?:ql)?|mysql|mssql|sqlserver):\/\/[^:\s\/]+:)([^@\s\/]+)@`)
 
 func NewLocalDB() (*LocalDB, error) {
 	// Store next to the executable
@@ -41,6 +53,9 @@ func NewLocalDB() (*LocalDB, error) {
 	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, err
+	}
+	if chmodErr := os.Chmod(dbPath, 0o600); chmodErr != nil {
+		log.Printf("Unable to tighten local DB file permissions: %v", chmodErr)
 	}
 
 	_, err = conn.Exec(`
@@ -71,7 +86,7 @@ func NewLocalDB() (*LocalDB, error) {
 		return nil, err
 	}
 	l.initQueryHistoryFTS()
-	l.CleanupOldQueries()
+	l.CleanupOldQueries(defaultQueryHistoryRetentionDays)
 	return l, nil
 }
 
@@ -144,9 +159,28 @@ func (l *LocalDB) LoadSetting(key string) (string, error) {
 	return value, err
 }
 
-func (l *LocalDB) SaveQuery(query string, dbType string) error {
-	_, err := l.conn.Exec(`INSERT INTO query_history (query, db_type, is_favorite) VALUES (?, ?, 0)`, query, dbType)
+func (l *LocalDB) SaveQuery(query string, dbType string, retentionDays int) error {
+	normalizedQuery := strings.TrimSpace(query)
+	if normalizedQuery == "" {
+		return nil
+	}
+	redactedQuery := redactSensitiveQuery(normalizedQuery)
+	_, err := l.conn.Exec(`INSERT INTO query_history (query, db_type, is_favorite) VALUES (?, ?, 0)`, redactedQuery, dbType)
+	if err != nil {
+		return err
+	}
+
+	if cleanupErr := l.CleanupOldQueries(retentionDays); cleanupErr != nil {
+		log.Printf("Failed to cleanup query history: %v", cleanupErr)
+	}
 	return err
+}
+
+func redactSensitiveQuery(query string) string {
+	redacted := sensitiveQuotedValuePattern.ReplaceAllString(query, `$1$2'[REDACTED]'`)
+	redacted = sensitiveBareValuePattern.ReplaceAllString(redacted, `$1$2[REDACTED]`)
+	redacted = sensitiveURLCredentialPattern.ReplaceAllString(redacted, `$1[REDACTED]@`)
+	return redacted
 }
 
 func (l *LocalDB) GetQueries(dbType string) ([]QueryHistoryEntry, error) {
@@ -191,11 +225,11 @@ func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly b
 
 	switch dateRange {
 	case "today":
-		conditions = append(conditions, "timestamp >= datetime('now', 'start of day')")
+		conditions = append(conditions, "datetime(timestamp, 'localtime') >= datetime('now', 'localtime', 'start of day')")
 	case "7d":
-		conditions = append(conditions, "timestamp >= datetime('now', '-7 days')")
+		conditions = append(conditions, "datetime(timestamp, 'localtime') >= datetime('now', 'localtime', '-7 days')")
 	case "30d":
-		conditions = append(conditions, "timestamp >= datetime('now', '-30 days')")
+		conditions = append(conditions, "datetime(timestamp, 'localtime') >= datetime('now', 'localtime', '-30 days')")
 	}
 
 	cleanedQuery := strings.TrimSpace(queryText)
@@ -279,9 +313,56 @@ func (l *LocalDB) DeleteQuery(id int) error {
 	return err
 }
 
-func (l *LocalDB) CleanupOldQueries() error {
+func (l *LocalDB) ClearNonFavoriteQueries() error {
+	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0`)
+	return err
+}
+
+func (l *LocalDB) GetQueryHistorySummary() (QueryHistorySummary, error) {
+	summary := QueryHistorySummary{
+		DBTypes: []string{},
+	}
+
+	if err := l.conn.QueryRow(`SELECT COUNT(*) FROM query_history`).Scan(&summary.Total); err != nil {
+		return summary, err
+	}
+
+	rows, err := l.conn.Query(`SELECT DISTINCT db_type FROM query_history ORDER BY db_type ASC`)
+	if err != nil {
+		return summary, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var dbType string
+		if err := rows.Scan(&dbType); err != nil {
+			return summary, err
+		}
+		summary.DBTypes = append(summary.DBTypes, dbType)
+	}
+
+	if err := rows.Err(); err != nil {
+		return summary, err
+	}
+
+	return summary, nil
+}
+
+func normalizeRetentionDays(retentionDays int) int {
+	if retentionDays <= 0 {
+		return defaultQueryHistoryRetentionDays
+	}
+	if retentionDays > 3650 {
+		return 3650
+	}
+	return retentionDays
+}
+
+func (l *LocalDB) CleanupOldQueries(retentionDays int) error {
+	retentionDays = normalizeRetentionDays(retentionDays)
+	retentionExpr := fmt.Sprintf("-%d days", retentionDays)
 	// Keep favorites, delete others older than 30 days
-	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0 AND timestamp < datetime('now', '-30 days')`)
+	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0 AND timestamp < datetime('now', ?)`, retentionExpr)
 	if err != nil {
 		log.Printf("Failed to cleanup old queries: %v", err)
 	}

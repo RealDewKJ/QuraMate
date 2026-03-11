@@ -212,8 +212,15 @@
 
         <Toast ref="toastRef" />
         <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
-        <QueryHistory :is-open="isHistoryOpen" :connection-name="connectionName" @close="isHistoryOpen = false"
-            @run-query="handleRunHistoryQuery" />
+        <QueryHistory
+            :is-open="isHistoryOpen"
+            :connection-name="connectionName"
+            :history-enabled="queryHistoryEnabled"
+            @close="isHistoryOpen = false"
+            @run-query="handleRunHistoryQuery"
+            @notify-success="toastRef?.success($event)"
+            @notify-error="toastRef?.error($event)"
+        />
 
         <DbImagePreviewModal :image-url="imagePreviewUrl" @close="imagePreviewUrl = null" />
         <DbResultImageDialog :is-open="resultImageDialog.isOpen" :image-url="resultImageDialog.imageUrl"
@@ -306,6 +313,16 @@ const safeModeEnabled = computed(() => {
 });
 const perfLoggingEnabled = computed(() => {
     return globalSettings.value?.general?.enablePerfLogs === true;
+});
+const queryHistoryEnabled = computed(() => {
+    return globalSettings.value?.general?.enableQueryHistory !== false;
+});
+const queryHistoryRetentionDays = computed(() => {
+    const rawValue = Number(globalSettings.value?.general?.queryHistoryRetentionDays);
+    if (!Number.isFinite(rawValue) || rawValue <= 0) {
+        return 30;
+    }
+    return Math.min(3650, Math.max(1, Math.trunc(rawValue)));
 });
 const showScreenshotShortcutHint = computed(() => true);
 const screenshotShortcutLabel = computed(() => DEFAULT_GRID_SCREENSHOT_SHORTCUT);
@@ -860,6 +877,8 @@ const {
     activeTab,
     safeModeEnabled,
     perfLoggingEnabled,
+    queryHistoryEnabled,
+    queryHistoryRetentionDays,
     generateId,
     getSelectedQuery: () => workspaceRef.value?.getSelection() || '',
 });
