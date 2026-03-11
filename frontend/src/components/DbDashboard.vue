@@ -5,7 +5,7 @@
             :function-search="functionSearch" :filtered-tables="filteredTables" :filtered-views="filteredViews"
             :filtered-stored-procedures="filteredStoredProcedures" :filtered-functions="filteredFunctions"
             :open-folders="openFolders" @open-db-context-menu="openDbContextMenu" @open-history="isHistoryOpen = true"
-            @open-activity-monitor="isActivityMonitorOpen = true" @open-ai-copilot="openAiCopilot"
+            @open-activity-monitor="openActivityMonitorTab" @open-ai-copilot="openAiCopilot"
             @open-settings="isSettingsOpen = true" @toggle-folder="toggleFolder"
             @open-folder-context-menu="openFolderContextMenu" @select-table="selectTable"
             @open-table-context-menu="openContextMenu" @select-view="selectView"
@@ -67,12 +67,12 @@
                 </button>
             </div>
 
-            <DbActivityMonitor v-if="isActivityMonitorOpen" :activity-task-count="activityTaskCount"
+            <DbActivityMonitor v-if="activeTab?.isActivityMonitorView" :activity-task-count="activityTaskCount"
                 :monitor-refresh-rate="monitorRefreshRate" :latest-monitor-sample="latestMonitorSample"
                 :connection-chart-points="connectionChartPoints" :read-qps-chart-points="readQpsChartPoints"
                 :write-qps-chart-points="writeQpsChartPoints" :long-running-total="longRunningTotal"
                 :activity-tasks-list="activityTasksList" :format-activity-time="formatActivityTime"
-                @close="isActivityMonitorOpen = false" @kill-all="killAllActivityTasks" @focus-task="focusActivityTask"
+                @close="closeActivityMonitorTab" @kill-all="killAllActivityTasks" @focus-task="openActivityTaskInNewTab"
                 @kill-task="killActivityTask" @update:monitor-refresh-rate="monitorRefreshRate = $event" />
 
             <!-- Query Area -->
@@ -270,6 +270,7 @@ import { useSidebar } from '../composables/useSidebar';
 import { useRecordOperations } from '../composables/useRecordOperations';
 import { useQueryResultsView } from '../composables/useQueryResultsView';
 import { useActivityMonitor } from '../composables/useActivityMonitor';
+import type { ActivityTask } from '../composables/useActivityMonitor';
 import { useQueryExecution } from '../composables/useQueryExecution';
 import { useQueryAnalysis } from '../composables/useQueryAnalysis';
 import { useResultSetLayout } from '../composables/useResultSetLayout';
@@ -558,6 +559,7 @@ interface PersistedDashboardTab {
     routineName?: string;
     routineType?: 'PROCEDURE' | 'FUNCTION';
     sqlFilePath?: string;
+    isActivityMonitorView?: boolean;
 }
 
 interface PersistedDashboardSession {
@@ -601,6 +603,7 @@ const toPersistedDashboardTab = (tab: QueryTab): PersistedDashboardTab => ({
     routineName: tab.routineName,
     routineType: tab.routineType,
     sqlFilePath: tab.sqlFilePath,
+    isActivityMonitorView: !!tab.isActivityMonitorView,
 });
 
 const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
@@ -642,6 +645,7 @@ const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
         routineName: saved.routineName,
         routineType: saved.routineType,
         sqlFilePath: saved.sqlFilePath,
+        isActivityMonitorView: !!saved.isActivityMonitorView,
     };
 };
 
@@ -676,6 +680,7 @@ const restoreTabSession = async (): Promise<boolean> => {
 
         const restoredTabs = parsed.tabs
             .filter((tab): tab is PersistedDashboardTab => !!tab && typeof tab.id === 'string')
+            .filter((tab) => !tab.isActivityMonitorView)
             .map((tab) => fromPersistedDashboardTab(tab));
 
         if (restoredTabs.length === 0) {
@@ -742,7 +747,6 @@ const {
     writeQpsChartPoints,
     longRunningTotal,
     formatActivityTime,
-    focusActivityTask,
     killActivityTask,
     killAllActivityTasks,
     startMonitorTimer,
@@ -759,6 +763,58 @@ const {
         toastRef.value?.success(message);
     }
 });
+
+const openActivityMonitorTab = () => {
+    const existingTab = tabs.value.find((tab) => tab.isActivityMonitorView);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const newTabId = addTab();
+    const monitorTab = tabs.value.find((tab) => tab.id === newTabId);
+    if (!monitorTab) {
+        return;
+    }
+
+    monitorTab.name = 'Activity Monitor';
+    monitorTab.query = '';
+    monitorTab.error = '';
+    monitorTab.resultSets = markRaw([]);
+    monitorTab.queryExecuted = false;
+    monitorTab.isActivityMonitorView = true;
+};
+
+const closeActivityMonitorTab = () => {
+    const currentTab = activeTab.value;
+    if (currentTab?.isActivityMonitorView) {
+        closeTab(currentTab.id);
+        return;
+    }
+
+    const monitorTab = tabs.value.find((tab) => tab.isActivityMonitorView);
+    if (monitorTab) {
+        closeTab(monitorTab.id);
+    }
+};
+
+const openActivityTaskInNewTab = (task: ActivityTask) => {
+    const newTabId = addTab();
+    const targetTab = tabs.value.find((tab) => tab.id === newTabId);
+    if (!targetTab) {
+        return;
+    }
+
+    const shortTaskId = task.id?.slice(0, 8) || 'task';
+    targetTab.name = `Activity ${shortTaskId}`;
+    targetTab.query = task.query || '';
+    targetTab.queryExecuted = false;
+    targetTab.error = '';
+    targetTab.resultSets = markRaw([]);
+    targetTab.totalRowCount = undefined;
+    targetTab.isPartialStats = false;
+    targetTab.resultViewTab = 'data';
+};
 
 // --- Composable: Sidebar ---
 const {

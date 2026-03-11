@@ -39,6 +39,7 @@ export function useTabs() {
             columnWidths: {}
         });
         activeTabId.value = newId;
+        return newId;
     };
 
     const closeTab = (id: string) => {
