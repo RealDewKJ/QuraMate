@@ -7,9 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"runtime"
+	"path/filepath"
+	goRuntime "runtime"
 	"strings"
 	"time"
+
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // AppVersion is the current version of the application.
@@ -90,22 +93,22 @@ func (a *App) CheckForUpdates() UpdateInfo {
 		info.ReleaseNotes = release.Body
 		info.PublishedAt = release.PublishedAt
 
-		// Try to find the correct asset for the current OS
+		// Try to find the correct asset for the current OS.
 		info.DownloadURL = release.HTMLURL
 		for _, asset := range release.Assets {
 			name := strings.ToLower(asset.Name)
-			if runtime.GOOS == "windows" {
-				if strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, "windows.zip") || strings.HasSuffix(name, "win.zip") {
+			if goRuntime.GOOS == "windows" {
+				// Prefer installer assets so we can run a silent update flow.
+				if strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, ".msi") || strings.Contains(name, "setup") {
 					info.DownloadURL = asset.BrowserDownloadURL
 					break
 				}
-			} else if runtime.GOOS == "darwin" {
+			} else if goRuntime.GOOS == "darwin" {
 				if strings.HasSuffix(name, "macos-universal.zip") || strings.HasSuffix(name, "darwin.zip") || strings.HasSuffix(name, ".dmg") {
 					info.DownloadURL = asset.BrowserDownloadURL
 					break
 				}
-			} else if runtime.GOOS == "linux" {
-				// Add linux matching if needed
+			} else if goRuntime.GOOS == "linux" {
 				if strings.HasSuffix(name, "linux.zip") || strings.HasSuffix(name, ".tar.gz") {
 					info.DownloadURL = asset.BrowserDownloadURL
 					break
@@ -126,7 +129,7 @@ func (a *App) OpenDownloadURL(url string) string {
 	}
 
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goRuntime.GOOS {
 	case "windows":
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	case "darwin":
@@ -139,6 +142,18 @@ func (a *App) OpenDownloadURL(url string) string {
 		return fmt.Sprintf("Error opening URL: %s", err.Error())
 	}
 	return "Success"
+}
+
+func (a *App) emitUpdateProgress(stage string, percent int, message string) {
+	if a.ctx == nil {
+		return
+	}
+
+	wailsRuntime.EventsEmit(a.ctx, "app:update-progress", map[string]interface{}{
+		"stage":   stage,
+		"percent": percent,
+		"message": message,
+	})
 }
 
 // compareVersions compares two semver strings.
@@ -183,13 +198,15 @@ func parseVersionPart(s string) int {
 	return n
 }
 
-// PerformUpdate downloads the update from the provided URL, saves it to a temp file, and runs the installer.
+// PerformUpdate downloads the update from the provided URL and runs a silent installer.
 func (a *App) PerformUpdate(downloadURL string) error {
 	if !strings.HasPrefix(downloadURL, "https://github.com/RealDewKJ/QuraMate/releases/download/") {
 		return fmt.Errorf("invalid download URL source: must be an official update URL")
 	}
 
-	client := &http.Client{Timeout: 5 * time.Minute} // Large timeout for download
+	a.emitUpdateProgress("preparing", 5, "Preparing update package...")
+
+	client := &http.Client{Timeout: 5 * time.Minute}
 	req, err := http.NewRequest("GET", downloadURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -205,46 +222,95 @@ func (a *App) PerformUpdate(downloadURL string) error {
 		return fmt.Errorf("unexpected status code downloading update: %d", resp.StatusCode)
 	}
 
-	// Create a temporary file to save the installer
-	tmpFile, err := os.CreateTemp("", "QuraMate-Update-*.exe")
+	ext := filepath.Ext(strings.ToLower(downloadURL))
+	if ext == "" || len(ext) > 6 {
+		ext = ".bin"
+	}
+
+	tmpFile, err := os.CreateTemp("", "QuraMate-Update-*"+ext)
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer tmpFile.Close()
 
-	// Copy the downloaded data into the temp file
-	_, err = io.Copy(tmpFile, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to save update file: %w", err)
+	a.emitUpdateProgress("downloading", 10, "Downloading update...")
+
+	contentLength := resp.ContentLength
+	if contentLength <= 0 {
+		if _, err = io.Copy(tmpFile, resp.Body); err != nil {
+			return fmt.Errorf("failed to save update file: %w", err)
+		}
+	} else {
+		buf := make([]byte, 64*1024)
+		var written int64
+
+		for {
+			n, readErr := resp.Body.Read(buf)
+			if n > 0 {
+				if _, writeErr := tmpFile.Write(buf[:n]); writeErr != nil {
+					return fmt.Errorf("failed to save update file: %w", writeErr)
+				}
+
+				written += int64(n)
+				downloadPercent := int((written * 100) / contentLength)
+				if downloadPercent > 100 {
+					downloadPercent = 100
+				}
+
+				// Keep room for install steps by mapping download progress to 10-85.
+				uiPercent := 10 + int(float64(downloadPercent)*0.75)
+				if uiPercent > 85 {
+					uiPercent = 85
+				}
+				a.emitUpdateProgress("downloading", uiPercent, "Downloading update...")
+			}
+
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				return fmt.Errorf("failed to save update file: %w", readErr)
+			}
+		}
 	}
 
-	// Make sure everything is written to disk
-	tmpFile.Sync()
-	tmpFile.Close()
+	if err = tmpFile.Sync(); err != nil {
+		return fmt.Errorf("failed to flush update file: %w", err)
+	}
+	if err = tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close update file: %w", err)
+	}
+
+	a.emitUpdateProgress("installing", 90, "Installing update...")
 
 	installerPath := tmpFile.Name()
+	lowerPath := strings.ToLower(installerPath)
 
-	// Execute the installer using OS-specific launcher to handle elevation prompts (UAC on Windows)
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goRuntime.GOOS {
 	case "windows":
-		// Use ShellExecute via cmd /c start to ensure UAC prompt is handled and it runs detached
-		// Providing the full path and ensuring it's treated as a single argument
-		cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
+		if strings.HasSuffix(lowerPath, ".msi") {
+			cmd = exec.Command("msiexec", "/i", installerPath, "/qn", "/norestart")
+		} else if strings.HasSuffix(lowerPath, ".exe") {
+			// Wails NSIS installers accept /S for silent mode.
+			cmd = exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+				"Start-Process -FilePath $args[0] -ArgumentList '/S' -Verb RunAs", installerPath)
+		} else {
+			cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
+		}
 	case "darwin":
 		cmd = exec.Command("open", installerPath)
 	default:
 		cmd = exec.Command("xdg-open", installerPath)
 	}
 
-	err = cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start installer: %w", err)
 	}
 
-	// Exit the current app immediately so the installer can overwrite the files.
-	// We give the OS a very tiny bit of time to start the process before exiting.
-	time.Sleep(500 * time.Millisecond)
+	a.emitUpdateProgress("finalizing", 98, "Finalizing update...")
+
+	time.Sleep(600 * time.Millisecond)
 	os.Exit(0)
 
 	return nil
