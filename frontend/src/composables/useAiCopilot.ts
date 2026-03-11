@@ -46,17 +46,17 @@ interface UseAiCopilotOptions {
 }
 
 const defaultModePrompts: Record<AiCopilotMode, string> = {
-    text_to_sql: 'ดึงข้อมูลผู้ใช้ที่สมัครใน 30 วันล่าสุด พร้อมจำนวนคำสั่งซื้อของแต่ละคน',
-    context_completion: 'ช่วยเติม SQL ต่อจาก query ปัจจุบันให้ join ตารางที่เกี่ยวข้องครบ',
-    refine_query: 'ช่วยปรับ query เดิมให้รองรับ filter เฉพาะยอดขายเกิน 500 และเรียงตามวันที่ล่าสุด',
-    sql_explainer: 'อธิบาย SQL นี้แบบทีละขั้นตอนให้ทีม non-technical เข้าใจได้',
-    fix_error: 'ช่วยแก้ SQL ที่ error นี้ให้รันได้จริง',
-    optimize: 'ช่วย optimize query นี้ให้เร็วขึ้น พร้อมเหตุผลและ index ที่ควรเพิ่ม',
-    mock_data: 'สร้าง mock data ที่สมจริง 20 แถวสำหรับตารางนี้',
-    schema_insights: 'ช่วยแนะนำการปรับ schema ให้รองรับการ query เร็วขึ้น',
-    analyze_plan: 'ช่วยอ่านและอธิบาย execution plan นี้ พร้อมแนวทางแก้คอขวด',
-    backend_code: 'generate backend code from SQL นี้',
-    summary: 'สรุป insight สำคัญจากผลลัพธ์ query นี้'
+    text_to_sql: 'Retrieve users who signed up in the last 30 days, along with each user\'s order count.',
+    context_completion: 'Complete the current SQL query by joining all relevant related tables.',
+    refine_query: 'Refine the existing query to filter sales greater than 500 and sort by the most recent date.',
+    sql_explainer: 'Explain this SQL step by step so a non-technical team can understand it.',
+    fix_error: 'Fix this SQL error and provide a query that runs successfully.',
+    optimize: 'Optimize this query for better performance, and include reasons plus recommended indexes.',
+    mock_data: 'Generate 20 realistic mock data rows for this table.',
+    schema_insights: 'Recommend schema improvements to support faster query performance.',
+    analyze_plan: 'Analyze and explain this execution plan, and suggest ways to resolve bottlenecks.',
+    backend_code: 'Generate backend code from this SQL query.',
+    summary: 'Summarize key insights from this query result.'
 };
 
 const modeOptions: AiCopilotModeOption[] = [
@@ -244,3 +244,4 @@ ${context.resultSample}`;
         applyAiSqlToEditor: applySuggestedSql
     };
 };
+
