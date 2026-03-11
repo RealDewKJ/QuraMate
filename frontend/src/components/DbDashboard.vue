@@ -6,7 +6,7 @@
             :filtered-stored-procedures="filteredStoredProcedures" :filtered-functions="filteredFunctions"
             :open-folders="openFolders" @open-db-context-menu="openDbContextMenu" @open-history="isHistoryOpen = true"
             @open-activity-monitor="openActivityMonitorTab" @open-ai-copilot="openAiCopilot"
-            @open-settings="isSettingsOpen = true" @toggle-folder="toggleFolder"
+            @open-settings="isSettingsOpen = true" @open-database-info="handleDatabaseInfo" @toggle-folder="toggleFolder"
             @open-folder-context-menu="openFolderContextMenu" @select-table="selectTable"
             @open-table-context-menu="openContextMenu" @select-view="selectView"
             @open-view-context-menu="openViewContextMenu" @select-routine="selectRoutine"

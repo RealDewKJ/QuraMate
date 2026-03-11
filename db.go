@@ -58,9 +58,16 @@ type Database struct {
 	Type           string
 	Encoding       string
 	ReadOnly       bool
+	Host           string
+	Port           int
+	User           string
+	DatabaseName   string
+	SSHEnabled     bool
+	ConnectedAt    time.Time
 }
 
 const sshDialTimeout = 15 * time.Second
+const defaultMySQLCharset = "utf8mb4"
 
 func NewDatabase(logger ...func(level string, message string)) *Database {
 	db := &Database{}
@@ -162,6 +169,7 @@ func (d *Database) Connect(config DBConfig) error {
 	if d.conn != nil {
 		d.Disconnect()
 	}
+	d.Encoding = ""
 
 	if isLocalDatabaseType(config.Type) {
 		config.SSHEnabled = false
@@ -274,7 +282,17 @@ func (d *Database) Connect(config DBConfig) error {
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
 	case "mysql", "mariadb", "databend":
 		driverName = "mysql"
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local", config.User, config.Password, dbHost, dbPort, config.Database)
+		mysqlCharset := normalizeMySQLCharset(config.Encoding)
+		if mysqlCharset == "" {
+			mysqlCharset = detectMySQLSchemaCharset(dbHost, dbPort, config)
+		}
+		if mysqlCharset == "" {
+			mysqlCharset = defaultMySQLCharset
+		}
+		dsn = buildMySQLDSN(config.User, config.Password, dbHost, dbPort, config.Database, mysqlCharset)
+		if strings.TrimSpace(config.Encoding) == "" {
+			d.Encoding = mapMySQLCharsetToDecoder(mysqlCharset)
+		}
 	case "mssql":
 		driverName = "sqlserver"
 		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, dbHost, dbPort, config.Database)
@@ -329,9 +347,82 @@ func (d *Database) Connect(config DBConfig) error {
 	d.conn = conn
 	d.persistentConn = persistentConn
 	d.Type = config.Type
-	d.Encoding = config.Encoding
+	if strings.TrimSpace(d.Encoding) == "" {
+		d.Encoding = config.Encoding
+	}
 	d.ReadOnly = config.ReadOnly
+	d.Host = dbHost
+	d.Port = dbPort
+	d.User = config.User
+	d.DatabaseName = config.Database
+	d.SSHEnabled = config.SSHEnabled
+	d.ConnectedAt = time.Now()
 	return nil
+}
+
+func buildMySQLDSN(user string, password string, host string, port int, database string, charset string) string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local", user, password, host, port, database, charset)
+}
+
+func normalizeMySQLCharset(encodingName string) string {
+	normalized := strings.ToLower(strings.TrimSpace(encodingName))
+	switch normalized {
+	case "":
+		return ""
+	case "auto":
+		return ""
+	case "utf8":
+		return "utf8"
+	case "utf8mb4":
+		return "utf8mb4"
+	case "tis620", "tis-620":
+		return "tis620"
+	case "cp874", "windows-874", "windows874":
+		return "cp874"
+	default:
+		return normalized
+	}
+}
+
+func mapMySQLCharsetToDecoder(charset string) string {
+	switch normalizeMySQLCharset(charset) {
+	case "tis620", "cp874":
+		return "TIS-620"
+	default:
+		return ""
+	}
+}
+
+func detectMySQLSchemaCharset(host string, port int, config DBConfig) string {
+	dsn := buildMySQLDSN(config.User, config.Password, host, port, config.Database, defaultMySQLCharset)
+	conn, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := conn.PingContext(ctx); err != nil {
+		return ""
+	}
+
+	var schemaCharset string
+	err = conn.QueryRowContext(
+		ctx,
+		"SELECT DEFAULT_CHARACTER_SET_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?",
+		config.Database,
+	).Scan(&schemaCharset)
+	if err == nil {
+		return normalizeMySQLCharset(schemaCharset)
+	}
+
+	var fallbackCharset string
+	if err := conn.QueryRowContext(ctx, "SELECT @@character_set_database").Scan(&fallbackCharset); err != nil {
+		return ""
+	}
+	return normalizeMySQLCharset(fallbackCharset)
 }
 
 func decodeValue(val []byte, encodingName string) string {
@@ -829,6 +920,8 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
 						row[i] = decodeValue(b, d.Encoding)
+					} else if s, ok := val.(string); ok {
+						row[i] = decodeStringValue(s, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -910,6 +1003,8 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
 						row[i] = decodeValue(b, d.Encoding)
+					} else if s, ok := val.(string); ok {
+						row[i] = decodeStringValue(s, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -1012,6 +1107,8 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 					val := *scanPtrs[i]
 					if b, ok := val.([]byte); ok {
 						row[i] = decodeValue(b, d.Encoding)
+					} else if s, ok := val.(string); ok {
+						row[i] = decodeStringValue(s, d.Encoding)
 					} else {
 						row[i] = val
 					}
@@ -1691,6 +1788,14 @@ type DatabaseInfo struct {
 	RoutineCount int    `json:"routineCount"`
 	DBName       string `json:"dbName"`
 	Version      string `json:"version"`
+	Engine       string `json:"engine"`
+	Category     string `json:"category"`
+
+	Summary       map[string]string `json:"summary"`
+	Capabilities  map[string]bool   `json:"capabilities"`
+	RuntimeInfo   map[string]string `json:"runtimeInfo"`
+	EngineDetails map[string]string `json:"engineDetails"`
+	Stats         map[string]string `json:"stats"`
 }
 
 func (d *Database) GetDatabaseInfo() (DatabaseInfo, error) {
@@ -1698,7 +1803,32 @@ func (d *Database) GetDatabaseInfo() (DatabaseInfo, error) {
 		return DatabaseInfo{}, fmt.Errorf("no database connection")
 	}
 
-	info := DatabaseInfo{}
+	info := DatabaseInfo{
+		Engine:       d.Type,
+		Category:     databaseCategory(d.Type),
+		Summary:      map[string]string{},
+		Capabilities: databaseCapabilities(d.Type),
+		RuntimeInfo:  map[string]string{},
+		EngineDetails: map[string]string{
+			"driverType": d.Type,
+		},
+		Stats: map[string]string{},
+	}
+
+	info.Summary["host"] = d.Host
+	info.Summary["port"] = fmt.Sprintf("%d", d.Port)
+	info.Summary["database"] = d.DatabaseName
+	info.Summary["user"] = d.User
+	info.Summary["readOnly"] = fmt.Sprintf("%t", d.ReadOnly)
+	info.Summary["sshTunnel"] = fmt.Sprintf("%t", d.SSHEnabled)
+	if !d.ConnectedAt.IsZero() {
+		info.Summary["connectedAt"] = d.ConnectedAt.Format(time.RFC3339)
+	}
+	if strings.TrimSpace(d.Encoding) == "" {
+		info.RuntimeInfo["appEncodingMode"] = "AUTO"
+	} else {
+		info.RuntimeInfo["appEncodingMode"] = d.Encoding
+	}
 
 	// Get Database Name
 	switch d.Type {
@@ -1715,6 +1845,8 @@ func (d *Database) GetDatabaseInfo() (DatabaseInfo, error) {
 		info.DBName = "main"
 		d.persistentConn.QueryRowContext(context.Background(), "SELECT sqlite_version()").Scan(&info.Version)
 	}
+	info.Summary["activeDatabase"] = info.DBName
+	info.RuntimeInfo["serverVersion"] = info.Version
 
 	// Get Size
 	switch d.Type {
@@ -1747,7 +1879,134 @@ func (d *Database) GetDatabaseInfo() (DatabaseInfo, error) {
 	funcs, _ := d.GetFunctions()
 	info.RoutineCount = len(procs) + len(funcs)
 
+	info.Stats["size"] = info.Size
+	info.Stats["tableCount"] = fmt.Sprintf("%d", info.TableCount)
+	info.Stats["viewCount"] = fmt.Sprintf("%d", info.ViewCount)
+	info.Stats["routineCount"] = fmt.Sprintf("%d", info.RoutineCount)
+
+	d.enrichDatabaseInfoRuntime(&info)
+
 	return info, nil
+}
+
+func databaseCategory(dbType string) string {
+	switch strings.ToLower(strings.TrimSpace(dbType)) {
+	case "mysql", "mariadb", "postgres", "greenplum", "redshift", "cockroachdb", "mssql", "sqlite", "libsql", "duckdb", "databend":
+		return "sql"
+	default:
+		return "other"
+	}
+}
+
+func databaseCapabilities(dbType string) map[string]bool {
+	caps := map[string]bool{
+		"supportsSchemas":          false,
+		"supportsTables":           false,
+		"supportsViews":            false,
+		"supportsRoutines":         false,
+		"supportsCollections":      false,
+		"supportsCharset":          false,
+		"supportsCollation":        false,
+		"supportsTransactions":     true,
+		"supportsSessionVariables": false,
+	}
+
+	switch strings.ToLower(strings.TrimSpace(dbType)) {
+	case "mysql", "mariadb", "databend":
+		caps["supportsTables"] = true
+		caps["supportsViews"] = true
+		caps["supportsRoutines"] = true
+		caps["supportsCharset"] = true
+		caps["supportsCollation"] = true
+		caps["supportsSessionVariables"] = true
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		caps["supportsSchemas"] = true
+		caps["supportsTables"] = true
+		caps["supportsViews"] = true
+		caps["supportsRoutines"] = true
+		caps["supportsSessionVariables"] = true
+	case "mssql":
+		caps["supportsSchemas"] = true
+		caps["supportsTables"] = true
+		caps["supportsViews"] = true
+		caps["supportsRoutines"] = true
+	case "sqlite", "libsql", "duckdb":
+		caps["supportsTables"] = true
+		caps["supportsViews"] = true
+		caps["supportsTransactions"] = true
+	default:
+		caps["supportsTransactions"] = false
+	}
+
+	return caps
+}
+
+func (d *Database) enrichDatabaseInfoRuntime(info *DatabaseInfo) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	queryString := func(query string, args ...interface{}) string {
+		var value sql.NullString
+		if err := d.persistentConn.QueryRowContext(ctx, query, args...).Scan(&value); err != nil || !value.Valid {
+			return ""
+		}
+		return strings.TrimSpace(value.String)
+	}
+
+	switch strings.ToLower(strings.TrimSpace(d.Type)) {
+	case "mysql", "mariadb", "databend":
+		pairs := map[string]string{
+			"characterSetServer":     "SELECT @@character_set_server",
+			"characterSetDatabase":   "SELECT @@character_set_database",
+			"characterSetConnection": "SELECT @@character_set_connection",
+			"characterSetClient":     "SELECT @@character_set_client",
+			"characterSetResults":    "SELECT @@character_set_results",
+			"collationServer":        "SELECT @@collation_server",
+			"collationDatabase":      "SELECT @@collation_database",
+			"collationConnection":    "SELECT @@collation_connection",
+			"currentTime":            "SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s')",
+		}
+		for key, query := range pairs {
+			if v := queryString(query); v != "" {
+				info.RuntimeInfo[key] = v
+			}
+		}
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		pairs := map[string]string{
+			"serverEncoding": "SHOW server_encoding",
+			"timezone":       "SHOW timezone",
+			"searchPath":     "SHOW search_path",
+			"currentSchema":  "SELECT current_schema()",
+			"currentTime":    "SELECT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')",
+		}
+		for key, query := range pairs {
+			if v := queryString(query); v != "" {
+				info.RuntimeInfo[key] = v
+			}
+		}
+	case "mssql":
+		pairs := map[string]string{
+			"serverCollation":   "SELECT CAST(SERVERPROPERTY('Collation') AS NVARCHAR(255))",
+			"databaseCollation": "SELECT CAST(DATABASEPROPERTYEX(DB_NAME(), 'Collation') AS NVARCHAR(255))",
+			"currentTime":       "SELECT CONVERT(VARCHAR(19), GETDATE(), 120)",
+		}
+		for key, query := range pairs {
+			if v := queryString(query); v != "" {
+				info.RuntimeInfo[key] = v
+			}
+		}
+	case "sqlite", "libsql":
+		if v := queryString("PRAGMA encoding"); v != "" {
+			info.RuntimeInfo["encoding"] = v
+		}
+		if v := queryString("SELECT datetime('now')"); v != "" {
+			info.RuntimeInfo["currentTime"] = v
+		}
+	case "duckdb":
+		if v := queryString("SELECT version()"); v != "" {
+			info.RuntimeInfo["engineVersion"] = v
+		}
+	}
 }
 
 func formatSize(bytes int64) string {

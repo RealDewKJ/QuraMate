@@ -3,6 +3,11 @@ import type { Ref } from 'vue';
 
 import { DropDatabase, ExportDatabase, GetDatabaseInfo, SelectFolder } from '../../wailsjs/go/main/App';
 
+interface DatabaseInfoShape {
+    dbName?: string;
+    summary?: Record<string, string>;
+}
+
 interface UseDatabaseAdminModalsOptions {
     connectionId: Ref<string>;
     closeContextMenu: () => void;
@@ -14,7 +19,7 @@ interface UseDatabaseAdminModalsOptions {
 export function useDatabaseAdminModals(options: UseDatabaseAdminModalsOptions) {
     const dbInfoModal = reactive({
         isOpen: false,
-        info: null as any,
+        info: null as DatabaseInfoShape | null,
         isLoading: false
     });
 
@@ -73,8 +78,8 @@ export function useDatabaseAdminModals(options: UseDatabaseAdminModalsOptions) {
     const handleDropDatabase = async () => {
         options.closeContextMenu();
         try {
-            const info = await GetDatabaseInfo(options.connectionId.value);
-            dropDbConfirmation.dbName = info.dbName;
+            const info = await GetDatabaseInfo(options.connectionId.value) as DatabaseInfoShape;
+            dropDbConfirmation.dbName = (info.dbName || info.summary?.activeDatabase || '').trim();
             dropDbConfirmation.isOpen = true;
         } catch (e) {
             options.onError?.('Could not fetch database name');

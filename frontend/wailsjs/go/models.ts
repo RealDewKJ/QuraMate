@@ -134,6 +134,13 @@ export namespace main {
 	    routineCount: number;
 	    dbName: string;
 	    version: string;
+	    engine: string;
+	    category: string;
+	    summary: Record<string, string>;
+	    capabilities: Record<string, boolean>;
+	    runtimeInfo: Record<string, string>;
+	    engineDetails: Record<string, string>;
+	    stats: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
 	        return new DatabaseInfo(source);
@@ -147,6 +154,13 @@ export namespace main {
 	        this.routineCount = source["routineCount"];
 	        this.dbName = source["dbName"];
 	        this.version = source["version"];
+	        this.engine = source["engine"];
+	        this.category = source["category"];
+	        this.summary = source["summary"];
+	        this.capabilities = source["capabilities"];
+	        this.runtimeInfo = source["runtimeInfo"];
+	        this.engineDetails = source["engineDetails"];
+	        this.stats = source["stats"];
 	    }
 	}
 	export class ForeignKey {
