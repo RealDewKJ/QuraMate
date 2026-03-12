@@ -9,7 +9,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div v-if="imageUrl" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-10" @click="emit('close')">
+    <div v-if="imageUrl" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-10" @click="emit('close')">
         <div class="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200" @click.stop>
             <img :src="imageUrl"
                 class="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain border-4 border-background bg-card">

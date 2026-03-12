@@ -9,6 +9,10 @@ export interface ActivityTask {
     tabName: string; // maps to user/host
     query: string;   // maps to QueryText
     headBlock: string;
+    blockedById?: string;
+    blockedTaskIds: string[];
+    blockingCount: number;
+    isBlocker: boolean;
     startedAt: number;
     source: string;  // maps to Database/Command
     status: string;  // maps to Status/State
@@ -105,20 +109,42 @@ export function useActivityMonitor(options: UseActivityMonitorOptions) {
                         timestamp: now,
                         kind: getQueryKind(queryText)
                     });
-                    
+
+                    const blockedById = p.headBlock ? String(p.headBlock) : '';
                     return {
                         id: String(p.sessionId),
                         tabId: '',
                         tabName: `${p.user} @ ${p.host}`,
                         query: queryText,
-                        headBlock: p.headBlock || '',
+                        headBlock: blockedById,
+                        blockedById: blockedById || undefined,
+                        blockedTaskIds: [],
+                        blockingCount: 0,
+                        isBlocker: false,
                         startedAt: now - (p.elapsedTime || 0), // Estimate start time
                         source: `${p.database} [${p.command}]`,
                         status: p.status || p.state || 'running'
                     };
                 });
-                
-                activityTasksList.value = newTasks.sort((a, b) => b.startedAt - a.startedAt);
+
+                const taskMap = new Map(newTasks.map((task) => [task.id, task]));
+                for (const task of newTasks) {
+                    if (task.blockedById && taskMap.has(task.blockedById)) {
+                        const blocker = taskMap.get(task.blockedById)!;
+                        blocker.blockedTaskIds.push(task.id);
+                    }
+                }
+                for (const task of newTasks) {
+                    task.blockingCount = task.blockedTaskIds.length;
+                    task.isBlocker = task.blockingCount > 0;
+                }
+
+                activityTasksList.value = newTasks.sort((a, b) => {
+                    if (a.isBlocker !== b.isBlocker) {
+                        return a.isBlocker ? -1 : 1;
+                    }
+                    return b.startedAt - a.startedAt;
+                });
             } else {
                 activityTasksList.value = [];
             }

@@ -42,7 +42,7 @@ const updateValue = (rowId: number, col: string, value: any) => {
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
         @mousedown.self="emit('close')">
         <div @keydown.stop @mousedown.stop
             class="bg-card w-[95vw] max-w-6xl rounded-lg shadow-lg border border-border p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[88vh] flex flex-col">

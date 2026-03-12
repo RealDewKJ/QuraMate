@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface ActivityTask {
     id: string;
@@ -7,6 +7,10 @@ interface ActivityTask {
     tabName: string;
     query: string;
     headBlock: string;
+    blockedById?: string;
+    blockedTaskIds: string[];
+    blockingCount: number;
+    isBlocker: boolean;
     startedAt: number;
     source: string;
     status: string;
@@ -35,7 +39,7 @@ interface Props {
     formatActivityTime: (time: number) => string;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
     close: [];
@@ -62,6 +66,15 @@ const openQueryModal = (query: string) => {
 
 const showKillConfirm = ref(false);
 const taskToKill = ref<ActivityTask | null>(null);
+const inspectorRows = computed(() =>
+    props.activityTasksList
+        .filter((task) => task.blockedById || task.blockingCount > 0)
+        .map((task) => ({
+            ...task,
+            blockedLabel: task.blockedById || '-',
+            impactedLabel: task.blockingCount > 0 ? `${task.blockingCount} waiting` : 'No dependents',
+        }))
+);
 
 const requestKillTask = (task: ActivityTask) => {
     taskToKill.value = task;
@@ -206,6 +219,28 @@ const confirmKillTask = () => {
                             </div>
                         </div>
                     </div>
+
+                    <div class="rounded-md border border-border bg-background p-3 lg:col-span-2">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lock / Blocking Inspector</p>
+                            <span class="text-xs text-muted-foreground">{{ inspectorRows.length }} chain(s)</span>
+                        </div>
+                        <div v-if="inspectorRows.length > 0" class="space-y-2">
+                            <div v-for="row in inspectorRows" :key="`block-${row.id}`" class="rounded-md border border-border px-3 py-2 text-xs">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="font-mono text-foreground">{{ row.id }}</div>
+                                    <div class="text-muted-foreground">{{ row.impactedLabel }}</div>
+                                </div>
+                                <div class="mt-1 flex items-center gap-2 text-muted-foreground">
+                                    <span>Blocked by: <span class="font-mono text-foreground">{{ row.blockedLabel }}</span></span>
+                                    <span v-if="row.isBlocker" class="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">BLOCKER</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="text-xs text-muted-foreground">
+                            No active blocking chains detected from server process metadata.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -255,7 +290,7 @@ const confirmKillTask = () => {
                                 <button @click.stop="requestKillTask(task)"
                                     class="inline-flex items-center justify-center rounded-md text-xs font-medium px-2.5 py-1.5 border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
                                     :disabled="task.status === 'canceling...'">
-                                    Kill
+                                    {{ task.isBlocker ? 'Kill Blocker' : 'Kill' }}
                                 </button>
                             </td>
                         </tr>
@@ -270,7 +305,7 @@ const confirmKillTask = () => {
 
         <!-- Kill All Confirmation Modal -->
         <div v-if="showKillAllConfirm"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div
                 class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 animate-in zoom-in-95 duration-200">
                 <h3 class="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
@@ -303,7 +338,7 @@ const confirmKillTask = () => {
 
         <!-- Individual Kill Confirmation Modal -->
         <div v-if="showKillConfirm"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
             @click.self="showKillConfirm = false">
             <div
                 class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 animate-in zoom-in-95 duration-200">
@@ -329,11 +364,21 @@ const confirmKillTask = () => {
                             <span class="text-muted-foreground">Source:</span>
                             <span class="text-foreground text-right ml-2 truncate">{{ taskToKill.source }}</span>
                         </div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-muted-foreground">Blocked by:</span>
+                            <span class="text-foreground text-right ml-2 truncate">{{ taskToKill.blockedById || '-' }}</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-muted-foreground">Blocking:</span>
+                            <span class="text-foreground text-right ml-2 truncate">{{ taskToKill.blockingCount }} session(s)</span>
+                        </div>
                         <div class="line-clamp-2 mt-2 pt-2 border-t border-border/50 text-foreground italic">
                             {{ taskToKill.query || '(empty query)' }}
                         </div>
                     </div>
-                    <p class="text-xs text-destructive">This action will immediately terminate the selected session.</p>
+                    <p class="text-xs text-destructive">
+                        {{ taskToKill?.isBlocker ? 'This session is blocking others. Killing it may release waiting queries but can also abort in-flight work.' : 'This action will immediately terminate the selected session.' }}
+                    </p>
                 </div>
                 <div class="flex justify-end gap-3">
                     <button @click="showKillConfirm = false"
@@ -350,7 +395,7 @@ const confirmKillTask = () => {
 
         <!-- Query Viewer Modal -->
         <div v-if="showQueryModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
             @click.self="showQueryModal = false">
             <div
                 class="bg-card w-full max-w-3xl rounded-lg shadow-lg border border-border p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">

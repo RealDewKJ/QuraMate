@@ -150,7 +150,7 @@ defineExpose({ manualCheck, checking, currentVersion });
 
     <Teleport to="body">
         <Transition name="update-overlay">
-            <div v-if="isUpdating" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div v-if="isUpdating" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50">
                 <div
                     class="w-full max-w-xl rounded-2xl border border-border/70 bg-card shadow-2xl overflow-hidden update-shell">
                     <div class="h-1.5 bg-secondary/80 overflow-hidden">

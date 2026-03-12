@@ -29,7 +29,7 @@ const updateValue = (col: string, value: any) => {
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @mousedown.self="emit('close')">
+    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @mousedown.self="emit('close')">
         <div @keydown.stop @mousedown.stop
             class="bg-card w-full max-w-lg rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
             <div class="flex items-center justify-between">

@@ -4,7 +4,7 @@
             :table-search="tableSearch" :view-search="viewSearch" :stored-procedure-search="storedProcedureSearch"
             :function-search="functionSearch" :filtered-tables="filteredTables" :filtered-views="filteredViews"
             :filtered-stored-procedures="filteredStoredProcedures" :filtered-functions="filteredFunctions"
-            :open-folders="openFolders" @open-db-context-menu="openDbContextMenu" @open-history="isHistoryOpen = true"
+            :open-folders="openFolders" @open-db-context-menu="openDbContextMenu" @open-history="openHistoryPanel"
             @open-activity-monitor="openActivityMonitorTab" @open-ai-copilot="openAiCopilot"
             @open-settings="isSettingsOpen = true" @open-database-info="handleDatabaseInfo" @toggle-folder="toggleFolder"
             @open-folder-context-menu="openFolderContextMenu" @select-table="selectTable"
@@ -79,7 +79,9 @@
             <div v-else-if="activeTab" class="flex flex-col h-full overflow-hidden query-area-container">
                 <DbQueryWorkspacePane ref="workspaceRef" :active-tab="activeTab" :tables="tables"
                     :get-columns="fetchTableColumns" :editor-settings="editorSettings" :is-read-only="isReadOnly"
-                    @beautify-query="beautifyQuery" @explain-with-ai="explainWithAI" @save-routine="handleSaveRoutine"
+                    @beautify-query="beautifyQuery" @explain-with-ai="explainWithAI" @explain-plan="openExplainPlanTab"
+                    @save-plan-baseline="saveExecutionPlanBaseline" @compare-plan-baseline="compareExecutionPlanBaseline"
+                    @open-snippets="snippetLibrary.isOpen = true" @save-routine="handleSaveRoutine"
                     @run-query="runQuery" @stop-query="stopQuery" @start-resizing="startResizing" />
                 <DbQueryResultsPane ref="resultsPaneRef" v-if="activeTab" :activeTab="activeTab"
                     :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
@@ -139,7 +141,13 @@
                 </button>
             </div>
         </div>
-        <DbDashboardContextMenus :context-menu="contextMenu" :disconnect="disconnect"
+        <DbDashboardContextMenus :context-menu="contextMenu" :db-type="dbType" :is-read-only="isReadOnly"
+            :close-context-menu="closeContextMenu" :open-history="openHistoryPanel"
+            :open-activity-monitor="openActivityMonitorTab" :disconnect="disconnect"
+            :open-folders="openFolders" :handle-folder-toggle="handleFolderToggle"
+            :handle-folder-expand-all="handleFolderExpandAll" :handle-folder-collapse-all="handleFolderCollapseAll"
+            :open-transaction-sandbox="openTransactionSandbox"
+            :open-schema-compare="openSchemaCompareMigrationPreview"
             :refresh-database="refreshDatabase" :add-tab="addTab" :handle-backup-export="handleBackupExport"
             :handle-generate-database-e-r-diagram="handleGenerateDatabaseERDiagram"
             :handle-database-info="handleDatabaseInfo" :handle-new-table="handleNewTable"
@@ -147,7 +155,7 @@
             :handle-drop-database="handleDropDatabase" :handle-script-routine="handleScriptRoutine"
             :handle-execute-routine="handleExecuteRoutine" :handle-duplicate-routine="handleDuplicateRoutine"
             :handle-delete-routine="handleDeleteRoutine" :handle-folder-refresh="handleFolderRefresh"
-            :handle-folder-collapse="handleFolderCollapse" :handle-copy-row="handleCopyRow"
+            :handle-copy-row="handleCopyRow"
             :handle-copy-row-with-header="handleCopyRowWithHeader" :handle-copy-cell-value="handleCopyCellValue"
             :handle-copy-cell-value-with-header="handleCopyCellValueWithHeader"
             :handle-add-where-to-condition="handleAddWhereToCondition" :handle-set-null="handleSetNull"
@@ -197,6 +205,25 @@
             :file-path="importOptions.filePath" :is-mssql="props.dbType === 'mssql'"
             :enable-identity-insert="importOptions.enableIdentityInsert" @close="showImportOptions = false"
             @confirm="confirmImport" @update:enable-identity-insert="importOptions.enableIdentityInsert = $event" />
+        <DbSchemaCompareWizardModal
+            :is-open="schemaCompareWizard.isOpen"
+            :db-type="props.dbType"
+            :source-name="schemaCompareWizard.sourceName"
+            :target-name="schemaCompareWizard.targetName"
+            @close="schemaCompareWizard.isOpen = false"
+            @confirm="confirmSchemaCompareWizard"
+            @update:source-name="schemaCompareWizard.sourceName = $event"
+            @update:target-name="schemaCompareWizard.targetName = $event"
+        />
+        <DbSnippetLibraryModal
+            :is-open="snippetLibrary.isOpen"
+            :snippets="allSnippetItems"
+            :db-type="props.dbType"
+            @close="snippetLibrary.isOpen = false"
+            @apply="applySnippetToEditor"
+            @save-custom="saveCustomSnippet"
+            @delete-custom="deleteCustomSnippet"
+        />
         <DbDatabaseInfoModal :is-open="dbInfoModal.isOpen" :is-loading="dbInfoModal.isLoading" :info="dbInfoModal.info"
             @close="dbInfoModal.isOpen = false" />
         <DbDropDatabaseModal :is-open="dropDbConfirmation.isOpen" :db-name="dropDbConfirmation.dbName"
@@ -267,6 +294,8 @@ import DbUpdateConfirmationModal from './dashboard/DbUpdateConfirmationModal.vue
 import DbImagePreviewModal from './dashboard/DbImagePreviewModal.vue';
 import DbResultImageDialog from './dashboard/DbResultImageDialog.vue';
 import DbAICopilotOverlay from './dashboard/DbAICopilotOverlay.vue';
+import DbSchemaCompareWizardModal from './dashboard/DbSchemaCompareWizardModal.vue';
+import DbSnippetLibraryModal, { type DashboardSnippetItem } from './dashboard/DbSnippetLibraryModal.vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 import { completeWithSavedProvider } from '../composables/useAiProvider';
 
@@ -306,6 +335,15 @@ const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
 const isActivityMonitorOpen = ref(false);
 const imagePreviewUrl = ref<string | null>(null);
+const schemaCompareWizard = reactive({
+    isOpen: false,
+    sourceName: '',
+    targetName: ''
+});
+const snippetLibrary = reactive({
+    isOpen: false,
+    customItems: [] as DashboardSnippetItem[],
+});
 
 const globalSettings = ref<any>({});
 const safeModeEnabled = computed(() => {
@@ -326,6 +364,131 @@ const queryHistoryRetentionDays = computed(() => {
 });
 const showScreenshotShortcutHint = computed(() => true);
 const screenshotShortcutLabel = computed(() => DEFAULT_GRID_SCREENSHOT_SHORTCUT);
+const builtInSnippetItems = computed<DashboardSnippetItem[]>(() => {
+    const normalized = (props.dbType || '').toLowerCase();
+    const common: DashboardSnippetItem[] = [
+        {
+            id: 'ddl-create-index-review',
+            title: 'Index Review Checklist',
+            description: 'Review missing and duplicate indexes before applying changes.',
+            category: 'Maintenance',
+            sql: `-- Index review checklist
+-- 1) Inspect current indexes
+-- 2) Validate predicate / sort coverage
+-- 3) Estimate write amplification before rollout`,
+            isBuiltIn: true,
+        },
+        {
+            id: 'dml-safe-bulk-update',
+            title: 'Safe Bulk Update',
+            description: 'Transaction-first DML template with preview and rollback.',
+            category: 'DML',
+            sql: `BEGIN;
+
+SELECT COUNT(*) AS would_affect_rows
+FROM {{table_name}}
+WHERE {{predicate}};
+
+UPDATE {{table_name}}
+SET {{set_clause}}
+WHERE {{predicate}};
+
+ROLLBACK;
+-- COMMIT;`,
+            isBuiltIn: true,
+        },
+    ];
+
+    if (normalized.includes('mssql') || normalized.includes('sqlserver')) {
+        return common.concat([
+            {
+                id: 'mssql-lock-scan',
+                title: 'Blocking Sessions Snapshot',
+                description: 'Inspect waiting sessions and blockers on SQL Server.',
+                category: 'Maintenance',
+                dbTypes: ['mssql', 'sqlserver'],
+                sql: `SELECT
+    r.session_id,
+    r.blocking_session_id,
+    r.status,
+    r.wait_type,
+    DB_NAME(r.database_id) AS database_name,
+    SUBSTRING(t.text, (r.statement_start_offset / 2) + 1,
+        ((CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(t.text) ELSE r.statement_end_offset END - r.statement_start_offset) / 2) + 1) AS statement_text
+FROM sys.dm_exec_requests r
+CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t
+WHERE r.session_id <> @@SPID
+  AND (DB_NAME(r.database_id) = '{{database_name}}' OR '{{database_name}}' = '')
+ORDER BY r.blocking_session_id DESC, r.session_id;`,
+                isBuiltIn: true,
+            },
+            {
+                id: 'mssql-index-fragmentation',
+                title: 'Index Fragmentation Review',
+                description: 'Inspect fragmentation and page counts before rebuild/reorganize.',
+                category: 'DDL',
+                dbTypes: ['mssql', 'sqlserver'],
+                sql: `SELECT
+    OBJECT_NAME(ips.object_id) AS table_name,
+    i.name AS index_name,
+    ips.avg_fragmentation_in_percent,
+    ips.page_count
+FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
+JOIN sys.indexes i
+  ON ips.object_id = i.object_id AND ips.index_id = i.index_id
+WHERE ips.page_count > 100
+ORDER BY ips.avg_fragmentation_in_percent DESC;`,
+                isBuiltIn: true,
+            },
+        ]);
+    }
+
+    if (normalized.includes('postgres') || normalized.includes('greenplum') || normalized.includes('redshift') || normalized.includes('cockroach')) {
+        return common.concat([
+            {
+                id: 'pg-lock-scan',
+                title: 'Blocking Sessions Snapshot',
+                description: 'Inspect blockers and blocked sessions on PostgreSQL-family databases.',
+                category: 'Maintenance',
+                dbTypes: ['postgres', 'greenplum', 'redshift', 'cockroach'],
+                sql: `SELECT
+    blocked.pid AS blocked_pid,
+    blocker.pid AS blocker_pid,
+    blocked.query AS blocked_query,
+    blocker.query AS blocker_query
+FROM pg_stat_activity blocked
+JOIN pg_locks blocked_locks ON blocked.pid = blocked_locks.pid
+JOIN pg_locks blocker_locks
+  ON blocked_locks.locktype = blocker_locks.locktype
+ AND blocked_locks.database IS NOT DISTINCT FROM blocker_locks.database
+ AND blocked_locks.relation IS NOT DISTINCT FROM blocker_locks.relation
+ AND blocked_locks.page IS NOT DISTINCT FROM blocker_locks.page
+ AND blocked_locks.tuple IS NOT DISTINCT FROM blocker_locks.tuple
+ AND blocked_locks.classid IS NOT DISTINCT FROM blocker_locks.classid
+ AND blocked_locks.objid IS NOT DISTINCT FROM blocker_locks.objid
+ AND blocked_locks.objsubid IS NOT DISTINCT FROM blocker_locks.objsubid
+ AND blocked_locks.pid <> blocker_locks.pid
+JOIN pg_stat_activity blocker ON blocker.pid = blocker_locks.pid
+WHERE NOT blocked_locks.granted
+  AND blocker_locks.granted;`,
+                isBuiltIn: true,
+            },
+        ]);
+    }
+
+    return common.concat([
+        {
+            id: 'mysql-processlist-review',
+            title: 'Processlist Review',
+            description: 'Inspect active sessions and long-running commands.',
+            category: 'Maintenance',
+            dbTypes: ['mysql', 'mariadb', 'databend'],
+            sql: `SHOW FULL PROCESSLIST;`,
+            isBuiltIn: true,
+        },
+    ]);
+});
+const allSnippetItems = computed(() => builtInSnippetItems.value.concat(snippetLibrary.customItems));
 
 const resultImageDialog = ref<{
     isOpen: boolean;
@@ -347,8 +510,44 @@ const resultImageDialog = ref<{
     totalRows: 0
 });
 
+const loadSnippetLibrary = async () => {
+    try {
+        const savedSnippetsJson = await LoadSetting(snippetLibraryStorageKey.value);
+        if (!savedSnippetsJson) {
+            snippetLibrary.customItems = [];
+            return;
+        }
+        const parsed = JSON.parse(savedSnippetsJson);
+        snippetLibrary.customItems = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        console.error('Failed to load snippet library', e);
+        snippetLibrary.customItems = [];
+    }
+};
+
 const openImagePreview = (url: any) => {
     if (url) imagePreviewUrl.value = String(url);
+};
+
+const copyTextToClipboard = async (text: string, successMessage: string, errorMessage: string): Promise<boolean> => {
+    try {
+        await navigator.clipboard.writeText(text);
+        toastRef.value?.success(successMessage);
+        return true;
+    } catch (e) {
+        console.error('Clipboard write failed', e);
+        toastRef.value?.error(errorMessage);
+        return false;
+    }
+};
+
+const createStringHash = (input: string): string => {
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+        hash = ((hash << 5) - hash) + input.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash).toString(16);
 };
 
 const isImageValue = (val: any, col: string) => {
@@ -528,8 +727,7 @@ const openResultImageFull = () => {
 
 const copyResultImageFileName = async () => {
     if (!resultImageDialog.value.fileName) return;
-    await navigator.clipboard.writeText(resultImageDialog.value.fileName);
-    toastRef.value?.success('File name copied.');
+    await copyTextToClipboard(resultImageDialog.value.fileName, 'File name copied.', 'Failed to copy file name');
 };
 
 // Emits/Props setup
@@ -600,6 +798,30 @@ const tabSessionStorageKey = computed(() => {
     const connectionSegment = sanitizeSessionSegment(props.connectionName || props.connectionId);
     return `dashboard_session:${dbTypeSegment}:${connectionSegment}`;
 });
+
+const planBaselineStorageKey = computed(() => {
+    const dbTypeSegment = sanitizeSessionSegment(props.dbType);
+    const connectionSegment = sanitizeSessionSegment(props.connectionName || props.connectionId);
+    return `dashboard_plan_baselines:${dbTypeSegment}:${connectionSegment}`;
+});
+
+const snippetLibraryStorageKey = computed(() => {
+    const dbTypeSegment = sanitizeSessionSegment(props.dbType);
+    return `dashboard_snippets:${dbTypeSegment}`;
+});
+
+interface SavedPlanBaseline {
+    fingerprint: string;
+    queryHash: string;
+    tabName: string;
+    capturedAt: string;
+    summary: {
+        resultSetCount: number;
+        totalRows: number;
+        columnCounts: number[];
+        previewHash: string;
+    };
+}
 
 const isRestoringTabSession = ref(false);
 let tabSessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -800,6 +1022,10 @@ const openActivityMonitorTab = () => {
     monitorTab.resultSets = markRaw([]);
     monitorTab.queryExecuted = false;
     monitorTab.isActivityMonitorView = true;
+};
+
+const openHistoryPanel = () => {
+    isHistoryOpen.value = true;
 };
 
 const closeActivityMonitorTab = () => {
@@ -1096,33 +1322,65 @@ const handleFolderRefresh = async () => {
     }
 };
 
-const handleFolderCollapse = () => {
+const handleFolderToggle = () => {
     closeContextMenu();
-    if (openFolders.value.includes(contextMenu.targetFolder)) {
-        openFolders.value = openFolders.value.filter(f => f !== contextMenu.targetFolder);
+    const folder = contextMenu.targetFolder;
+    if (!folder) return;
+    if (openFolders.value.includes(folder)) {
+        openFolders.value = openFolders.value.filter(f => f !== folder);
+        return;
     }
+    openFolders.value = [...openFolders.value, folder];
 };
 
-const handleCopyRow = () => {
+const handleFolderExpandAll = () => {
+    closeContextMenu();
+    const folder = contextMenu.targetFolder;
+    if (!folder) return;
+
+    const toOpen = new Set(openFolders.value);
+    toOpen.add(folder);
+    if (folder === 'Programmability') {
+        toOpen.add('Stored Procedures');
+        toOpen.add('Functions');
+    }
+    openFolders.value = Array.from(toOpen);
+};
+
+const handleFolderCollapseAll = () => {
+    closeContextMenu();
+    const folder = contextMenu.targetFolder;
+    if (!folder) return;
+
+    if (folder === 'Programmability') {
+        openFolders.value = openFolders.value.filter(
+            f => f !== 'Programmability' && f !== 'Stored Procedures' && f !== 'Functions'
+        );
+        return;
+    }
+    openFolders.value = openFolders.value.filter(f => f !== folder);
+};
+
+const handleCopyRow = async () => {
     // If the right-clicked row is part of our multi-selection, we'll just copy the entire selection
     const isMultiSelected = Array.isArray(selectedRowIndex.value)
         ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex))
         : false;
 
     if (isMultiSelected) {
-        copySelectedRow(false);
+        await copySelectedRow(false);
         closeContextMenu();
         return;
     }
 
     if (contextMenu.targetRow) {
         const values = Object.values(contextMenu.targetRow).map(v => v === null ? 'NULL' : String(v)).join('\t');
-        navigator.clipboard.writeText(values);
+        await copyTextToClipboard(values, 'Row copied to clipboard', 'Failed to copy row to clipboard');
         closeContextMenu();
     }
 };
 
-const handleCopyCellValue = () => {
+const handleCopyCellValue = async () => {
     // If we right-clicked a cell that is currently part of a selection (especially multi-cell), copy the whole selection
     if (contextMenu.targetRowIndex !== null && contextMenu.targetColumn) {
         if (resultsPaneRef.value?.isCellSelected(contextMenu.targetRowIndex as string | number, contextMenu.targetColumn)) {
@@ -1136,19 +1394,18 @@ const handleCopyCellValue = () => {
     if (contextMenu.targetRow && contextMenu.targetColumn) {
         const val = contextMenu.targetRow[contextMenu.targetColumn];
         const str = val === null ? 'NULL' : String(val);
-        navigator.clipboard.writeText(str);
-        if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
+        await copyTextToClipboard(str, 'Cell value copied to clipboard', 'Failed to copy cell value');
         closeContextMenu();
     }
 };
 
-const handleCopyRowWithHeader = () => {
+const handleCopyRowWithHeader = async () => {
     const isMultiSelected = Array.isArray(selectedRowIndex.value)
         ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex))
         : false;
 
     if (isMultiSelected) {
-        copySelectedRow(true);
+        await copySelectedRow(true);
         closeContextMenu();
         return;
     }
@@ -1164,17 +1421,17 @@ const handleCopyRowWithHeader = () => {
             return val === null ? 'NULL' : String(val);
         }).join('\t');
 
-        navigator.clipboard.writeText(`${headerLine}\n${valueLine}`);
+        await copyTextToClipboard(`${headerLine}\n${valueLine}`, 'Row with header copied to clipboard', 'Failed to copy row with header');
         closeContextMenu();
     }
 };
 
-const handleCopyCellValueWithHeader = () => {
+const handleCopyCellValueWithHeader = async () => {
     if (contextMenu.targetRow && contextMenu.targetColumn) {
         const col = contextMenu.targetColumn;
         const val = contextMenu.targetRow[col];
         const str = val === null ? 'NULL' : String(val);
-        navigator.clipboard.writeText(`${col}: ${str}`);
+        await copyTextToClipboard(`${col}: ${str}`, 'Cell value with header copied to clipboard', 'Failed to copy cell value with header');
         closeContextMenu();
     }
 };
@@ -1218,7 +1475,7 @@ const handleAddWhereToCondition = () => {
     }
 };
 
-const copySelectedCell = () => {
+const copySelectedCell = async () => {
     const isSelected = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value.length > 0 : selectedRowIndex.value !== null;
     if (isSelected && selectedColumn.value && activeTab.value) {
         const selVal = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value[0] : selectedRowIndex.value;
@@ -1237,13 +1494,12 @@ const copySelectedCell = () => {
         if (rowData) {
             const val = rowData[selectedColumn.value];
             const str = val === null ? 'NULL' : String(val);
-            navigator.clipboard.writeText(str);
-            if (toastRef.value) toastRef.value.success('Cell value copied to clipboard');
+            await copyTextToClipboard(str, 'Cell value copied to clipboard', 'Failed to copy cell value');
         }
     }
 };
 
-const copySelectedRow = (withHeader: boolean = false) => {
+const copySelectedRow = async (withHeader: boolean = false) => {
     const isSelected = Array.isArray(selectedRowIndex.value) ? selectedRowIndex.value.length > 0 : selectedRowIndex.value !== null;
     if (isSelected && activeTab.value) {
         const indices = Array.isArray(selectedRowIndex.value)
@@ -1287,11 +1543,9 @@ const copySelectedRow = (withHeader: boolean = false) => {
 
         if (rowsStrs.length > 0) {
             if (withHeader) {
-                navigator.clipboard.writeText(`${headersStr}\n${rowsStrs.join('\n')}`);
-                if (toastRef.value) toastRef.value.success(`${rowsStrs.length} row(s) with header copied to clipboard`);
+                await copyTextToClipboard(`${headersStr}\n${rowsStrs.join('\n')}`, `${rowsStrs.length} row(s) with header copied to clipboard`, 'Failed to copy rows with header');
             } else {
-                navigator.clipboard.writeText(rowsStrs.join('\n'));
-                if (toastRef.value) toastRef.value.success(`${rowsStrs.length} row(s) copied to clipboard`);
+                await copyTextToClipboard(rowsStrs.join('\n'), `${rowsStrs.length} row(s) copied to clipboard`, 'Failed to copy rows');
             }
         }
     }
@@ -1435,18 +1689,7 @@ const selectTable = async (tableName: string) => {
         activeTab.value.tableName = tableName;
         activeTab.value.name = tableName; // Update tab name to table name
 
-        let escapedTableName = tableName;
-        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
-            escapedTableName = `"${tableName}"`;
-        } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
-            escapedTableName = `\`${tableName}\``;
-        } else if (type.includes('mssql') || type.includes('sqlserver')) {
-            if (tableName.includes('.') && !tableName.includes('[')) {
-                escapedTableName = tableName.split('.').map(p => `[${p}]`).join('.');
-            } else if (!tableName.startsWith('[')) {
-                escapedTableName = `[${tableName}]`;
-            }
-        }
+        const escapedTableName = getEscapedTableName(tableName);
 
         if (type.includes('mssql') || type.includes('sqlserver')) {
             activeTab.value.query = `SELECT TOP 100 * FROM ${escapedTableName}`;
@@ -1520,22 +1763,8 @@ const checkRowCount = async (tableName: string) => {
     // Reset previous count
     activeTab.value.totalRowCount = undefined;
 
-    const type = (props.dbType || '').toLowerCase();
-
-    let escapedTableName = tableName;
-    if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
-        escapedTableName = `"${tableName}"`;
-    } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
-        escapedTableName = `\`${tableName}\``;
-    } else if (type.includes('mssql') || type.includes('sqlserver')) {
-        if (tableName.includes('.') && !tableName.includes('[')) {
-            escapedTableName = tableName.split('.').map(p => `[${p}]`).join('.');
-        } else if (!tableName.startsWith('[')) {
-            escapedTableName = `[${tableName}]`;
-        }
-    }
-
-    let countQuery = `SELECT COUNT(*) FROM ${escapedTableName}`;
+    const escapedTableName = getEscapedTableName(tableName);
+    const countQuery = `SELECT COUNT(*) FROM ${escapedTableName}`;
 
     try {
         const reqId = generateId();
@@ -1616,13 +1845,14 @@ const selectView = (viewName: string) => {
 
     if (activeTab.value) {
         const type = (props.dbType || '').toLowerCase();
+        const escapedViewName = getEscapedTableName(viewName);
         activeTab.value.tableName = viewName;
         activeTab.value.name = viewName;
 
         if (type.includes('mssql') || type.includes('sqlserver')) {
-            activeTab.value.query = `SELECT TOP 100 * FROM ${viewName}`;
+            activeTab.value.query = `SELECT TOP 100 * FROM ${escapedViewName}`;
         } else {
-            activeTab.value.query = `SELECT * FROM ${viewName} LIMIT 100`;
+            activeTab.value.query = `SELECT * FROM ${escapedViewName} LIMIT 100`;
         }
 
         // Views usually don't have PKs in the same way, or at least we typically don't edit them directly via grid easily without triggers/configuration.
@@ -1670,8 +1900,7 @@ const handleDuplicateRoutine = async () => {
         addTab();
         if (activeTab.value) {
             const copyName = `${routine}_copy`;
-            // Attempt to replace the name in the definition (very simple replacement)
-            let newDefinition = definition.replace(new RegExp(routine, 'g'), copyName);
+            const newDefinition = definition.split(routine).join(copyName);
 
             activeTab.value.name = `New ${copyName}`;
             activeTab.value.query = newDefinition;
@@ -1688,15 +1917,31 @@ const handleDeleteRoutine = async () => {
     const routine = contextMenu.targetRoutine;
     const type = contextMenu.targetRoutineType;
     if (!routine) return;
+    if (props.isReadOnly) {
+        toastRef.value?.error('This connection is read-only.');
+        closeContextMenu();
+        return;
+    }
+    if (type !== 'PROCEDURE' && type !== 'FUNCTION') {
+        toastRef.value?.error('Unsupported routine type.');
+        closeContextMenu();
+        return;
+    }
 
-    if (!confirm(`Are you sure you want to delete ${type.toLowerCase()} '${routine}'?`)) {
+    const confirmationInput = window.prompt(`Type "${routine}" to confirm dropping this ${type.toLowerCase()}.`);
+    if (confirmationInput === null) {
+        closeContextMenu();
+        return;
+    }
+    if (confirmationInput.trim() !== routine) {
+        toastRef.value?.error('Routine name does not match. Drop cancelled.');
         closeContextMenu();
         return;
     }
 
     closeContextMenu();
 
-    const dropSql = `DROP ${type} ${routine}`;
+    const dropSql = `DROP ${type} ${getEscapedTableName(routine)}`;
     try {
         const res = await ExecuteQuery(props.connectionId, dropSql, generateId());
         if (res.error) {
@@ -1873,33 +2118,35 @@ const handleScriptRoutine = () => {
 
     addTab();
     if (activeTab.value) {
+        const escapedRoutineIdentifier = getEscapedTableName(routine);
+        const escapedRoutineLiteral = escapeSqlLiteral(routine);
         activeTab.value.name = `Script: ${routine}`;
         activeTab.value.query = `-- Scripting for ${routine} (${contextMenu.targetRoutineType})
 -- Note: Provide a backend method 'GetRoutineDefinition' for better support.
 
 -- Postgres:
--- SELECT pg_get_functiondef('${routine}'::regproc);
+-- SELECT pg_get_functiondef('${escapedRoutineLiteral}'::regproc);
 
 -- MySQL:
--- SHOW CREATE PROCEDURE ${routine};
+-- SHOW CREATE PROCEDURE ${escapedRoutineIdentifier};
 
 -- MSSQL:
--- sp_helptext '${routine}';
+-- sp_helptext '${escapedRoutineLiteral}';
 `;
 
         // Try to be smart for MSSQL at least
         const type = (props.dbType || '').toLowerCase();
         if (type.includes('mssql')) {
-            activeTab.value.query = `EXEC sp_helptext '${routine}'`;
+            activeTab.value.query = `EXEC sp_helptext '${escapedRoutineLiteral}'`;
             setTimeout(() => runQuery(), 50);
         } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
-            activeTab.value.query = `SELECT pg_get_functiondef('${routine}'::regproc)`;
+            activeTab.value.query = `SELECT pg_get_functiondef('${escapedRoutineLiteral}'::regproc)`;
             // This might fail if schema is needed or not in search path, but good attempt
         } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
-            activeTab.value.query = `SHOW CREATE ${contextMenu.targetRoutineType} ${routine}`;
+            activeTab.value.query = `SHOW CREATE ${contextMenu.targetRoutineType} ${escapedRoutineIdentifier}`;
             setTimeout(() => runQuery(), 50);
         } else if (type.includes('sqlite') || type.includes('libsql')) {
-            activeTab.value.query = `SELECT sql FROM sqlite_master WHERE name = '${routine}'`;
+            activeTab.value.query = `SELECT sql FROM sqlite_master WHERE name = '${escapedRoutineLiteral}'`;
             setTimeout(() => runQuery(), 50);
         }
 
@@ -1923,6 +2170,31 @@ const getEscapedIdentifier = (identifier: string) => {
         return `[${identifier.replace(/]/g, ']]')}]`;
     }
     return `"${identifier.replace(/"/g, '""')}"`;
+};
+
+const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
+
+const normalizeNameSegment = (segment: string): string => {
+    const trimmed = segment.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        return trimmed.slice(1, -1).replace(/]]/g, ']');
+    }
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith('`') && trimmed.endsWith('`'))) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed;
+};
+
+const splitQualifiedName = (rawName: string): { schema?: string; name: string } => {
+    const input = String(rawName || '').trim();
+    if (!input.includes('.')) {
+        return { name: normalizeNameSegment(input) };
+    }
+
+    const parts = input.split('.');
+    const name = normalizeNameSegment(parts.pop() || input);
+    const schema = normalizeNameSegment(parts.join('.'));
+    return schema ? { schema, name } : { name };
 };
 
 const getEscapedTableName = (tableName: string) => {
@@ -1965,6 +2237,579 @@ const openSqlTemplateTab = (tabName: string, sql: string) => {
         activeTab.value.resultSets = markRaw([]);
         activeTab.value.resultViewTab = 'data';
     }
+};
+
+const buildExplainPlanSql = (sql: string) => {
+    const trimmedSql = sql.trim().replace(/;+\s*$/, '');
+    const type = (props.dbType || '').toLowerCase();
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        return `SET SHOWPLAN_TEXT ON;
+${trimmedSql};
+SET SHOWPLAN_TEXT OFF;`;
+    }
+    if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+        return `EXPLAIN FORMAT=JSON
+${trimmedSql};`;
+    }
+    return `EXPLAIN (FORMAT JSON, ANALYZE FALSE, VERBOSE TRUE)
+${trimmedSql};`;
+};
+
+const openExplainPlanTab = () => {
+    const sourceSql = (workspaceRef.value?.getSelection?.() || activeTab.value?.query || '').trim();
+    if (!sourceSql) {
+        toastRef.value?.error('Write or select a query first.');
+        return;
+    }
+
+    openSqlTemplateTab('Execution Plan', buildExplainPlanSql(sourceSql));
+};
+
+const summarizeCurrentPlanResult = (): SavedPlanBaseline | null => {
+    const tab = activeTab.value;
+    if (!tab || !tab.resultSets || tab.resultSets.length === 0) {
+        return null;
+    }
+
+    const resultSets = tab.resultSets.map((resultSet) => ({
+        columns: resultSet.columns,
+        rows: (resultSet.rows || []).slice(0, 10),
+    }));
+    const totalRows = tab.resultSets.reduce((sum, resultSet) => sum + (resultSet.rows?.length || 0), 0);
+    const serialized = JSON.stringify(resultSets);
+
+    return {
+        fingerprint: `${sanitizeSessionSegment(props.dbType)}:${createStringHash((tab.query || '').trim())}`,
+        queryHash: createStringHash((tab.query || '').trim()),
+        tabName: tab.name,
+        capturedAt: new Date().toISOString(),
+        summary: {
+            resultSetCount: tab.resultSets.length,
+            totalRows,
+            columnCounts: tab.resultSets.map((resultSet) => resultSet.columns?.length || 0),
+            previewHash: createStringHash(serialized),
+        },
+    };
+};
+
+const saveExecutionPlanBaseline = async () => {
+    const baseline = summarizeCurrentPlanResult();
+    if (!baseline) {
+        toastRef.value?.error('Run an execution plan query first.');
+        return;
+    }
+
+    try {
+        await SaveSetting(planBaselineStorageKey.value, JSON.stringify(baseline));
+        toastRef.value?.success('Plan baseline saved.');
+    } catch (e) {
+        console.error('Failed to save plan baseline', e);
+        toastRef.value?.error('Failed to save plan baseline.');
+    }
+};
+
+const compareExecutionPlanBaseline = async () => {
+    const current = summarizeCurrentPlanResult();
+    if (!current || !activeTab.value) {
+        toastRef.value?.error('Run an execution plan query first.');
+        return;
+    }
+
+    try {
+        const raw = await LoadSetting(planBaselineStorageKey.value);
+        if (!raw) {
+            toastRef.value?.error('No saved baseline found for this connection.');
+            return;
+        }
+
+        const saved = JSON.parse(raw) as SavedPlanBaseline;
+        const lines = [
+            `Baseline captured: ${saved.capturedAt}`,
+            `Baseline tab: ${saved.tabName}`,
+            `Current tab: ${current.tabName}`,
+            '',
+            `Result sets: ${saved.summary.resultSetCount} -> ${current.summary.resultSetCount}`,
+            `Total rows (preview): ${saved.summary.totalRows} -> ${current.summary.totalRows}`,
+            `Column counts: ${saved.summary.columnCounts.join(', ')} -> ${current.summary.columnCounts.join(', ')}`,
+            `Preview hash changed: ${saved.summary.previewHash === current.summary.previewHash ? 'No' : 'Yes'}`,
+            `Query hash changed: ${saved.queryHash === current.queryHash ? 'No' : 'Yes'}`,
+        ];
+
+        activeTab.value.explanation = lines.join('\n');
+        activeTab.value.resultViewTab = 'analysis';
+        toastRef.value?.success('Baseline comparison ready in Analysis tab.');
+    } catch (e) {
+        console.error('Failed to compare plan baseline', e);
+        toastRef.value?.error('Failed to compare plan baseline.');
+    }
+};
+
+const applySnippetToEditor = (payload: { snippet: DashboardSnippetItem; resolvedSql: string }) => {
+    snippetLibrary.isOpen = false;
+    if (!activeTab.value || activeTab.value.isERView || activeTab.value.isDesignView) {
+        addTab();
+    }
+    if (!activeTab.value) {
+        return;
+    }
+    activeTab.value.query = payload.resolvedSql;
+    activeTab.value.name = payload.snippet.title;
+    activeTab.value.queryExecuted = false;
+    activeTab.value.resultSets = markRaw([]);
+    activeTab.value.error = '';
+};
+
+const saveCustomSnippet = async (payload: { title: string; description: string; sql: string; category: string }) => {
+    const item: DashboardSnippetItem = {
+        id: `custom-${Date.now()}`,
+        title: payload.title,
+        description: payload.description,
+        sql: payload.sql,
+        category: payload.category,
+        isBuiltIn: false,
+    };
+    snippetLibrary.customItems = [...snippetLibrary.customItems, item];
+    try {
+        await SaveSetting(snippetLibraryStorageKey.value, JSON.stringify(snippetLibrary.customItems));
+        toastRef.value?.success('Runbook saved.');
+    } catch (e) {
+        console.error('Failed to save snippet', e);
+        toastRef.value?.error('Failed to save runbook.');
+    }
+};
+
+const deleteCustomSnippet = async (snippetId: string) => {
+    snippetLibrary.customItems = snippetLibrary.customItems.filter((item) => item.id !== snippetId);
+    try {
+        await SaveSetting(snippetLibraryStorageKey.value, JSON.stringify(snippetLibrary.customItems));
+        toastRef.value?.success('Runbook deleted.');
+    } catch (e) {
+        console.error('Failed to delete snippet', e);
+        toastRef.value?.error('Failed to delete runbook.');
+    }
+};
+
+const splitSimpleSqlStatements = (sql: string): string[] => {
+    return (sql || '')
+        .split(';')
+        .map(part => part.trim())
+        .filter(part => part.length > 0);
+};
+
+const inferAffectedRowsPreview = (statement: string): string | null => {
+    const trimmed = statement.trim().replace(/;$/, '');
+
+    const updateMatch = trimmed.match(/^update\s+([^\s]+)\s+set[\s\S]*?\bwhere\b\s+([\s\S]+)$/i);
+    if (updateMatch) {
+        return `SELECT COUNT(*) AS would_affect_rows FROM ${updateMatch[1]} WHERE ${updateMatch[2]};`;
+    }
+
+    const deleteMatch = trimmed.match(/^delete\s+from\s+([^\s]+)\s+where\s+([\s\S]+)$/i);
+    if (deleteMatch) {
+        return `SELECT COUNT(*) AS would_affect_rows FROM ${deleteMatch[1]} WHERE ${deleteMatch[2]};`;
+    }
+
+    return null;
+};
+
+const getTransactionKeywords = () => {
+    const type = (props.dbType || '').toLowerCase();
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        return {
+            begin: 'BEGIN TRANSACTION;',
+            commit: 'COMMIT TRANSACTION;',
+            rollback: 'ROLLBACK TRANSACTION;'
+        };
+    }
+    return {
+        begin: 'BEGIN;',
+        commit: 'COMMIT;',
+        rollback: 'ROLLBACK;'
+    };
+};
+
+const openTransactionSandbox = () => {
+    if (props.isReadOnly) {
+        toastRef.value?.error('This connection is read-only.');
+        return;
+    }
+
+    const selectedSql = workspaceRef.value?.getSelection?.() || '';
+    const baseSql = (selectedSql || activeTab.value?.query || '').trim();
+    const statements = splitSimpleSqlStatements(baseSql);
+    const previewQueries = statements
+        .map((statement) => inferAffectedRowsPreview(statement))
+        .filter((sql): sql is string => !!sql);
+    const tx = getTransactionKeywords();
+
+    const previewBlock = previewQueries.length > 0
+        ? previewQueries.join('\n')
+        : '-- Add UPDATE/DELETE statements with WHERE clauses to see affected-row preview queries.';
+
+    const mutationBlock = statements.length > 0
+        ? statements.map(statement => `${statement.replace(/;$/, '')};`).join('\n')
+        : '-- Example:\n-- UPDATE your_table SET column_name = value WHERE id = 1;';
+
+    const sql = `-- Transaction Sandbox
+-- Steps:
+-- 1) Run the preview block to inspect impact.
+-- 2) Review the mutation block.
+-- 3) Keep ${tx.rollback} for safe dry-run, or switch to ${tx.commit} after verification.
+${tx.begin}
+
+-- Preview affected rows
+${previewBlock}
+
+-- Mutation block
+${mutationBlock}
+
+-- Finalize
+${tx.rollback}
+-- ${tx.commit}`;
+
+    openSqlTemplateTab('Transaction Sandbox', sql);
+};
+
+const getSchemaCompareDefaults = () => {
+    const type = (props.dbType || '').toLowerCase();
+    if (type.includes('mssql') || type.includes('sqlserver')) {
+        return { sourceName: 'dbo', targetName: 'stg' };
+    }
+    if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+        return { sourceName: 'app_source', targetName: 'app_target' };
+    }
+    return { sourceName: 'public', targetName: 'staging' };
+};
+
+const buildSchemaCompareMigrationSql = (sourceName: string, targetName: string) => {
+    const type = (props.dbType || '').toLowerCase();
+    const sourceLiteral = escapeSqlLiteral(sourceName);
+    const targetLiteral = escapeSqlLiteral(targetName);
+    let sql = '';
+
+    if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+        sql = `-- Schema Compare + Migration Preview (PostgreSQL family)
+-- Set schemas before running:
+-- source_schema: desired schema
+-- target_schema: schema to be updated
+WITH params AS (
+  SELECT '${sourceLiteral}'::text AS source_schema, '${targetLiteral}'::text AS target_schema
+),
+source_cols AS (
+  SELECT
+    c.table_name,
+    c.column_name,
+    c.data_type,
+    c.is_nullable,
+    c.character_maximum_length,
+    c.numeric_precision,
+    c.numeric_scale,
+    c.datetime_precision,
+    c.column_default,
+    CASE
+      WHEN c.data_type IN ('character varying', 'character') AND c.character_maximum_length IS NOT NULL
+        THEN c.data_type || '(' || c.character_maximum_length || ')'
+      WHEN c.data_type IN ('numeric', 'decimal') AND c.numeric_precision IS NOT NULL
+        THEN c.data_type || '(' || c.numeric_precision || COALESCE(',' || c.numeric_scale, '') || ')'
+      WHEN c.data_type IN ('time without time zone', 'time with time zone', 'timestamp without time zone', 'timestamp with time zone') AND c.datetime_precision IS NOT NULL
+        THEN c.data_type || '(' || c.datetime_precision || ')'
+      ELSE c.data_type
+    END AS type_declaration
+  FROM information_schema.columns c, params p
+  WHERE c.table_schema = p.source_schema
+),
+target_cols AS (
+  SELECT
+    c.table_name,
+    c.column_name,
+    c.data_type,
+    c.is_nullable,
+    c.character_maximum_length,
+    c.numeric_precision,
+    c.numeric_scale,
+    c.datetime_precision,
+    c.column_default,
+    CASE
+      WHEN c.data_type IN ('character varying', 'character') AND c.character_maximum_length IS NOT NULL
+        THEN c.data_type || '(' || c.character_maximum_length || ')'
+      WHEN c.data_type IN ('numeric', 'decimal') AND c.numeric_precision IS NOT NULL
+        THEN c.data_type || '(' || c.numeric_precision || COALESCE(',' || c.numeric_scale, '') || ')'
+      WHEN c.data_type IN ('time without time zone', 'time with time zone', 'timestamp without time zone', 'timestamp with time zone') AND c.datetime_precision IS NOT NULL
+        THEN c.data_type || '(' || c.datetime_precision || ')'
+      ELSE c.data_type
+    END AS type_declaration
+  FROM information_schema.columns c, params p
+  WHERE c.table_schema = p.target_schema
+)
+SELECT
+  COALESCE(s.table_name, t.table_name) AS table_name,
+  COALESCE(s.column_name, t.column_name) AS column_name,
+  CASE
+    WHEN s.column_name IS NULL THEN 'ONLY_IN_TARGET'
+    WHEN t.column_name IS NULL THEN 'MISSING_IN_TARGET'
+    WHEN s.type_declaration <> t.type_declaration
+      OR s.is_nullable <> t.is_nullable
+      OR COALESCE(s.column_default, '') <> COALESCE(t.column_default, '')
+      OR COALESCE(s.character_maximum_length, -1) <> COALESCE(t.character_maximum_length, -1)
+      OR COALESCE(s.numeric_precision, -1) <> COALESCE(t.numeric_precision, -1)
+      OR COALESCE(s.numeric_scale, -1) <> COALESCE(t.numeric_scale, -1)
+      OR COALESCE(s.datetime_precision, -1) <> COALESCE(t.datetime_precision, -1)
+    THEN 'DIFF'
+    ELSE 'MATCH'
+  END AS status,
+  s.type_declaration AS source_type,
+  t.type_declaration AS target_type,
+  s.is_nullable AS source_nullable,
+  t.is_nullable AS target_nullable,
+  s.column_default AS source_default,
+  t.column_default AS target_default
+FROM source_cols s
+FULL OUTER JOIN target_cols t
+  ON s.table_name = t.table_name AND s.column_name = t.column_name
+WHERE s.column_name IS NULL
+   OR t.column_name IS NULL
+   OR s.type_declaration <> t.type_declaration
+   OR s.is_nullable <> t.is_nullable
+   OR COALESCE(s.column_default, '') <> COALESCE(t.column_default, '')
+   OR COALESCE(s.character_maximum_length, -1) <> COALESCE(t.character_maximum_length, -1)
+   OR COALESCE(s.numeric_precision, -1) <> COALESCE(t.numeric_precision, -1)
+   OR COALESCE(s.numeric_scale, -1) <> COALESCE(t.numeric_scale, -1)
+   OR COALESCE(s.datetime_precision, -1) <> COALESCE(t.datetime_precision, -1)
+ORDER BY 1, 2;
+
+-- Migration preview: add missing columns to target schema
+WITH params AS (
+  SELECT '${sourceLiteral}'::text AS source_schema, '${targetLiteral}'::text AS target_schema
+)
+SELECT
+  'ALTER TABLE "' || p.target_schema || '"."' || s.table_name || '" ADD COLUMN "' || s.column_name || '" ' ||
+  CASE
+    WHEN s.data_type IN ('character varying', 'character') AND s.character_maximum_length IS NOT NULL
+      THEN s.data_type || '(' || s.character_maximum_length || ')'
+    WHEN s.data_type IN ('numeric', 'decimal') AND s.numeric_precision IS NOT NULL
+      THEN s.data_type || '(' || s.numeric_precision || COALESCE(',' || s.numeric_scale, '') || ')'
+    WHEN s.data_type IN ('time without time zone', 'time with time zone', 'timestamp without time zone', 'timestamp with time zone') AND s.datetime_precision IS NOT NULL
+      THEN s.data_type || '(' || s.datetime_precision || ')'
+    ELSE s.data_type
+  END ||
+  CASE WHEN s.column_default IS NOT NULL THEN ' DEFAULT ' || s.column_default ELSE '' END ||
+  CASE WHEN s.is_nullable = 'NO' THEN ' NOT NULL;' ELSE ';' END AS migration_sql
+FROM information_schema.columns s, params p
+LEFT JOIN information_schema.columns t
+  ON t.table_schema = p.target_schema
+ AND t.table_name = s.table_name
+ AND t.column_name = s.column_name
+WHERE s.table_schema = p.source_schema
+  AND t.column_name IS NULL
+ORDER BY s.table_name, s.ordinal_position;`;
+    } else if (type.includes('mssql') || type.includes('sqlserver')) {
+        sql = `-- Schema Compare + Migration Preview (SQL Server)
+-- Compare source and target schemas
+WITH params AS (
+    SELECT N'${sourceLiteral}' AS source_schema, N'${targetLiteral}' AS target_schema
+),
+source_cols AS (
+    SELECT
+      TABLE_NAME,
+      COLUMN_NAME,
+      DATA_TYPE,
+      IS_NULLABLE,
+      CHARACTER_MAXIMUM_LENGTH,
+      NUMERIC_PRECISION,
+      NUMERIC_SCALE,
+      DATETIME_PRECISION,
+      COLUMN_DEFAULT,
+      CASE
+        WHEN DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary')
+          THEN DATA_TYPE + '(' + CASE WHEN CHARACTER_MAXIMUM_LENGTH = -1 THEN 'max' ELSE CAST(CHARACTER_MAXIMUM_LENGTH AS VARCHAR(20)) END + ')'
+        WHEN DATA_TYPE IN ('decimal','numeric')
+          THEN DATA_TYPE + '(' + CAST(NUMERIC_PRECISION AS VARCHAR(20)) + ',' + CAST(NUMERIC_SCALE AS VARCHAR(20)) + ')'
+        WHEN DATA_TYPE IN ('datetime2','datetimeoffset','time')
+          THEN DATA_TYPE + '(' + CAST(COALESCE(DATETIME_PRECISION, 7) AS VARCHAR(20)) + ')'
+        ELSE DATA_TYPE
+      END AS TYPE_DECLARATION
+    FROM INFORMATION_SCHEMA.COLUMNS
+    CROSS JOIN params p
+    WHERE TABLE_SCHEMA = p.source_schema
+),
+target_cols AS (
+    SELECT
+      TABLE_NAME,
+      COLUMN_NAME,
+      DATA_TYPE,
+      IS_NULLABLE,
+      CHARACTER_MAXIMUM_LENGTH,
+      NUMERIC_PRECISION,
+      NUMERIC_SCALE,
+      DATETIME_PRECISION,
+      COLUMN_DEFAULT,
+      CASE
+        WHEN DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary')
+          THEN DATA_TYPE + '(' + CASE WHEN CHARACTER_MAXIMUM_LENGTH = -1 THEN 'max' ELSE CAST(CHARACTER_MAXIMUM_LENGTH AS VARCHAR(20)) END + ')'
+        WHEN DATA_TYPE IN ('decimal','numeric')
+          THEN DATA_TYPE + '(' + CAST(NUMERIC_PRECISION AS VARCHAR(20)) + ',' + CAST(NUMERIC_SCALE AS VARCHAR(20)) + ')'
+        WHEN DATA_TYPE IN ('datetime2','datetimeoffset','time')
+          THEN DATA_TYPE + '(' + CAST(COALESCE(DATETIME_PRECISION, 7) AS VARCHAR(20)) + ')'
+        ELSE DATA_TYPE
+      END AS TYPE_DECLARATION
+    FROM INFORMATION_SCHEMA.COLUMNS
+    CROSS JOIN params p
+    WHERE TABLE_SCHEMA = p.target_schema
+)
+SELECT
+    COALESCE(s.TABLE_NAME, t.TABLE_NAME) AS table_name,
+    COALESCE(s.COLUMN_NAME, t.COLUMN_NAME) AS column_name,
+    CASE
+      WHEN s.COLUMN_NAME IS NULL THEN 'ONLY_IN_TARGET'
+      WHEN t.COLUMN_NAME IS NULL THEN 'MISSING_IN_TARGET'
+      WHEN s.TYPE_DECLARATION <> t.TYPE_DECLARATION
+        OR s.IS_NULLABLE <> t.IS_NULLABLE
+        OR ISNULL(s.COLUMN_DEFAULT, '') <> ISNULL(t.COLUMN_DEFAULT, '')
+        OR ISNULL(s.CHARACTER_MAXIMUM_LENGTH, -1) <> ISNULL(t.CHARACTER_MAXIMUM_LENGTH, -1)
+        OR ISNULL(s.NUMERIC_PRECISION, -1) <> ISNULL(t.NUMERIC_PRECISION, -1)
+        OR ISNULL(s.NUMERIC_SCALE, -1) <> ISNULL(t.NUMERIC_SCALE, -1)
+      THEN 'DIFF'
+      ELSE 'MATCH'
+    END AS status,
+    s.TYPE_DECLARATION AS source_type,
+    t.TYPE_DECLARATION AS target_type,
+    s.IS_NULLABLE AS source_nullable,
+    t.IS_NULLABLE AS target_nullable,
+    s.COLUMN_DEFAULT AS source_default,
+    t.COLUMN_DEFAULT AS target_default
+FROM source_cols s
+FULL OUTER JOIN target_cols t
+  ON s.TABLE_NAME = t.TABLE_NAME AND s.COLUMN_NAME = t.COLUMN_NAME
+WHERE s.COLUMN_NAME IS NULL
+   OR t.COLUMN_NAME IS NULL
+   OR s.TYPE_DECLARATION <> t.TYPE_DECLARATION
+   OR s.IS_NULLABLE <> t.IS_NULLABLE
+   OR ISNULL(s.COLUMN_DEFAULT, '') <> ISNULL(t.COLUMN_DEFAULT, '')
+   OR ISNULL(s.CHARACTER_MAXIMUM_LENGTH, -1) <> ISNULL(t.CHARACTER_MAXIMUM_LENGTH, -1)
+   OR ISNULL(s.NUMERIC_PRECISION, -1) <> ISNULL(t.NUMERIC_PRECISION, -1)
+   OR ISNULL(s.NUMERIC_SCALE, -1) <> ISNULL(t.NUMERIC_SCALE, -1)
+ORDER BY 1, 2;
+
+-- Migration preview: add missing columns in target schema
+WITH params AS (
+    SELECT N'${sourceLiteral}' AS source_schema, N'${targetLiteral}' AS target_schema
+)
+SELECT
+  'ALTER TABLE [' + p.target_schema + '].[' + s.TABLE_NAME + '] ADD [' + s.COLUMN_NAME + '] ' +
+  CASE
+    WHEN s.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary')
+      THEN s.DATA_TYPE + '(' + CASE WHEN s.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'max' ELSE CAST(s.CHARACTER_MAXIMUM_LENGTH AS VARCHAR(20)) END + ')'
+    WHEN s.DATA_TYPE IN ('decimal','numeric')
+      THEN s.DATA_TYPE + '(' + CAST(s.NUMERIC_PRECISION AS VARCHAR(20)) + ',' + CAST(s.NUMERIC_SCALE AS VARCHAR(20)) + ')'
+    WHEN s.DATA_TYPE IN ('datetime2','datetimeoffset','time')
+      THEN s.DATA_TYPE + '(' + CAST(COALESCE(s.DATETIME_PRECISION, 7) AS VARCHAR(20)) + ')'
+    ELSE s.DATA_TYPE
+  END +
+  CASE WHEN s.COLUMN_DEFAULT IS NOT NULL THEN ' DEFAULT ' + s.COLUMN_DEFAULT ELSE '' END +
+  CASE WHEN s.IS_NULLABLE = 'NO' THEN ' NOT NULL;' ELSE ';' END AS migration_sql
+FROM INFORMATION_SCHEMA.COLUMNS s
+CROSS JOIN params p
+LEFT JOIN INFORMATION_SCHEMA.COLUMNS t
+  ON t.TABLE_SCHEMA = p.target_schema
+ AND t.TABLE_NAME = s.TABLE_NAME
+ AND t.COLUMN_NAME = s.COLUMN_NAME
+WHERE s.TABLE_SCHEMA = p.source_schema
+  AND t.COLUMN_NAME IS NULL
+ORDER BY s.TABLE_NAME, s.ORDINAL_POSITION;`;
+    } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
+        sql = `-- Schema Compare + Migration Preview (MySQL family)
+-- Compare source and target databases
+SELECT
+  COALESCE(s.TABLE_NAME, t.TABLE_NAME) AS table_name,
+  COALESCE(s.COLUMN_NAME, t.COLUMN_NAME) AS column_name,
+  CASE
+    WHEN s.COLUMN_NAME IS NULL THEN 'ONLY_IN_TARGET'
+    WHEN t.COLUMN_NAME IS NULL THEN 'MISSING_IN_TARGET'
+    WHEN s.COLUMN_TYPE <> t.COLUMN_TYPE
+      OR s.IS_NULLABLE <> t.IS_NULLABLE
+      OR COALESCE(s.COLUMN_DEFAULT, '') <> COALESCE(t.COLUMN_DEFAULT, '')
+      OR COALESCE(s.EXTRA, '') <> COALESCE(t.EXTRA, '')
+    THEN 'DIFF'
+    ELSE 'MATCH'
+  END AS status,
+  s.COLUMN_TYPE AS source_type,
+  t.COLUMN_TYPE AS target_type,
+  s.IS_NULLABLE AS source_nullable,
+  t.IS_NULLABLE AS target_nullable,
+  s.COLUMN_DEFAULT AS source_default,
+  t.COLUMN_DEFAULT AS target_default,
+  s.EXTRA AS source_extra,
+  t.EXTRA AS target_extra
+FROM (
+    SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '${sourceLiteral}'
+) s
+LEFT JOIN (
+    SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '${targetLiteral}'
+) t ON s.TABLE_NAME = t.TABLE_NAME AND s.COLUMN_NAME = t.COLUMN_NAME
+UNION ALL
+SELECT
+  t.TABLE_NAME, t.COLUMN_NAME, 'ONLY_IN_TARGET', NULL, t.COLUMN_TYPE, NULL, t.IS_NULLABLE, NULL, t.COLUMN_DEFAULT, NULL, t.EXTRA
+FROM (
+    SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '${targetLiteral}'
+) t
+LEFT JOIN (
+    SELECT TABLE_NAME, COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '${sourceLiteral}'
+) s ON s.TABLE_NAME = t.TABLE_NAME AND s.COLUMN_NAME = t.COLUMN_NAME
+WHERE s.COLUMN_NAME IS NULL
+ORDER BY 1, 2;
+
+-- Migration preview: add missing columns to target schema
+SELECT
+  CONCAT('ALTER TABLE \`', '${targetLiteral}', '\`.\`', s.TABLE_NAME, '\` ADD COLUMN \`', s.COLUMN_NAME, '\` ', s.COLUMN_TYPE,
+    IF(s.COLUMN_DEFAULT IS NOT NULL, CONCAT(' DEFAULT ', QUOTE(s.COLUMN_DEFAULT)), ''),
+    IF(s.IS_NULLABLE = 'NO', ' NOT NULL;', ';')) AS migration_sql
+FROM INFORMATION_SCHEMA.COLUMNS s
+LEFT JOIN INFORMATION_SCHEMA.COLUMNS t
+  ON t.TABLE_SCHEMA = '${targetLiteral}'
+ AND t.TABLE_NAME = s.TABLE_NAME
+ AND t.COLUMN_NAME = s.COLUMN_NAME
+WHERE s.TABLE_SCHEMA = '${sourceLiteral}'
+  AND t.COLUMN_NAME IS NULL
+ORDER BY s.TABLE_NAME, s.ORDINAL_POSITION;`;
+    } else {
+        sql = `-- Schema Compare + Migration Preview
+-- This helper currently supports PostgreSQL, MySQL/MariaDB, and SQL Server.
+-- For this database type, run compare manually by querying metadata catalogs.
+-- Suggested approach:
+-- 1) Export table/column metadata from source and target
+-- 2) Join on (table, column)
+-- 3) Generate ALTER statements for missing/different columns`;
+    }
+
+    return sql;
+};
+
+const openSchemaCompareMigrationPreview = () => {
+    const defaults = getSchemaCompareDefaults();
+    schemaCompareWizard.sourceName = defaults.sourceName;
+    schemaCompareWizard.targetName = defaults.targetName;
+    schemaCompareWizard.isOpen = true;
+};
+
+const confirmSchemaCompareWizard = () => {
+    const sourceName = schemaCompareWizard.sourceName.trim();
+    const targetName = schemaCompareWizard.targetName.trim();
+    if (!sourceName || !targetName) {
+        toastRef.value?.error('Please provide both source and target names.');
+        return;
+    }
+
+    const sql = buildSchemaCompareMigrationSql(sourceName, targetName);
+    schemaCompareWizard.isOpen = false;
+    openSqlTemplateTab('Schema Compare + Migration Preview', sql);
 };
 
 const handleScriptTableAs = async (action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE') => {
@@ -2246,10 +3091,12 @@ const openERDiagramTab = async (tableName: string) => {
         // 3. Fetch Schema for EACH table
         const tablesData: Record<string, { name: string, type: string }[]> = {};
         const type = (props.dbType || '').toLowerCase();
-        const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
 
         // Helper to get query for a table
         const getSchemaQuery = (tbl: string) => {
+            const { schema, name } = splitQualifiedName(tbl);
+            const escapedNameLiteral = escapeSqlLiteral(name);
+            const escapedSchemaLiteral = schema ? escapeSqlLiteral(schema) : '';
             if (type.includes('mssql') || type.includes('sqlserver')) {
                 const dot = tbl.indexOf('.');
                 if (dot > 0) {
@@ -2263,15 +3110,17 @@ INNER JOIN sys.types typ ON c.user_type_id = typ.user_type_id
 WHERE c.object_id = OBJECT_ID(N'[${escapedSchema}].[${escapedTable}]')
 ORDER BY c.column_id`;
                 }
-                return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl}'`;
+                const schemaFilter = schema ? ` AND TABLE_SCHEMA = '${escapedSchemaLiteral}'` : '';
+                return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedNameLiteral}'${schemaFilter}`;
             } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
-                return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tbl}'`;
+                const schemaFilter = schema ? ` AND table_schema = '${escapedSchemaLiteral}'` : '';
+                return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escapedNameLiteral}'${schemaFilter}`;
             } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
-                return `DESCRIBE ${tbl}`;
+                return `DESCRIBE ${getEscapedTableName(tbl)}`;
             } else if (type.includes('sqlite') || type.includes('libsql')) {
                 return `SELECT name AS column_name, type AS data_type FROM pragma_table_info('${escapeSqlLiteral(tbl)}')`;
             }
-            return `SELECT * FROM ${tbl} LIMIT 1`;
+            return `SELECT * FROM ${getEscapedTableName(tbl)} LIMIT 1`;
         };
 
         // Execute queries in parallel
@@ -2337,18 +3186,23 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
     }
 
     const type = (props.dbType || '').toLowerCase();
+    const { schema, name } = splitQualifiedName(tableName);
+    const escapedNameLiteral = escapeSqlLiteral(name);
+    const escapedSchemaLiteral = schema ? escapeSqlLiteral(schema) : '';
     let query = '';
 
     if (type.includes('mssql') || type.includes('sqlserver')) {
-        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
+        const schemaFilter = schema ? ` AND TABLE_SCHEMA = '${escapedSchemaLiteral}'` : '';
+        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedNameLiteral}'${schemaFilter}`;
     } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
-        query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`;
+        const schemaFilter = schema ? ` AND table_schema = '${escapedSchemaLiteral}'` : '';
+        query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${escapedNameLiteral}'${schemaFilter}`;
     } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
-        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`;
+        query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${escapedNameLiteral}'`;
     } else if (type.includes('sqlite') || type.includes('libsql')) {
         // SQLite PRAGMA returns a result set we need to parse differently if we use generic ExecuteQuery
         // But let's try standard schema table if available or just PRAGMA
-        query = `SELECT name FROM pragma_table_info('${tableName}')`;
+        query = `SELECT name FROM pragma_table_info('${escapeSqlLiteral(tableName)}')`;
     } else {
         return [];
     }
@@ -2627,8 +3481,9 @@ onMounted(async () => {
         if (savedSettingsJson) {
             globalSettings.value = JSON.parse(savedSettingsJson);
         }
+        await loadSnippetLibrary();
     } catch (e) {
-        console.error("Failed to load global settings in dashboard", e);
+        console.error("Failed to load dashboard settings", e);
     }
 
     await initializeDashboardState();
@@ -2708,7 +3563,12 @@ const getColDef = (col: string) => {
 watch(() => props.connectionId, (newId) => {
     if (newId) {
         void initializeDashboardState();
+        void loadSnippetLibrary();
     }
+});
+
+watch(() => props.dbType, () => {
+    void loadSnippetLibrary();
 });
 
 watch(activeTabId, () => {

@@ -420,21 +420,24 @@ defineExpose({
 
                 <!-- Primary Result Set (Virtual List) -->
                 <div v-if="activeTab.resultSets[0]"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0 dark:border-zinc-700/70 dark:bg-zinc-950/80"
+                    class="flex shrink-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80"
                     :class="collapsedResultSets[0] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[0] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(activeTab.resultSets[0], 0)">
 
                     <!-- Header -->
-                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80 dark:bg-zinc-900/90 dark:border-zinc-700/70 dark:hover:bg-zinc-800/90"
+                    <div class="flex cursor-pointer items-center justify-between border-b border-border/80 bg-muted/55 px-4 py-3 select-none backdrop-blur-sm hover:bg-muted/80 dark:border-zinc-700/70 dark:bg-zinc-900/90 dark:hover:bg-zinc-800/90"
                         @click="toggleResultSetCollapse(0)">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="inline-flex h-7 min-w-[2rem] items-center justify-center rounded-full border border-border/70 bg-background/80 px-2 text-[11px] font-semibold text-muted-foreground shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80">
+                                R1
+                            </span>
                             <span class="font-semibold text-sm text-foreground">Result 1</span>
                             <span
-                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50 dark:text-zinc-300 dark:bg-zinc-950/80 dark:border-zinc-700/70">
+                                class="rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-xs text-muted-foreground dark:border-zinc-700/70 dark:bg-zinc-950/80 dark:text-zinc-300">
                                 {{ activeTab.resultSets[0].rows ? activeTab.resultSets[0].rows.length : 0 }} rows
                             </span>
                         </div>
-                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1 dark:text-zinc-300 dark:hover:text-zinc-100"
+                        <button class="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                             @click.stop="toggleResultSetCollapse(0)">
                             <svg v-if="collapsedResultSets[0]" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -469,21 +472,24 @@ defineExpose({
 
                 <!-- Subsequent Result Sets (Standard Tables) -->
                 <div v-for="(resultSet, rsIndex) in activeTab.resultSets.slice(1)" :key="Number(rsIndex) + 1"
-                    class="border border-border rounded-lg shadow-sm bg-card flex flex-col overflow-hidden shrink-0 dark:border-zinc-700/70 dark:bg-zinc-950/80"
+                    class="flex shrink-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80"
                     :class="collapsedResultSets[Number(rsIndex) + 1] ? '' : 'min-h-[220px]'"
                     :style="collapsedResultSets[Number(rsIndex) + 1] ? { flex: '0 0 auto', height: 'auto', minHeight: '0' } : getResultSetCardStyle(resultSet, Number(rsIndex) + 1)">
 
                     <!-- Header -->
-                    <div class="bg-muted px-4 py-2 border-b border-border flex justify-between items-center select-none cursor-pointer hover:bg-muted/80 dark:bg-zinc-900/90 dark:border-zinc-700/70 dark:hover:bg-zinc-800/90"
+                    <div class="flex cursor-pointer items-center justify-between border-b border-border/80 bg-muted/55 px-4 py-3 select-none backdrop-blur-sm hover:bg-muted/80 dark:border-zinc-700/70 dark:bg-zinc-900/90 dark:hover:bg-zinc-800/90"
                         @click="toggleResultSetCollapse(Number(rsIndex) + 1)">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="inline-flex h-7 min-w-[2rem] items-center justify-center rounded-full border border-border/70 bg-background/80 px-2 text-[11px] font-semibold text-muted-foreground shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80">
+                                R{{ Number(rsIndex) + 2 }}
+                            </span>
                             <span class="font-semibold text-sm text-foreground">Result {{ Number(rsIndex) + 2 }}</span>
                             <span
-                                class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50 dark:text-zinc-300 dark:bg-zinc-950/80 dark:border-zinc-700/70">
+                                class="rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-xs text-muted-foreground dark:border-zinc-700/70 dark:bg-zinc-950/80 dark:text-zinc-300">
                                 {{ resultSet.rows ? resultSet.rows.length : 0 }} rows
                             </span>
                         </div>
-                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1 dark:text-zinc-300 dark:hover:text-zinc-100"
+                        <button class="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                             @click.stop="toggleResultSetCollapse(Number(rsIndex) + 1)">
                             <svg v-if="collapsedResultSets[Number(rsIndex) + 1]" xmlns="http://www.w3.org/2000/svg"
                                 width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

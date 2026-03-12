@@ -1,12 +1,31 @@
-import { reactive, nextTick } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue';
 
 interface UseDashboardContextMenusOptions {
     isInsideResults: (target: HTMLElement) => boolean;
     onOutsideSelection: () => void;
 }
 
+export interface DashboardContextMenuState {
+    showDb: boolean;
+    showFolder: boolean;
+    show: boolean;
+    showRow: boolean;
+    showView: boolean;
+    showRoutine: boolean;
+    position: { x: number; y: number };
+    targetTable: string;
+    targetRow: Record<string, unknown> | null;
+    targetColumn: string;
+    targetFolder: string;
+    targetView: string;
+    targetRoutine: string;
+    targetRoutineType: 'PROCEDURE' | 'FUNCTION';
+    targetRowIndex: string | number | null;
+}
+
 export function useDashboardContextMenus(options: UseDashboardContextMenusOptions) {
-    const contextMenu = reactive({
+    const viewportPadding = 8;
+    const contextMenu = reactive<DashboardContextMenuState>({
         showDb: false,
         showFolder: false,
         show: false,
@@ -14,7 +33,7 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         showView: false,
         showRoutine: false,
         position: { x: 0, y: 0 },
-        targetTable: '', targetRow: null as any,
+        targetTable: '', targetRow: null,
         targetColumn: '',
         targetFolder: '',
         targetView: '',
@@ -36,22 +55,14 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         await nextTick();
         const menuEls = document.querySelectorAll('.context-menu-fixed');
         if (menuEls.length > 0) {
-            // Get the last opened one (or the visible one)
             const menuEl = Array.from(menuEls).find(el => (el as HTMLElement).offsetParent !== null) as HTMLElement || menuEls[menuEls.length - 1] as HTMLElement;
             if (menuEl) {
                 const rect = menuEl.getBoundingClientRect();
-                let newX = contextMenu.position.x;
-                let newY = contextMenu.position.y;
-                
-                if (rect.right > window.innerWidth) {
-                    newX = window.innerWidth - rect.width - 5;
-                }
-                if (rect.bottom > window.innerHeight) {
-                    newY = window.innerHeight - rect.height - 5;
-                }
-                
-                contextMenu.position.x = Math.max(0, newX);
-                contextMenu.position.y = Math.max(0, newY);
+                const maxX = Math.max(viewportPadding, window.innerWidth - rect.width - viewportPadding);
+                const maxY = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
+
+                contextMenu.position.x = Math.min(Math.max(viewportPadding, contextMenu.position.x), maxX);
+                contextMenu.position.y = Math.min(Math.max(viewportPadding, contextMenu.position.y), maxY);
             }
         }
     };
@@ -116,8 +127,50 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
             options.onOutsideSelection();
         }
 
-        closeContextMenu();
+        if (!isInsideContextMenu) {
+            closeContextMenu();
+        }
     };
+
+    const hasOpenMenu = () =>
+        contextMenu.showDb
+        || contextMenu.showFolder
+        || contextMenu.show
+        || contextMenu.showRow
+        || contextMenu.showView
+        || contextMenu.showRoutine;
+
+    const handleViewportChange = () => {
+        if (hasOpenMenu()) {
+            adjustPosition();
+        }
+    };
+
+    watch(
+        () => [
+            contextMenu.showDb,
+            contextMenu.showFolder,
+            contextMenu.show,
+            contextMenu.showRow,
+            contextMenu.showView,
+            contextMenu.showRoutine,
+        ],
+        (states) => {
+            if (states.some(Boolean)) {
+                adjustPosition();
+            }
+        }
+    );
+
+    onMounted(() => {
+        window.addEventListener('resize', handleViewportChange);
+        window.addEventListener('scroll', handleViewportChange, true);
+    });
+
+    onBeforeUnmount(() => {
+        window.removeEventListener('resize', handleViewportChange);
+        window.removeEventListener('scroll', handleViewportChange, true);
+    });
 
     return {
         contextMenu,

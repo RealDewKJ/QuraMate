@@ -1,6 +1,7 @@
 <template>
     <div v-if="isOpen"
-        class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        class="fixed inset-0 bg-background/80 z-50 flex items-center justify-center p-4"
+        @mousedown.self="$emit('close')">
         <div
             class="bg-card w-full max-w-4xl max-h-[80vh] h-[80vh] rounded-xl border border-border flex flex-col shadow-lg overflow-hidden relative">
             <div class="p-4 border-b border-border flex items-center justify-between bg-muted/20">
@@ -210,7 +211,7 @@
 
         <!-- Clear Confirmation Modal -->
         <div v-if="showClearConfirm"
-            class="fixed inset-0 bg-background/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            class="fixed inset-0 bg-background/80 z-[60] flex items-center justify-center p-4">
             <div
                 class="bg-card w-full max-w-md rounded-lg border border-border shadow-lg overflow-hidden animate-in zoom-in-95 duration-200">
                 <div class="p-4 border-b border-border flex items-center gap-3">

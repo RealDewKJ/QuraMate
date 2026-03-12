@@ -1,6 +1,6 @@
 <template>
     <div v-if="isOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-all duration-100 animate-in fade-in">
+        class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 transition-opacity duration-100 animate-in fade-in">
         <div ref="modalRef" @keydown.capture="handleModalKeydown"
             class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full animate-in fade-in zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-48">
             <div class="flex flex-col space-y-1.5 text-center sm:text-left">
@@ -115,7 +115,7 @@
             </div>
 
             <div v-if="pendingDeleteConnection"
-                class="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-lg p-4">
+                class="absolute inset-0 z-10 flex items-center justify-center bg-background/70 rounded-lg p-4">
                 <div ref="warningDialogRef" role="dialog" aria-modal="true" aria-label="Delete saved connection warning"
                     class="w-full max-w-sm rounded-lg border border-destructive/40 bg-card p-4 shadow-lg space-y-3">
                     <div>

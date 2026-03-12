@@ -20,7 +20,7 @@ const formats: ExportFormat[] = ['SQL', 'CSV', 'JSON', 'Excel'];
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-left">
+    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 text-left">
         <div class="bg-card w-full max-w-sm rounded-lg shadow-lg border border-border p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-foreground tracking-tight">Backup Database</h3>

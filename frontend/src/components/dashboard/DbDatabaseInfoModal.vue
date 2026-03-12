@@ -85,7 +85,10 @@ function formatLabel(input: string): string {
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-left">
+    <div
+        v-if="isOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-left"
+        @mousedown.self="emit('close')">
         <div class="bg-card w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div>

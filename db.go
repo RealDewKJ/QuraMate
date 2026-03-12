@@ -2081,6 +2081,10 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 			SELECT 
 				c.COLUMN_NAME, 
 				c.DATA_TYPE, 
+				c.CHARACTER_MAXIMUM_LENGTH,
+				c.NUMERIC_PRECISION,
+				c.NUMERIC_SCALE,
+				c.DATETIME_PRECISION,
 				c.IS_NULLABLE, 
 				c.COLUMN_DEFAULT,
 				COLUMNPROPERTY(OBJECT_ID(c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity') as IsIdentity
@@ -2117,10 +2121,57 @@ func (d *Database) GetTableDefinition(tableName string) ([]ColumnDefinition, err
 		case "mysql", "mariadb", "databend":
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue, &extra)
 		case "mssql":
+			var charMax sql.NullInt64
+			var numericPrecision sql.NullInt64
+			var numericScale sql.NullInt64
+			var datetimePrecision sql.NullInt64
 			var isIdentity int
-			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue, &isIdentity)
+			err = rows.Scan(
+				&name,
+				&dataType,
+				&charMax,
+				&numericPrecision,
+				&numericScale,
+				&datetimePrecision,
+				&isNullableStr,
+				&defaultValue,
+				&isIdentity,
+			)
 			if err == nil && isIdentity == 1 {
 				extra = "identity" // Marker for later
+			}
+			if err == nil {
+				baseType := strings.ToUpper(strings.TrimSpace(dataType))
+				switch baseType {
+				case "DECIMAL", "NUMERIC":
+					precision := int64(18)
+					scale := int64(0)
+					if numericPrecision.Valid {
+						precision = numericPrecision.Int64
+					}
+					if numericScale.Valid {
+						scale = numericScale.Int64
+					}
+					dataType = fmt.Sprintf("%s(%d,%d)", baseType, precision, scale)
+				case "VARCHAR", "NVARCHAR", "CHAR", "NCHAR", "BINARY", "VARBINARY":
+					if charMax.Valid {
+						if charMax.Int64 == -1 {
+							dataType = fmt.Sprintf("%s(MAX)", baseType)
+						} else {
+							dataType = fmt.Sprintf("%s(%d)", baseType, charMax.Int64)
+						}
+					} else {
+						dataType = baseType
+					}
+				case "DATETIME2", "DATETIMEOFFSET", "TIME":
+					if datetimePrecision.Valid {
+						dataType = fmt.Sprintf("%s(%d)", baseType, datetimePrecision.Int64)
+					} else {
+						dataType = baseType
+					}
+				default:
+					dataType = baseType
+				}
 			}
 		default:
 			err = rows.Scan(&name, &dataType, &isNullableStr, &defaultValue)

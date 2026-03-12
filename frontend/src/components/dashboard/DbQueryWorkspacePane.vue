@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { defineAsyncComponent, ref } from 'vue';
+import { computed, defineAsyncComponent, ref } from 'vue';
+import { useEventListener } from '@vueuse/core';
 
 const SqlEditor = defineAsyncComponent(() => import('../SqlEditor.vue'));
 
@@ -14,6 +15,10 @@ const props = defineProps<{
 const emit = defineEmits<{
     'beautify-query': [];
     'explain-with-ai': [];
+    'explain-plan': [];
+    'save-plan-baseline': [];
+    'compare-plan-baseline': [];
+    'open-snippets': [];
     'save-routine': [];
     'run-query': [];
     'stop-query': [];
@@ -21,13 +26,136 @@ const emit = defineEmits<{
 }>();
 
 const sqlEditorRef = ref<any>(null);
+const toolsMenuOpen = ref(false);
+const toolsMenuRef = ref<HTMLElement | null>(null);
+const runMenuOpen = ref(false);
+const runMenuRef = ref<HTMLElement | null>(null);
+const commandPaletteOpen = ref(false);
+const commandPaletteQuery = ref('');
+const commandPaletteRef = ref<HTMLElement | null>(null);
 
 const getSelection = (): string => {
     return sqlEditorRef.value?.getSelection?.() || '';
 };
 
+const hasSelection = computed(() => getSelection().trim().length > 0);
+const commandPaletteItems = computed(() => {
+    const baseItems = [
+        {
+            id: 'run-query',
+            title: 'Run Query',
+            description: 'Execute the current query tab.',
+            disabled: !!props.activeTab?.isLoading,
+            action: () => emit('run-query'),
+        },
+        {
+            id: 'run-selected',
+            title: 'Run Selected SQL',
+            description: 'Execute only the selected SQL text.',
+            disabled: !!props.activeTab?.isLoading || !hasSelection.value,
+            action: () => emit('run-query'),
+        },
+        {
+            id: 'beautify',
+            title: 'Beautify SQL',
+            description: 'Format the current query text.',
+            disabled: !!props.activeTab?.isLoading || !props.activeTab?.query,
+            action: () => emit('beautify-query'),
+        },
+        {
+            id: 'explain-plan',
+            title: 'Execution Plan',
+            description: 'Generate explain / showplan SQL for this query.',
+            disabled: !!props.activeTab?.isLoading || !props.activeTab?.query,
+            action: () => emit('explain-plan'),
+        },
+        {
+            id: 'compare-plan',
+            title: 'Compare Plan Baseline',
+            description: 'Compare current result to the saved baseline.',
+            disabled: !!props.activeTab?.isLoading || !props.activeTab?.resultSets?.length,
+            action: () => emit('compare-plan-baseline'),
+        },
+        {
+            id: 'snippets',
+            title: 'Snippets & Runbooks',
+            description: 'Open reusable SQL templates and custom runbooks.',
+            disabled: false,
+            action: () => emit('open-snippets'),
+        },
+    ];
+
+    const keyword = commandPaletteQuery.value.trim().toLowerCase();
+    if (!keyword) {
+        return baseItems;
+    }
+    return baseItems.filter((item) =>
+        item.title.toLowerCase().includes(keyword) || item.description.toLowerCase().includes(keyword)
+    );
+});
+
+const runToolAction = (action: () => void) => {
+    action();
+    toolsMenuOpen.value = false;
+};
+
+const runPaletteAction = (action: () => void) => {
+    action();
+    commandPaletteOpen.value = false;
+    commandPaletteQuery.value = '';
+};
+
+const runQueryAction = (action: () => void) => {
+    action();
+    runMenuOpen.value = false;
+};
+
+const openCommandPalette = () => {
+    commandPaletteOpen.value = true;
+    commandPaletteQuery.value = '';
+    toolsMenuOpen.value = false;
+    runMenuOpen.value = false;
+};
+
+useEventListener(document, 'click', (event: MouseEvent) => {
+    const target = event.target as Node | null;
+    if (toolsMenuOpen.value && (!target || !toolsMenuRef.value?.contains(target))) {
+        toolsMenuOpen.value = false;
+    }
+    if (runMenuOpen.value && (!target || !runMenuRef.value?.contains(target))) {
+        runMenuOpen.value = false;
+    }
+    if (commandPaletteOpen.value && (!target || !commandPaletteRef.value?.contains(target))) {
+        commandPaletteOpen.value = false;
+        commandPaletteQuery.value = '';
+    }
+});
+
+useEventListener(document, 'keydown', (event: KeyboardEvent) => {
+    const withModifier = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+
+    if (withModifier && key === 'k') {
+        event.preventDefault();
+        if (commandPaletteOpen.value) {
+            commandPaletteOpen.value = false;
+            commandPaletteQuery.value = '';
+            return;
+        }
+        openCommandPalette();
+        return;
+    }
+
+    if (event.key === 'Escape' && commandPaletteOpen.value) {
+        event.preventDefault();
+        commandPaletteOpen.value = false;
+        commandPaletteQuery.value = '';
+    }
+});
+
 defineExpose({
     getSelection,
+    openCommandPalette,
 });
 </script>
 
@@ -41,7 +169,7 @@ defineExpose({
 
             <div class="absolute bottom-1 right-3 z-10 flex items-center gap-2 pointer-events-none">
                 <div
-                    class="text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded backdrop-blur-sm border border-border pointer-events-auto">
+                    class="pointer-events-auto rounded-full border border-border/80 bg-background/85 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
                     {{ activeTab.query.length }} chars
                 </div>
             </div>
@@ -64,81 +192,173 @@ defineExpose({
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
-            <div v-if="isReadOnly"
-                class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-500 text-xs rounded border border-yellow-200 dark:border-yellow-900/50 mr-2 flex items-center gap-1 select-none cursor-help"
-                title="Database is in Read-Only mode. Modifications are disabled.">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-lock">
-                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                Read Only
+        <div
+            class="sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85">
+            <div class="flex flex-wrap items-center justify-between gap-2 overflow-visible">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <div v-if="isReadOnly"
+                        class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-500 text-xs rounded border border-yellow-200 dark:border-yellow-900/50 flex items-center gap-1 select-none cursor-help"
+                        title="Database is in Read-Only mode. Modifications are disabled.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-lock">
+                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Read Only
+                    </div>
+
+                    <button @click="emit('beautify-query')" :disabled="activeTab.isLoading || !activeTab.query"
+                        class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:px-4"
+                        title="Format SQL (Shift + Alt + F)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-wrap-text sm:mr-2">
+                            <line x1="3" x2="21" y1="6" y2="6" />
+                            <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
+                            <polyline points="16 16 14 18 16 20" />
+                        </svg>
+                        <span class="hidden sm:inline">Beautify</span>
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <div ref="toolsMenuRef" class="relative">
+                        <button @click="toolsMenuOpen = !toolsMenuOpen"
+                            class="inline-flex h-9 min-w-[44px] items-center justify-center whitespace-nowrap rounded-full border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                            title="Open tools and advanced actions">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-wrench lg:mr-2">
+                                <path d="M14.7 6.3a4 4 0 0 0 5 5L10 21l-7-7 9.7-9.7a4 4 0 0 0 2 2Z" />
+                                <path d="M16 4h4v4" />
+                            </svg>
+                            <span class="hidden lg:inline">Tools</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-chevron-down ml-1.5">
+                                <path d="m6 9 6 6 6-6" />
+                            </svg>
+                        </button>
+
+                        <div v-if="toolsMenuOpen"
+                            class="absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 p-2 shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100">
+                            <button @click="runToolAction(() => emit('explain-with-ai'))"
+                                :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
+                                <span class="font-medium text-foreground">{{ activeTab.isAiExplaining ? 'AI Explaining...' : 'Explain with AI' }}</span>
+                            </button>
+                            <button @click="runToolAction(() => emit('explain-plan'))"
+                                :disabled="activeTab.isLoading || !activeTab.query"
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
+                                <span class="font-medium text-foreground">Execution Plan</span>
+                            </button>
+                            <button @click="runToolAction(() => emit('save-plan-baseline'))"
+                                :disabled="activeTab.isLoading || !activeTab.resultSets?.length"
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
+                                <span class="font-medium text-foreground">Save Plan Baseline</span>
+                            </button>
+                            <button @click="runToolAction(() => emit('compare-plan-baseline'))"
+                                :disabled="activeTab.isLoading || !activeTab.resultSets?.length"
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
+                                <span class="font-medium text-foreground">Compare to Baseline</span>
+                            </button>
+                            <button @click="runToolAction(() => emit('open-snippets'))"
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent">
+                                <span class="font-medium text-foreground">Snippets & Runbooks</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button v-if="activeTab.isRoutine" @click="emit('save-routine')" :disabled="activeTab.isLoading"
+                        class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full border border-primary/50 bg-primary/10 px-3 py-2 text-sm font-medium text-primary shadow-sm transition-colors ring-offset-background hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:px-4"
+                        title="Save or update routine">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-save sm:mr-2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        <span class="hidden sm:inline">Save</span>
+                    </button>
+
+                    <button v-if="activeTab.isLoading" @click="emit('stop-query')"
+                        class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground shadow-sm transition-colors ring-offset-background hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4"
+                        title="Stop query execution">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-square sm:mr-2 fill-current">
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                        </svg>
+                        <span class="hidden sm:inline">Stop</span>
+                    </button>
+
+                    <div v-else ref="runMenuRef" class="relative inline-flex">
+                        <button @click="emit('run-query')"
+                            class="inline-flex h-9 min-w-[96px] items-center justify-center whitespace-nowrap rounded-l-full bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors ring-offset-background hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                            title="Run query (Ctrl+Enter)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                class="lucide lucide-play lg:mr-2">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            <span class="hidden lg:inline">Run</span>
+                        </button>
+                        <button @click="runMenuOpen = !runMenuOpen"
+                            class="inline-flex h-9 items-center justify-center rounded-r-full border-l border-white/20 bg-primary px-2.5 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                            title="More run actions">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m6 9 6 6 6-6" />
+                            </svg>
+                        </button>
+
+                        <div v-if="runMenuOpen"
+                            class="absolute bottom-full right-0 z-30 mb-2 w-56 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 p-2 shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100">
+                            <button @click="runQueryAction(() => emit('run-query'))"
+                                class="flex w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent">
+                                Run Query
+                            </button>
+                            <button @click="runQueryAction(() => emit('run-query'))" :disabled="!hasSelection"
+                                class="flex w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
+                                Run Selected SQL
+                            </button>
+                            <button @click="runQueryAction(() => emit('explain-plan'))"
+                                class="flex w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent">
+                                Explain Plan
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
+    </div>
 
-            <button @click="emit('beautify-query')" :disabled="activeTab.isLoading || !activeTab.query"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
-                title="Format SQL (Shift + Alt + F)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-wrap-text mr-2">
-                    <line x1="3" x2="21" y1="6" y2="6" />
-                    <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
-                    <polyline points="16 16 14 18 16 20" />
-                </svg>
-                Beautify
-            </button>
-
-            <button @click="emit('explain-with-ai')"
-                :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 shadow-sm"
-                title="Explain SQL with configured AI provider">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-bot mr-2">
-                    <path d="M12 8V4H8" />
-                    <rect width="16" height="12" x="4" y="8" rx="2" />
-                    <path d="M2 14h2" />
-                    <path d="M20 14h2" />
-                    <path d="M15 13v2" />
-                    <path d="M9 13v2" />
-                </svg>
-                {{ activeTab.isAiExplaining ? 'AI Explaining...' : 'Explain with AI' }}
-            </button>
-
-            <button v-if="activeTab.isRoutine" @click="emit('save-routine')" :disabled="activeTab.isLoading"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 h-9 px-4 py-2 shadow-sm"
-                title="Save / Update Routine">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-save mr-2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                </svg>
-                Save
-            </button>
-
-            <button v-if="activeTab.isLoading" @click="emit('stop-query')"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-square mr-2 fill-current">
-                    <rect width="18" height="18" x="3" y="3" rx="2" />
-                </svg>
-                Stop
-            </button>
-
-            <button v-else @click="emit('run-query')"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-play mr-2">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-                Run Query
-            </button>
+    <div v-if="commandPaletteOpen" class="fixed inset-0 z-[80] flex items-start justify-center bg-black/40 px-4 pt-[12vh]"
+        @click.self="commandPaletteOpen = false">
+        <div ref="commandPaletteRef"
+            class="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-popover shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div class="border-b border-border px-4 py-3">
+                <input v-model="commandPaletteQuery" autofocus placeholder="Type a command"
+                    class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                >
+                <div class="mt-2 text-[11px] text-muted-foreground">Press `Ctrl+K` to toggle, `Esc` to close.</div>
+            </div>
+            <div class="max-h-[420px] overflow-auto p-2">
+                <button v-for="item in commandPaletteItems" :key="item.id"
+                    @click="runPaletteAction(item.action)" :disabled="item.disabled"
+                    class="flex w-full items-start justify-between gap-4 rounded-lg px-3 py-3 text-left hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                >
+                    <div>
+                        <div class="text-sm font-medium text-foreground">{{ item.title }}</div>
+                        <div class="mt-1 text-xs text-muted-foreground">{{ item.description }}</div>
+                    </div>
+                </button>
+                <div v-if="commandPaletteItems.length === 0" class="px-3 py-6 text-sm text-muted-foreground">
+                    No matching command.
+                </div>
+            </div>
         </div>
     </div>
 

@@ -13,7 +13,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-destructive flex items-center gap-2">

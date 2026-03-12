@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, onMounted, computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useToggle, onKeyStroke } from "@vueuse/core";
 import SettingsDialog from "./SettingsDialog.vue";
 import Toast from "./Toast.vue";
@@ -78,13 +78,198 @@ const [showSavedModal, toggleSavedModal] = useToggle(false);
 const [showPassword, togglePassword] = useToggle(false);
 const [showSshPassword, toggleSshPassword] = useToggle(false);
 const savedConnectionsAnnouncement = ref("");
+const databaseTypeButtonRef = ref<HTMLButtonElement | null>(null);
+const databaseTypeMenuRef = ref<HTMLElement | null>(null);
+const isDatabaseTypeMenuOpen = ref(false);
+const highlightedDatabaseTypeIndex = ref(0);
+let databaseTypeTypeahead = "";
+let databaseTypeTypeaheadTimeout: ReturnType<typeof setTimeout> | null = null;
 const supportsSsh = computed(
   () => !["sqlite", "duckdb", "libsql"].includes(config.type),
+);
+const primaryFieldClass =
+  "flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+const primaryFieldWithIconClass = `${primaryFieldClass} h-11 pr-10`;
+const iconButtonFieldClass =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full border border-border/80 bg-background/95 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+const ghostPillButtonClass =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full border border-border/80 bg-background/95 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+const primaryPillButtonClass =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+const destructivePillButtonClass =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full border border-destructive/60 bg-background/95 text-sm font-medium text-destructive shadow-sm transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+const databaseTypeOptions = [
+  { value: "postgres", label: "PostgreSQL" },
+  { value: "mysql", label: "MySQL" },
+  { value: "mariadb", label: "MariaDB" },
+  { value: "mssql", label: "MSSQL" },
+  { value: "sqlite", label: "SQLite" },
+  { value: "duckdb", label: "DuckDB" },
+  { value: "greenplum", label: "Greenplum" },
+  { value: "redshift", label: "Redshift" },
+  { value: "cockroachdb", label: "CockroachDB" },
+  { value: "databend", label: "Databend" },
+  { value: "libsql", label: "LibSQL" },
+] as const;
+const selectedDatabaseTypeLabel = computed(
+  () =>
+    databaseTypeOptions.find((option) => option.value === config.type)?.label ??
+    "Select database type",
+);
+const selectedDatabaseTypeIndex = computed(() =>
+  Math.max(
+    0,
+    databaseTypeOptions.findIndex((option) => option.value === config.type),
+  ),
 );
 
 onKeyStroke("Escape", () => {
   showSettings.value = false;
+  isDatabaseTypeMenuOpen.value = false;
 });
+
+const closeDatabaseTypeMenu = () => {
+  isDatabaseTypeMenuOpen.value = false;
+};
+
+const clearDatabaseTypeTypeahead = () => {
+  databaseTypeTypeahead = "";
+  if (databaseTypeTypeaheadTimeout) {
+    clearTimeout(databaseTypeTypeaheadTimeout);
+    databaseTypeTypeaheadTimeout = null;
+  }
+};
+
+const focusHighlightedDatabaseType = async () => {
+  await nextTick();
+  const optionEls =
+    databaseTypeMenuRef.value?.querySelectorAll<HTMLElement>("[data-db-type-option]");
+  optionEls?.[highlightedDatabaseTypeIndex.value]?.focus();
+};
+
+const openDatabaseTypeMenu = async () => {
+  highlightedDatabaseTypeIndex.value = selectedDatabaseTypeIndex.value;
+  isDatabaseTypeMenuOpen.value = true;
+  await focusHighlightedDatabaseType();
+};
+
+const toggleDatabaseTypeMenu = async () => {
+  if (isDatabaseTypeMenuOpen.value) {
+    closeDatabaseTypeMenu();
+    return;
+  }
+  await openDatabaseTypeMenu();
+};
+
+const selectDatabaseType = (type: ConnectionConfig["type"]) => {
+  config.type = type;
+  highlightedDatabaseTypeIndex.value = selectedDatabaseTypeIndex.value;
+  closeDatabaseTypeMenu();
+  nextTick(() => databaseTypeButtonRef.value?.focus());
+};
+
+const moveDatabaseTypeHighlight = (direction: 1 | -1) => {
+  const total = databaseTypeOptions.length;
+  highlightedDatabaseTypeIndex.value =
+    (highlightedDatabaseTypeIndex.value + direction + total) % total;
+};
+
+const handleDatabaseTypeTypeahead = async (key: string) => {
+  if (key.length !== 1 || !/\S/.test(key)) {
+    return;
+  }
+
+  databaseTypeTypeahead = `${databaseTypeTypeahead}${key.toLowerCase()}`;
+  if (databaseTypeTypeaheadTimeout) {
+    clearTimeout(databaseTypeTypeaheadTimeout);
+  }
+  databaseTypeTypeaheadTimeout = setTimeout(() => {
+    databaseTypeTypeahead = "";
+    databaseTypeTypeaheadTimeout = null;
+  }, 500);
+
+  const matchIndex = databaseTypeOptions.findIndex((option) =>
+    option.label.toLowerCase().startsWith(databaseTypeTypeahead),
+  );
+
+  if (matchIndex >= 0) {
+    highlightedDatabaseTypeIndex.value = matchIndex;
+    if (!isDatabaseTypeMenuOpen.value) {
+      await openDatabaseTypeMenu();
+    } else {
+      await focusHighlightedDatabaseType();
+    }
+  }
+};
+
+const handleDatabaseTypeTriggerKeydown = async (event: KeyboardEvent) => {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!isDatabaseTypeMenuOpen.value) {
+      await openDatabaseTypeMenu();
+    } else {
+      moveDatabaseTypeHighlight(event.key === "ArrowDown" ? 1 : -1);
+      await focusHighlightedDatabaseType();
+    }
+    return;
+  }
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    await toggleDatabaseTypeMenu();
+    return;
+  }
+
+  await handleDatabaseTypeTypeahead(event.key);
+};
+
+const handleDatabaseTypeOptionKeydown = async (event: KeyboardEvent) => {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    moveDatabaseTypeHighlight(event.key === "ArrowDown" ? 1 : -1);
+    await focusHighlightedDatabaseType();
+    return;
+  }
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    const option = databaseTypeOptions[highlightedDatabaseTypeIndex.value];
+    if (option) {
+      selectDatabaseType(option.value);
+    }
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeDatabaseTypeMenu();
+    databaseTypeButtonRef.value?.focus();
+    return;
+  }
+
+  if (event.key === "Home") {
+    event.preventDefault();
+    highlightedDatabaseTypeIndex.value = 0;
+    await focusHighlightedDatabaseType();
+    return;
+  }
+
+  if (event.key === "End") {
+    event.preventDefault();
+    highlightedDatabaseTypeIndex.value = databaseTypeOptions.length - 1;
+    await focusHighlightedDatabaseType();
+    return;
+  }
+
+  await handleDatabaseTypeTypeahead(event.key);
+};
+
+const handleDocumentClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null;
+  if (!target?.closest("[data-db-type-menu]")) {
+    closeDatabaseTypeMenu();
+  }
+};
 
 const handleSelectConn = (conn: ConnectionConfig) => {
   showSavedModal.value = false;
@@ -107,6 +292,12 @@ const handleRemoveConn = (conn: ConnectionConfig) => {
 
 onMounted(() => {
   migrateSavedConnections();
+  document.addEventListener("click", handleDocumentClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleDocumentClick);
+  clearDatabaseTypeTypeahead();
 });
 </script>
 
@@ -166,7 +357,7 @@ onMounted(() => {
           </p>
         </div>
         <button @click="cancelConnection"
-          class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-destructive text-destructive hover:bg-destructive/10 h-10 px-4 py-2">
+          :class="`${destructivePillButtonClass} h-11 px-4`">
           Cancel
         </button>
       </div>
@@ -176,33 +367,44 @@ onMounted(() => {
           <div class="space-y-2">
             <label class="text-sm font-medium leading-none" for="connName">Connection Name (Optional)</label>
             <input v-model="config.name" id="connName" type="text" placeholder="My Database"
-              class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+              :class="primaryFieldClass" />
           </div>
 
           <div class="space-y-2">
             <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               for="dbType">Database Type</label>
-            <div class="relative">
-              <select v-model="config.type" id="dbType"
-                class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none">
-                <option value="postgres">PostgreSQL</option>
-                <option value="mysql">MySQL</option>
-                <option value="mariadb">MariaDB</option>
-                <option value="mssql">MSSQL</option>
-                <option value="sqlite">SQLite</option>
-                <option value="duckdb">DuckDB</option>
-                <option value="greenplum">Greenplum</option>
-                <option value="redshift">Redshift</option>
-                <option value="cockroachdb">CockroachDB</option>
-                <option value="databend">Databend</option>
-                <option value="libsql">LibSQL</option>
-              </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-input-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div ref="databaseTypeMenuRef" class="relative" data-db-type-menu>
+              <button ref="databaseTypeButtonRef" id="dbType" type="button"
+                :aria-expanded="isDatabaseTypeMenuOpen ? 'true' : 'false'" aria-haspopup="listbox"
+                @click="toggleDatabaseTypeMenu" @keydown="handleDatabaseTypeTriggerKeydown"
+                :class="`${primaryFieldClass} justify-between hover:bg-accent/40`">
+                <span>{{ selectedDatabaseTypeLabel }}</span>
+                <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                  :class="isDatabaseTypeMenuOpen ? 'rotate-180' : ''" xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fill-rule="evenodd"
                     d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
                     clip-rule="evenodd" />
                 </svg>
+              </button>
+              <div v-if="isDatabaseTypeMenuOpen" role="listbox" aria-labelledby="dbType"
+                class="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100">
+                <button v-for="(option, index) in databaseTypeOptions" :key="option.value" type="button"
+                  data-db-type-option role="option" :tabindex="highlightedDatabaseTypeIndex === index ? 0 : -1"
+                  :aria-selected="config.type === option.value ? 'true' : 'false'" @click="selectDatabaseType(option.value)"
+                  @focus="highlightedDatabaseTypeIndex = index" @keydown="handleDatabaseTypeOptionKeydown"
+                  class="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                  :class="[
+                    highlightedDatabaseTypeIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                    config.type === option.value ? 'bg-accent/70 text-accent-foreground' : ''
+                  ]">
+                  <span>{{ option.label }}</span>
+                  <svg v-if="config.type === option.value" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" class="lucide lucide-check">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -216,13 +418,13 @@ onMounted(() => {
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="host">Host</label>
                 <input v-model="config.host" id="host" type="text" placeholder="localhost"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
                 <p v-if="fieldErrors.host" class="text-xs text-destructive">{{ fieldErrors.host }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="port">Port</label>
                 <input v-model.number="config.port" id="port" type="number"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
                 <p v-if="fieldErrors.port" class="text-xs text-destructive">{{ fieldErrors.port }}</p>
               </div>
             </div>
@@ -230,14 +432,14 @@ onMounted(() => {
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="user">User</label>
                 <input v-model="config.user" id="user" type="text"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
                 <p v-if="fieldErrors.user" class="text-xs text-destructive">{{ fieldErrors.user }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="password">Password</label>
                 <div class="relative">
                   <input v-model="config.password" id="password" :type="showPassword ? 'text' : 'password'"
-                    class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                    :class="primaryFieldWithIconClass" />
                   <button type="button" @click="togglePassword()" aria-label="Toggle password visibility"
                     class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                     <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -262,7 +464,7 @@ onMounted(() => {
             <div class="space-y-2">
               <label class="text-sm font-medium leading-none" for="database">Database Name</label>
               <input v-model="config.database" id="database" type="text"
-                class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                :class="primaryFieldClass" />
               <p v-if="fieldErrors.database" class="text-xs text-destructive">{{ fieldErrors.database }}</p>
             </div>
           </div>
@@ -272,9 +474,9 @@ onMounted(() => {
               <label class="text-sm font-medium leading-none" for="filepath">Database File Path</label>
               <div class="flex items-center space-x-2">
                 <input v-model="config.database" id="filepath" type="text" placeholder="/path/to/db.sqlite"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
                 <button type="button" @click="handleSelectSqliteFile"
-                  class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                  :class="`${iconButtonFieldClass} h-11 px-4`">
                   Browse...
                 </button>
               </div>
@@ -301,27 +503,27 @@ onMounted(() => {
                 <div class="space-y-2">
                   <label class="text-sm font-medium leading-none" for="sshHost">SSH Host</label>
                   <input v-model="config.sshHost" id="sshHost" type="text" placeholder="ssh.example.com"
-                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                    :class="primaryFieldClass" />
                   <p v-if="fieldErrors.sshHost" class="text-xs text-destructive">{{ fieldErrors.sshHost }}</p>
                 </div>
                 <div class="space-y-2">
                   <label class="text-sm font-medium leading-none" for="sshPort">SSH Port</label>
                   <input v-model.number="config.sshPort" id="sshPort" type="number" placeholder="22"
-                    class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                    :class="primaryFieldClass" />
                   <p v-if="fieldErrors.sshPort" class="text-xs text-destructive">{{ fieldErrors.sshPort }}</p>
                 </div>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshUser">SSH User</label>
                 <input v-model="config.sshUser" id="sshUser" type="text"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
                 <p v-if="fieldErrors.sshUser" class="text-xs text-destructive">{{ fieldErrors.sshUser }}</p>
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshPassword">SSH Password</label>
                 <div class="relative">
                   <input v-model="config.sshPassword" id="sshPassword" :type="showSshPassword ? 'text' : 'password'"
-                    class="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                    :class="primaryFieldWithIconClass" />
                   <button type="button" @click="toggleSshPassword()" aria-label="Toggle SSH password visibility"
                     class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground">
                     <svg v-if="!showSshPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -346,7 +548,7 @@ onMounted(() => {
               <div class="space-y-2">
                 <label class="text-sm font-medium leading-none" for="sshKeyFile">SSH Key File (Optional)</label>
                 <input v-model="config.sshKeyFile" id="sshKeyFile" type="text" placeholder="/path/to/private_key"
-                  class="flex min-h-[44px] h-auto w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                  :class="primaryFieldClass" />
               </div>
             </div>
           </div>
@@ -360,9 +562,9 @@ onMounted(() => {
           </div>
 
           <div class="flex gap-2 mt-4">
-            <button v-if="!isTesting" @click="connect" :class="{ 'opacity-50 cursor-not-allowed': isLoading }"
+            <button v-if="!isTesting" @click="connect"
               :disabled="isLoading"
-              class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+              :class="[primaryPillButtonClass, 'h-11 flex-1', { 'opacity-50 cursor-not-allowed': isLoading }]">
               <span v-if="isLoading" class="mr-2">
                 <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -373,9 +575,9 @@ onMounted(() => {
               </span>
               {{ isLoading ? "Connecting..." : "Connect" }}
             </button>
-            <button v-if="!isLoading" @click="testConnection" :class="{ 'opacity-50 cursor-not-allowed': isTesting }"
+            <button v-if="!isLoading" @click="testConnection"
               :disabled="isLoading || isTesting"
-              class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+              :class="[ghostPillButtonClass, 'h-11 flex-1', { 'opacity-50 cursor-not-allowed': isTesting }]">
               <span v-if="isTesting" class="mr-2">
                 <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -387,11 +589,11 @@ onMounted(() => {
               {{ isTesting ? "Testing..." : "Test Connection" }}
             </button>
             <button v-if="isLoading || isTesting" @click="cancelConnection"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-destructive text-destructive hover:bg-destructive/10 h-10 px-4 py-2">
+              :class="`${destructivePillButtonClass} h-11 px-4`">
               Cancel
             </button>
             <button v-if="!isLoading && !isTesting" @click="toggleSavedModal(true)" aria-label="Open saved connections"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
+              :class="`${ghostPillButtonClass} h-11 w-11`">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="lucide lucide-clock">
@@ -414,7 +616,7 @@ onMounted(() => {
               <p>{{ error }}</p>
               <div v-if="canTrustCurrentSshHost" class="mt-2 space-y-2">
                 <button v-if="!sshHostKeyInfo" @click="loadCurrentSshHostKeyInfo" :disabled="isLoadingHostKeyInfo"
-                  class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                  :class="`${destructivePillButtonClass} h-8 px-3 text-xs disabled:cursor-not-allowed`">
                   {{ isLoadingHostKeyInfo ? "Loading..." : "Show SSH Fingerprint" }}
                 </button>
                 <div v-else class="text-xs rounded-md border border-destructive/30 bg-destructive/5 p-2">
@@ -423,7 +625,7 @@ onMounted(() => {
                   <p class="break-all"><span class="font-medium">Fingerprint:</span> {{ sshHostKeyInfo.fingerprint }}
                   </p>
                   <button @click="copyCurrentSshFingerprint"
-                    class="mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1">
+                    :class="`${destructivePillButtonClass} mt-2 h-8 px-3 text-xs`">
                     Copy Fingerprint
                   </button>
                   <div class="mt-2 space-y-1">
@@ -450,13 +652,13 @@ onMounted(() => {
                         placeholder="ROTATE"
                         class="w-full rounded-md border border-destructive/30 bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" />
                       <button @click="acceptPinnedFingerprintRotation"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1">
+                        :class="`${destructivePillButtonClass} h-8 px-3 text-xs`">
                         Accept Rotation
                       </button>
                     </div>
                   </div>
                   <button @click="trustCurrentSshHost" :disabled="isTrustingHost || isFingerprintMismatch || isPinnedFingerprintMismatch"
-                    class="mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-8 px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                    :class="`${destructivePillButtonClass} mt-2 h-8 px-3 text-xs disabled:cursor-not-allowed`">
                     {{ isTrustingHost ? "Trusting..." : "Trust SSH Host Key" }}
                   </button>
                 </div>
@@ -465,15 +667,15 @@ onMounted(() => {
                     <p class="font-medium">Recent Trusted Hosts</p>
                     <div class="flex items-center gap-1">
                       <button @click="importSshTrustAudit"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        :class="`${destructivePillButtonClass} h-7 px-2 text-[11px]`">
                         Import
                       </button>
                       <button @click="exportSshTrustAudit"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        :class="`${destructivePillButtonClass} h-7 px-2 text-[11px]`">
                         Export
                       </button>
                       <button @click="clearSshTrustAudit"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[11px] font-medium transition-colors border border-destructive text-destructive hover:bg-destructive/10 h-7 px-2">
+                        :class="`${destructivePillButtonClass} h-7 px-2 text-[11px]`">
                         Clear
                       </button>
                     </div>

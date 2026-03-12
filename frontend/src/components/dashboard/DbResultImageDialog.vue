@@ -23,7 +23,7 @@ const emit = defineEmits<{
 
 <template>
     <div v-if="isOpen" class="fixed inset-0 z-[80] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')"></div>
+        <div class="absolute inset-0 bg-black/60" @click="emit('close')"></div>
 
         <div class="relative z-10 w-full max-w-6xl max-h-[92vh] rounded-xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
             <div class="flex items-center justify-between gap-4 border-b border-border px-5 py-3 bg-muted/30">

@@ -14,7 +14,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+    <div v-if="isOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 text-left">
         <div class="bg-card w-full max-w-sm rounded-lg shadow-2xl border border-destructive/50 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center gap-3 text-destructive">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"

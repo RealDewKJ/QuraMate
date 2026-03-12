@@ -1,11 +1,23 @@
 <script lang="ts" setup>
+import { computed, nextTick, ref, watch } from 'vue';
+
+import type { DashboardContextMenuState } from '../../composables/useDashboardContextMenus';
+
 import { Kbd } from '../ui/kbd';
 
 interface Props {
-    contextMenu: any;
+    contextMenu: DashboardContextMenuState;
+    dbType: string;
+    isReadOnly: boolean;
+    openFolders: string[];
+    closeContextMenu: () => void;
+    openHistory: () => void;
+    openActivityMonitor: () => void;
     disconnect: () => void | Promise<void>;
     refreshDatabase: () => void | Promise<void>;
     addTab: () => void;
+    openTransactionSandbox: () => void | Promise<void>;
+    openSchemaCompare: () => void | Promise<void>;
     handleBackupExport: () => void | Promise<void>;
     handleGenerateDatabaseERDiagram: () => void;
     handleDatabaseInfo: () => void | Promise<void>;
@@ -18,11 +30,13 @@ interface Props {
     handleDuplicateRoutine: () => void | Promise<void>;
     handleDeleteRoutine: () => void | Promise<void>;
     handleFolderRefresh: () => void | Promise<void>;
-    handleFolderCollapse: () => void;
-    handleCopyRow: () => void;
-    handleCopyRowWithHeader: () => void;
-    handleCopyCellValue: () => void;
-    handleCopyCellValueWithHeader: () => void;
+    handleFolderToggle: () => void;
+    handleFolderExpandAll: () => void;
+    handleFolderCollapseAll: () => void;
+    handleCopyRow: () => void | Promise<void>;
+    handleCopyRowWithHeader: () => void | Promise<void>;
+    handleCopyCellValue: () => void | Promise<void>;
+    handleCopyCellValueWithHeader: () => void | Promise<void>;
     handleAddWhereToCondition: () => void;
     handleSetNull: () => void;
     handleSetEmpty: () => void;
@@ -42,9 +56,17 @@ interface Props {
 
 const {
     contextMenu,
+    dbType,
+    isReadOnly,
+    openFolders,
+    closeContextMenu,
+    openHistory,
+    openActivityMonitor,
     disconnect,
     refreshDatabase,
     addTab,
+    openTransactionSandbox,
+    openSchemaCompare,
     handleBackupExport,
     handleGenerateDatabaseERDiagram,
     handleDatabaseInfo,
@@ -57,7 +79,9 @@ const {
     handleDuplicateRoutine,
     handleDeleteRoutine,
     handleFolderRefresh,
-    handleFolderCollapse,
+    handleFolderToggle,
+    handleFolderExpandAll,
+    handleFolderCollapseAll,
     handleCopyRow,
     handleCopyRowWithHeader,
     handleCopyCellValue,
@@ -78,14 +102,257 @@ const {
     handleImport,
     handleSelectTop100View,
 } = defineProps<Props>();
+
+type MenuAction = () => void | Promise<void>;
+
+const dbMenuRef = ref<HTMLElement | null>(null);
+const createNewTriggerRef = ref<HTMLButtonElement | null>(null);
+const createNewSubmenuRef = ref<HTMLElement | null>(null);
+const isCreateSubmenuOpen = ref(false);
+const createSubmenuAlignLeft = ref(false);
+const scriptTableAsSubmenuRef = ref<HTMLElement | null>(null);
+const isScriptTableAsSubmenuOpen = ref(false);
+const scriptTableAsSubmenuAlignLeft = ref(false);
+const setValueSubmenuRef = ref<HTMLElement | null>(null);
+const isSetValueSubmenuOpen = ref(false);
+const setValueSubmenuAlignLeft = ref(false);
+
+const normalizedDbType = computed(() => (dbType || '').toLowerCase());
+const canMutateSchema = computed(() => !isReadOnly);
+const menuPanelClass = 'fixed z-50 min-w-[160px] rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100 context-menu-fixed';
+const dbMenuPanelClass = 'fixed z-50 min-w-[180px] rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100 context-menu-fixed';
+const submenuPanelClass = 'absolute left-full top-0 ml-1 hidden rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur group-hover:block';
+const createSubmenuPanelClass = 'absolute top-0 z-10 min-w-[140px] rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in duration-100';
+const menuItemClass = 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground';
+const menuItemBetweenClass = `${menuItemClass} justify-between`;
+const plainMenuItemClass = `${menuItemClass} justify-start`;
+const destructiveMenuItemClass = 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive';
+const menuSeparatorClass = 'h-px bg-border my-1';
+const supportsRoutines = computed(() => {
+    const type = normalizedDbType.value;
+    return type.includes('postgres')
+        || type.includes('greenplum')
+        || type.includes('mysql')
+        || type.includes('mariadb')
+        || type.includes('mssql')
+        || type.includes('sqlserver');
+});
+
+const currentFolder = computed(() => contextMenu.targetFolder || '');
+const isTablesFolder = computed(() => currentFolder.value === 'Tables');
+const isViewsFolder = computed(() => currentFolder.value === 'Views');
+const isStoredProceduresFolder = computed(() => currentFolder.value === 'Stored Procedures');
+const isFunctionsFolder = computed(() => currentFolder.value === 'Functions');
+const isProgrammabilityFolder = computed(() => currentFolder.value === 'Programmability');
+const canCreateProcedure = computed(() => supportsRoutines.value && (isStoredProceduresFolder.value || isProgrammabilityFolder.value));
+const canCreateFunction = computed(() => supportsRoutines.value && (isFunctionsFolder.value || isProgrammabilityFolder.value));
+const isFolderOpen = computed(() => openFolders.includes(currentFolder.value));
+const folderToggleLabel = computed(() => (isFolderOpen.value ? 'Collapse Folder' : 'Expand Folder'));
+
+const getDbMenuItems = (): HTMLElement[] => {
+    if (!dbMenuRef.value) {
+        return [];
+    }
+    return Array.from(
+        dbMenuRef.value.querySelectorAll<HTMLElement>('[data-db-menu-item]:not([disabled])')
+    ).filter((el) => el.offsetParent !== null);
+};
+
+const moveDbMenuFocus = (direction: 1 | -1) => {
+    const items = getDbMenuItems();
+    if (items.length === 0) {
+        return;
+    }
+    const current = document.activeElement as HTMLElement | null;
+    const index = items.findIndex((item) => item === current);
+    const next = index >= 0 ? (index + direction + items.length) % items.length : 0;
+    items[next]?.focus();
+};
+
+const runDbAction = async (action: MenuAction) => {
+    await action();
+    isCreateSubmenuOpen.value = false;
+    closeContextMenu();
+};
+
+const openCreateSubmenu = async () => {
+    if (!canMutateSchema.value) {
+        return;
+    }
+    isCreateSubmenuOpen.value = true;
+    await nextTick();
+    if (createNewSubmenuRef.value) {
+        const submenuRect = createNewSubmenuRef.value.getBoundingClientRect();
+        createSubmenuAlignLeft.value = submenuRect.right > window.innerWidth;
+    }
+};
+
+const closeCreateSubmenu = () => {
+    isCreateSubmenuOpen.value = false;
+    createSubmenuAlignLeft.value = false;
+};
+
+const toggleCreateSubmenu = async () => {
+    if (isCreateSubmenuOpen.value) {
+        closeCreateSubmenu();
+        return;
+    }
+    await openCreateSubmenu();
+};
+
+const openScriptTableAsSubmenu = async () => {
+    isScriptTableAsSubmenuOpen.value = true;
+    await nextTick();
+    if (scriptTableAsSubmenuRef.value) {
+        const submenuRect = scriptTableAsSubmenuRef.value.getBoundingClientRect();
+        scriptTableAsSubmenuAlignLeft.value = submenuRect.right > window.innerWidth;
+    }
+};
+
+const closeScriptTableAsSubmenu = () => {
+    isScriptTableAsSubmenuOpen.value = false;
+    scriptTableAsSubmenuAlignLeft.value = false;
+};
+
+const toggleScriptTableAsSubmenu = async () => {
+    if (isScriptTableAsSubmenuOpen.value) {
+        closeScriptTableAsSubmenu();
+        return;
+    }
+    await openScriptTableAsSubmenu();
+};
+
+const openSetValueSubmenu = async () => {
+    isSetValueSubmenuOpen.value = true;
+    await nextTick();
+    if (setValueSubmenuRef.value) {
+        const submenuRect = setValueSubmenuRef.value.getBoundingClientRect();
+        setValueSubmenuAlignLeft.value = submenuRect.right > window.innerWidth;
+    }
+};
+
+const closeSetValueSubmenu = () => {
+    isSetValueSubmenuOpen.value = false;
+    setValueSubmenuAlignLeft.value = false;
+};
+
+const toggleSetValueSubmenu = async () => {
+    if (isSetValueSubmenuOpen.value) {
+        closeSetValueSubmenu();
+        return;
+    }
+    await openSetValueSubmenu();
+};
+
+const focusFirstCreateSubmenuItem = () => {
+    if (!createNewSubmenuRef.value) {
+        return;
+    }
+    const firstItem = createNewSubmenuRef.value.querySelector<HTMLElement>('[data-db-menu-item]');
+    firstItem?.focus();
+};
+
+const handleDbMenuKeydown = async (event: KeyboardEvent) => {
+    const active = document.activeElement as HTMLElement | null;
+    const activeInSubmenu = !!(active && createNewSubmenuRef.value?.contains(active));
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeContextMenu();
+        return;
+    }
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveDbMenuFocus(1);
+        return;
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveDbMenuFocus(-1);
+        return;
+    }
+
+    if (event.key === 'Home') {
+        event.preventDefault();
+        getDbMenuItems()[0]?.focus();
+        return;
+    }
+
+    if (event.key === 'End') {
+        event.preventDefault();
+        const items = getDbMenuItems();
+        items[items.length - 1]?.focus();
+        return;
+    }
+
+    if (event.key === 'ArrowRight' && active === createNewTriggerRef.value) {
+        event.preventDefault();
+        await openCreateSubmenu();
+        focusFirstCreateSubmenuItem();
+        return;
+    }
+
+    if (event.key === 'ArrowLeft' && activeInSubmenu) {
+        event.preventDefault();
+        closeCreateSubmenu();
+        createNewTriggerRef.value?.focus();
+        return;
+    }
+
+    if ((event.key === 'Enter' || event.key === ' ') && active?.hasAttribute('data-db-menu-item')) {
+        event.preventDefault();
+        active.click();
+    }
+};
+
+const handleOpenHistory = async () => {
+    await runDbAction(openHistory);
+};
+
+const handleOpenActivityMonitor = async () => {
+    await runDbAction(openActivityMonitor);
+};
+
+const handleNewQuery = async () => {
+    await runDbAction(addTab);
+};
+
+watch(
+    () => contextMenu.showDb,
+    async (show) => {
+        if (!show) {
+            closeCreateSubmenu();
+            return;
+        }
+
+        closeCreateSubmenu();
+        await nextTick();
+        dbMenuRef.value?.focus();
+        getDbMenuItems()[0]?.focus();
+    }
+);
+
+watch(() => contextMenu.show, (show) => {
+    if (!show) {
+        closeScriptTableAsSubmenu();
+    }
+});
+
+watch(() => contextMenu.showRow, (show) => {
+    if (!show) {
+        closeSetValueSubmenu();
+    }
+});
 </script>
 
 <template>        <!-- Context Menu for Tables -->
         <div v-if="contextMenu.show"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
+            :class="menuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-list-start">
@@ -96,7 +363,7 @@ const {
             </button>
             <!-- Original View Design button, now replaced by Design Table -->
             <!-- <button @click="handleViewDesign"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-pen-tool">
@@ -108,7 +375,7 @@ const {
                 View Design
             </button> -->
             <button @click="handleViewERDiagram"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-network">
@@ -121,7 +388,7 @@ const {
                 Schema Visualizer
             </button>
             <button @click="handleViewDesign"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-pencil-ruler">
@@ -131,10 +398,12 @@ const {
                 </svg>
                 Design Table
             </button>
-            <div class="border-t border-border my-1"></div>
-            <div class="relative group">
+            <div :class="menuSeparatorClass"></div>
+            <div class="relative" @mouseenter="openScriptTableAsSubmenu" @mouseleave="closeScriptTableAsSubmenu">
                 <button
-                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                    :aria-expanded="isScriptTableAsSubmenuOpen ? 'true' : 'false'" aria-haspopup="menu"
+                    @click="toggleScriptTableAsSubmenu" @focus="openScriptTableAsSubmenu"
+                    :class="menuItemBetweenClass">
                     <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -153,28 +422,32 @@ const {
                         <path d="m9 18 6-6-6-6" />
                     </svg>
                 </button>
-                <div
-                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[150px] hidden group-hover:block">
+                <div v-if="isScriptTableAsSubmenuOpen" ref="scriptTableAsSubmenuRef"
+                    :class="[
+                        createSubmenuPanelClass,
+                        'min-w-[150px]',
+                        scriptTableAsSubmenuAlignLeft ? 'right-full mr-1' : 'left-full ml-1'
+                    ]">
                     <button @click="handleScriptTableAs('SELECT')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         SELECT
                     </button>
                     <button @click="handleScriptTableAs('INSERT')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         INSERT
                     </button>
                     <button @click="handleScriptTableAs('UPDATE')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         UPDATE
                     </button>
                     <button @click="handleScriptTableAs('DELETE')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         DELETE
                     </button>
                 </div>
             </div>
             <button @click="handleGenerateCreateStatement"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-file-code-2">
@@ -187,7 +460,7 @@ const {
                 Generate Create Statement
             </button>
             <button @click="handleCopyTableName"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-copy">
@@ -196,9 +469,9 @@ const {
                 </svg>
                 Copy Name
             </button>
-            <div class="border-t border-border my-1"></div>
+            <div :class="menuSeparatorClass"></div>
             <button @click="handleTruncateTable"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-eraser">
@@ -209,7 +482,7 @@ const {
                 Truncate Table
             </button>
             <button @click="handleDropTable"
-                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center gap-2">
+                :class="destructiveMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-trash-2">
@@ -221,9 +494,9 @@ const {
                 </svg>
                 Drop Table
             </button>
-            <div class="border-t border-border my-1"></div>
+            <div :class="menuSeparatorClass"></div>
             <button @click="handleExport"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-upload">
@@ -234,7 +507,7 @@ const {
                 Export Data
             </button>
             <button @click="handleImport"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-download">
@@ -248,10 +521,10 @@ const {
 
         <!-- View Context Menu -->
         <div v-if="contextMenu.showView"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
+            :class="menuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleSelectTop100View"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-list-start">
@@ -261,7 +534,7 @@ const {
                 Select Top 100
             </button>
             <button @click="handleNewView"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-plus-circle">
@@ -274,33 +547,84 @@ const {
         </div>
 
         <!-- Database Context Menu -->
-        <div v-if="contextMenu.showDb"
-            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 context-menu-fixed"
+        <div v-if="contextMenu.showDb" ref="dbMenuRef" role="menu" tabindex="0"
+            aria-label="Database context menu" @keydown="handleDbMenuKeydown"
+            :class="dbMenuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
-            <button @click="refreshDatabase"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="runDbAction(refreshDatabase)"
+                :class="menuItemBetweenClass">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-refresh-cw">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                    Refresh
+                </div>
+                <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + R</Kbd>
+            </button>
+            <button data-db-menu-item role="menuitem" @click="handleNewQuery"
+                :class="menuItemBetweenClass">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-terminal-square">
+                        <path d="m7 11 2-2-2-2" />
+                        <path d="M11 13h4" />
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                    </svg>
+                    New Query
+                </div>
+                <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + N</Kbd>
+            </button>
+            <button data-db-menu-item role="menuitem" @click="runDbAction(openTransactionSandbox)"
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-refresh-cw">
+                    class="lucide lucide-shield-check">
+                    <path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6l8-4 8 4z" />
+                    <path d="m9 12 2 2 4-4" />
+                </svg>
+                Transaction Sandbox
+            </button>
+            <button data-db-menu-item role="menuitem" @click="runDbAction(openSchemaCompare)"
+                :class="menuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-git-compare-arrows">
+                    <circle cx="5" cy="6" r="3" />
+                    <path d="M12 6h7" />
+                    <path d="m16 10 3-4-3-4" />
+                    <circle cx="19" cy="18" r="3" />
+                    <path d="M12 18H5" />
+                    <path d="m8 14-3 4 3 4" />
+                </svg>
+                Schema Compare
+            </button>
+            <button data-db-menu-item role="menuitem" @click="handleOpenHistory"
+                :class="menuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-history">
                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                     <path d="M3 3v5h5" />
+                    <path d="M12 7v5l4 2" />
                 </svg>
-                Refresh
+                Query History
             </button>
-            <button @click="addTab"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="handleOpenActivityMonitor"
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-terminal-square">
-                    <path d="m7 11 2-2-2-2" />
-                    <path d="M11 13h4" />
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                    class="lucide lucide-activity">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                 </svg>
-                New Query
+                Activity Monitor
             </button>
             <div class="h-px bg-border my-1"></div>
-            <button @click="handleBackupExport"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="runDbAction(handleBackupExport)"
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-archive">
@@ -310,8 +634,8 @@ const {
                 </svg>
                 Backup / Export
             </button>
-            <button @click="handleGenerateDatabaseERDiagram"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="runDbAction(handleGenerateDatabaseERDiagram)"
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-network">
@@ -323,8 +647,8 @@ const {
                 </svg>
                 Schema Visualizer
             </button>
-            <button @click="handleDatabaseInfo"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="runDbAction(handleDatabaseInfo)"
+                :class="menuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-info">
@@ -334,10 +658,13 @@ const {
                 </svg>
                 Database Info
             </button>
-            <div class="h-px bg-border my-1"></div>
-            <div class="relative group">
-                <button
-                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2 transition-colors">
+            <div v-if="canMutateSchema" class="h-px bg-border my-1"></div>
+            <div v-if="canMutateSchema" class="relative"
+                @mouseenter="openCreateSubmenu" @mouseleave="closeCreateSubmenu">
+                <button ref="createNewTriggerRef" data-db-menu-item role="menuitem"
+                    :aria-expanded="isCreateSubmenuOpen ? 'true' : 'false'" aria-haspopup="menu"
+                    @click="toggleCreateSubmenu" @focus="openCreateSubmenu"
+                    :class="menuItemBetweenClass">
                     <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -354,10 +681,13 @@ const {
                         <path d="m9 18 6-6-6-6" />
                     </svg>
                 </button>
-                <div
-                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[140px] hidden group-hover:block animate-in fade-in slide-in-from-left-1 duration-150">
-                    <button @click="handleNewTable"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                <div v-if="isCreateSubmenuOpen" ref="createNewSubmenuRef" role="menu"
+                    :class="[
+                        createSubmenuPanelClass,
+                        createSubmenuAlignLeft ? 'right-full mr-1' : 'left-full ml-1'
+                    ]">
+                    <button data-db-menu-item role="menuitem" @click="runDbAction(handleNewTable)"
+                        :class="menuItemClass">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-table">
@@ -368,8 +698,8 @@ const {
                         </svg>
                         Table
                     </button>
-                    <button @click="handleNewView"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                    <button data-db-menu-item role="menuitem" @click="runDbAction(handleNewView)"
+                        :class="menuItemClass">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-eye text-green-500">
@@ -378,8 +708,9 @@ const {
                         </svg>
                         View
                     </button>
-                    <button @click="handleNewRoutine('PROCEDURE')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                    <button v-if="supportsRoutines" data-db-menu-item role="menuitem"
+                        @click="runDbAction(() => handleNewRoutine('PROCEDURE'))"
+                        :class="menuItemClass">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-scroll text-blue-400">
@@ -388,8 +719,9 @@ const {
                         </svg>
                         Procedure
                     </button>
-                    <button @click="handleNewRoutine('FUNCTION')"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                    <button v-if="supportsRoutines" data-db-menu-item role="menuitem"
+                        @click="runDbAction(() => handleNewRoutine('FUNCTION'))"
+                        :class="menuItemClass">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-function-square text-purple-400">
@@ -401,9 +733,9 @@ const {
                     </button>
                 </div>
             </div>
-            <div class="h-px bg-border my-1"></div>
-            <button @click="handleDropDatabase"
-                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
+            <div v-if="canMutateSchema" class="h-px bg-border my-1"></div>
+            <button v-if="canMutateSchema" data-db-menu-item role="menuitem" @click="runDbAction(handleDropDatabase)"
+                :class="destructiveMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-trash-2">
@@ -414,8 +746,8 @@ const {
                 Drop Database
             </button>
             <div class="h-px bg-border my-1"></div>
-            <button @click="disconnect"
-                class="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2 transition-colors">
+            <button data-db-menu-item role="menuitem" @click="runDbAction(disconnect)"
+                :class="destructiveMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-log-out">
@@ -429,10 +761,10 @@ const {
 
         <!-- Routine Context Menu -->
         <div v-if="contextMenu.showRoutine"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
+            :class="menuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleScriptRoutine"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-file-code">
@@ -442,7 +774,7 @@ const {
                 Script as Create
             </button>
             <button @click="handleExecuteRoutine"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-play">
@@ -451,7 +783,7 @@ const {
                 Execute
             </button>
             <button @click="handleDuplicateRoutine"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-copy">
@@ -460,9 +792,9 @@ const {
                 </svg>
                 Duplicate
             </button>
-            <div class="h-px bg-border my-1"></div>
+            <div :class="menuSeparatorClass"></div>
             <button @click="handleDeleteRoutine"
-                class="w-full text-left px-3 py-1.5 text-sm hover:text-destructive hover:bg-destructive/10 flex items-center gap-2">
+                :class="destructiveMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-trash-2">
@@ -478,10 +810,10 @@ const {
 
         <!-- Folder Context Menu -->
         <div v-if="contextMenu.showFolder"
-            class="fixed z-50 min-w-[160px] bg-popover text-popover-foreground rounded-md border border-border shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 context-menu-fixed"
+            :class="menuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleFolderRefresh"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-refresh-cw">
@@ -490,9 +822,21 @@ const {
                 </svg>
                 Refresh {{ contextMenu.targetFolder }}
             </button>
-            <div v-if="contextMenu.targetFolder === 'Tables'" class="h-px bg-border my-1"></div>
-            <button v-if="contextMenu.targetFolder === 'Tables'" @click="handleNewTable"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button @click="refreshDatabase"
+                :class="plainMenuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-database-zap">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5" />
+                    <path d="m7 12 3 3 7-7" />
+                </svg>
+                Refresh Database
+            </button>
+            <div v-if="canMutateSchema && (isTablesFolder || isViewsFolder || canCreateProcedure || canCreateFunction)"
+                :class="menuSeparatorClass"></div>
+            <button v-if="canMutateSchema && isTablesFolder" @click="handleNewTable"
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-plus">
@@ -501,12 +845,18 @@ const {
                 </svg>
                 Create Table
             </button>
-            <div v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'"
-                class="h-px bg-border my-1"></div>
-            <button
-                v-if="contextMenu.targetFolder === 'Stored Procedures' || contextMenu.targetFolder === 'Programmability'"
-                @click="handleNewRoutine('PROCEDURE')"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button v-if="canMutateSchema && isViewsFolder" @click="handleNewView"
+                :class="plainMenuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-plus">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                </svg>
+                New View
+            </button>
+            <button v-if="canMutateSchema && canCreateProcedure" @click="handleNewRoutine('PROCEDURE')"
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-plus">
@@ -515,11 +865,8 @@ const {
                 </svg>
                 New Procedure
             </button>
-            <div v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'"
-                class="h-px bg-border my-1"></div>
-            <button v-if="contextMenu.targetFolder === 'Functions' || contextMenu.targetFolder === 'Programmability'"
-                @click="handleNewRoutine('FUNCTION')"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <button v-if="canMutateSchema && canCreateFunction" @click="handleNewRoutine('FUNCTION')"
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-plus">
@@ -528,25 +875,55 @@ const {
                 </svg>
                 New Function
             </button>
-            <div class="h-px bg-border my-1"></div>
-            <button @click="handleFolderCollapse"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors">
+            <div v-if="isProgrammabilityFolder" :class="menuSeparatorClass"></div>
+            <button v-if="isProgrammabilityFolder" @click="handleFolderExpandAll"
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-folders">
+                    <path d="M20 7h-8l-2-2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+                    <path d="M8 12h8" />
+                    <path d="M12 8v8" />
+                </svg>
+                Expand All
+            </button>
+            <button v-if="isProgrammabilityFolder" @click="handleFolderCollapseAll"
+                :class="plainMenuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-folder-x">
+                    <path d="M3 5a2 2 0 0 1 2-2h3l2 2h9a2 2 0 0 1 2 2v1H3V5Z" />
+                    <path d="M3 8h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
+                    <path d="m9 12 6 6" />
+                    <path d="m15 12-6 6" />
+                </svg>
+                Collapse All
+            </button>
+            <div :class="menuSeparatorClass"></div>
+            <button @click="handleFolderToggle"
+                :class="plainMenuItemClass">
+                <svg v-if="isFolderOpen" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-folder-closed">
                     <path
                         d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
                 </svg>
-                Collapse
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-folder-open">
+                    <path
+                        d="M6 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h15a2 2 0 0 0 1.94-1.5l2-8A2 2 0 0 0 20 7h-8l-2-2Z" />
+                </svg>
+                {{ folderToggleLabel }}
             </button>
         </div>
 
         <!-- Row Context Menu -->
         <div v-if="contextMenu.showRow"
-            class="fixed z-50 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[160px] context-menu-fixed"
+            :class="menuPanelClass"
             :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
             <button @click="handleCopyRow"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                :class="menuItemBetweenClass">
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -559,7 +936,7 @@ const {
                 <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + Shift + C</Kbd>
             </button>
             <button @click="handleCopyRowWithHeader"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                :class="menuItemBetweenClass">
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -573,7 +950,7 @@ const {
                 </div>
             </button>
             <button @click="handleCopyCellValue"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                :class="menuItemBetweenClass">
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -586,7 +963,7 @@ const {
                 <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + C</Kbd>
             </button>
             <button @click="handleCopyCellValueWithHeader"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-clipboard-type">
@@ -597,9 +974,9 @@ const {
                 </svg>
                 Copy Cell Value With Header
             </button>
-            <div class="border-t border-border my-1"></div>
+            <div :class="menuSeparatorClass"></div>
             <button @click="handleAddWhereToCondition"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2">
+                :class="plainMenuItemClass">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="lucide lucide-filter">
@@ -607,10 +984,12 @@ const {
                 </svg>
                 Add Where To Condition
             </button>
-            <div class="border-t border-border my-1"></div>
-            <div class="relative group">
+            <div :class="menuSeparatorClass"></div>
+            <div class="relative" @mouseenter="openSetValueSubmenu" @mouseleave="closeSetValueSubmenu">
                 <button
-                    class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center justify-between gap-2">
+                    :aria-expanded="isSetValueSubmenuOpen ? 'true' : 'false'" aria-haspopup="menu"
+                    @click="toggleSetValueSubmenu" @focus="openSetValueSubmenu"
+                    :class="menuItemBetweenClass">
                     <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -627,18 +1006,22 @@ const {
                     </svg>
                 </button>
                 <!-- Submenu -->
-                <div
-                    class="absolute left-full top-0 ml-1 bg-popover text-popover-foreground border border-border shadow-md rounded-md py-1 min-w-[120px] hidden group-hover:block">
+                <div v-if="isSetValueSubmenuOpen" ref="setValueSubmenuRef"
+                    :class="[
+                        createSubmenuPanelClass,
+                        'min-w-[120px]',
+                        setValueSubmenuAlignLeft ? 'right-full mr-1' : 'left-full ml-1'
+                    ]">
                     <button @click="handleSetNull"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         Set to NULL
                     </button>
                     <button @click="handleSetEmpty"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         Set to Empty
                     </button>
                     <button @click="handleSetDefault"
-                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        :class="menuItemClass">
                         Set to Default
                     </button>
                 </div>

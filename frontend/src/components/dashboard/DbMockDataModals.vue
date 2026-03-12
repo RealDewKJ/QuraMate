@@ -21,7 +21,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div v-if="generatorOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    <div v-if="generatorOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
         @mousedown.self="emit('close-generator')">
         <div class="bg-card w-full max-w-md rounded-lg shadow-lg border border-border p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between">
@@ -73,7 +73,7 @@ const emit = defineEmits<{
         </div>
     </div>
 
-    <div v-if="confirmOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+    <div v-if="confirmOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 text-left">
         <div class="bg-card w-full max-w-sm rounded-lg shadow-2xl border border-destructive/40 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center gap-3 text-destructive">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"

@@ -5,7 +5,7 @@
     >
         <!-- Overlay -->
         <div
-            class="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+            class="fixed inset-0 bg-background/80 transition-opacity"
             @click="close"
         ></div>
 
