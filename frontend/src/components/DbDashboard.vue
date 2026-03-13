@@ -96,6 +96,7 @@
                     :openMockDataModal="openMockDataModal"
                     :openInsertRowModal="openInsertRowModal"
                     :pasteRowsFromClipboard="pasteRowsFromClipboard"
+                    :openHeaderContextMenu="openHeaderContextMenu"
                     :startResultSetResize="startResultSetResize" :getResultSetCardStyle="getResultSetCardStyle" />
 
                 <!-- ER Diagram View -->
@@ -158,6 +159,7 @@
             :handle-copy-row="handleCopyRow"
             :handle-copy-row-with-header="handleCopyRowWithHeader" :handle-copy-cell-value="handleCopyCellValue"
             :handle-copy-cell-value-with-header="handleCopyCellValueWithHeader"
+            :handle-copy-header-name="handleCopyHeaderName" :handle-copy-header-row="handleCopyHeaderRow"
             :handle-add-where-to-condition="handleAddWhereToCondition" :handle-set-null="handleSetNull"
             :handle-set-empty="handleSetEmpty" :handle-set-default="handleSetDefault"
             :handle-select-top100="handleSelectTop100" :handle-view-e-r-diagram="handleViewERDiagram"
@@ -238,7 +240,12 @@
             @update:format="exportDbModal.format = $event" />
 
         <Toast ref="toastRef" />
-        <SettingsDialog :is-open="isSettingsOpen" @close="isSettingsOpen = false" @save="handleSettingsSave" />
+        <SettingsDialog
+            :is-open="isSettingsOpen"
+            :show-sql-server-settings="props.dbType === 'mssql'"
+            @close="isSettingsOpen = false"
+            @save="handleSettingsSave"
+        />
         <QueryHistory
             :is-open="isHistoryOpen"
             :connection-name="connectionName"
@@ -1179,6 +1186,7 @@ const {
     openFolderContextMenu,
     openContextMenu,
     handleRowContextMenu,
+    openHeaderContextMenu,
     openViewContextMenu,
     openRoutineContextMenu,
     closeContextMenu,
@@ -1453,6 +1461,38 @@ const handleCopyCellValueWithHeader = async () => {
         await copyTextToClipboard(`${col}: ${str}`, 'Cell value with header copied to clipboard', 'Failed to copy cell value with header');
         closeContextMenu();
     }
+};
+
+const handleCopyHeaderName = async () => {
+    if (!contextMenu.targetColumn) {
+        return;
+    }
+
+    await copyTextToClipboard(
+        contextMenu.targetColumn,
+        'Column header copied to clipboard',
+        'Failed to copy column header'
+    );
+    closeContextMenu();
+};
+
+const handleCopyHeaderRow = async () => {
+    if (!activeTab.value || contextMenu.targetResultSetIndex === null) {
+        return;
+    }
+
+    const resultSet = activeTab.value.resultSets?.[contextMenu.targetResultSetIndex];
+    const columns = resultSet?.columns;
+    if (!Array.isArray(columns) || columns.length === 0) {
+        return;
+    }
+
+    await copyTextToClipboard(
+        columns.join('\t'),
+        'Header row copied to clipboard',
+        'Failed to copy header row'
+    );
+    closeContextMenu();
 };
 
 const handleAddWhereToCondition = () => {

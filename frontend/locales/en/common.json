@@ -1,0 +1,232 @@
+{
+  "save": "Save",
+  "delete": "Delete",
+  "cancel": "Cancel",
+  "close": "Close",
+  "newConnection": "New Connection",
+  "checkForUpdates": "Check for updates",
+  "errors": {
+    "unknownConnectionError": "Unknown connection error",
+    "connectionFailed": "Connection failed"
+  },
+  "databaseTypes": {
+    "sqlite": "SQLite"
+  },
+  "recovery": {
+    "title": "Restore Previous Connections",
+    "description": "Select the connections to recover from the previous session.",
+    "selectAll": "Select All",
+    "unselectAll": "Unselect All",
+    "rememberChoice": "Remember my choice (auto-recover next time without asking)",
+    "skip": "Skip",
+    "recoverSelected": "Recover Selected",
+    "recoveringSelected": "Recovering selected connections...",
+    "someFailed": "Some connections could not be recovered:",
+    "candidateMeta": "{type} - {target}",
+    "failureItem": "{name}: {message}"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your app preferences, appearance, and connections.",
+    "saveSuccess": "Settings saved successfully!",
+    "saveFailure": "Failed to save settings: {error}",
+    "tabs": {
+      "general": "General",
+      "keybindings": "Key Binding",
+      "appearance": "Appearance",
+      "editor": "SQL Editor",
+      "ai": "Artificial Intelligence",
+      "changelogs": "Changelogs",
+      "logs": "System Logs",
+      "info": "About QuraMate",
+      "sqlServer": "SQL Server"
+    },
+    "general": {
+      "title": "General",
+      "description": "Basic application settings.",
+      "languageLabel": "Data Editor Language",
+      "languageDescription": "Select the language for the data editor interface.",
+      "safeModeLabel": "Safe Mode",
+      "safeModeDescription": "Warn before executing UPDATE or DELETE queries without a WHERE clause",
+      "queryHistoryLabel": "Query History",
+      "queryHistoryDescription": "Save executed SQL statements to local query history",
+      "queryHistoryRetentionLabel": "Query History Retention",
+      "queryHistoryRetentionDescription": "Automatically remove non-favorite history older than this period.",
+      "workspacePersistenceLabel": "Workspace Session Persistence",
+      "workspacePersistenceDescription": "Restore open SQL tabs and editor contents after restarting the app",
+      "encryptLocalDataLabel": "Encrypt Local Persisted Data",
+      "encryptLocalDataDescription": "Encrypt saved query history and workspace state at rest using a key stored in your OS secure keychain.",
+      "encryptLocalDataHelp": "Protect local history and session data stored on this device",
+      "trustSqlServerCertificateLabel": "Trust SQL Server Certificates By Default",
+      "trustSqlServerCertificateDescription": "New SQL Server connections will trust server certificates automatically, which is friendlier for self-signed or private-CA environments.",
+      "trustSqlServerCertificateHelp": "Skip certificate-chain verification for new SQL Server connections unless disabled per connection",
+      "queryHistoryRetentionDays": {
+        "7": "7 days",
+        "30": "30 days",
+        "90": "90 days",
+        "180": "180 days",
+        "365": "365 days"
+      }
+    },
+    "keybindings": {
+      "description": "System shortcuts are fixed and cannot be edited.",
+      "groups": {
+        "queryEditorTabs": "Query Editor & Tabs",
+        "refresh": "Refresh",
+        "resultGrid": "Result Grid"
+      },
+      "actions": {
+        "runQuery": {
+          "label": "Run query",
+          "description": "Execute SQL in the active query tab."
+        },
+        "saveQuery": {
+          "label": "Save query",
+          "description": "Save the current query to file."
+        },
+        "saveQueryAs": {
+          "label": "Save query as",
+          "description": "Save the current query as a new file."
+        },
+        "openNewQueryTab": {
+          "label": "Open new query tab",
+          "description": "Create a new SQL tab."
+        },
+        "closeActiveQueryTab": {
+          "label": "Close active query tab",
+          "description": "Close the current SQL tab."
+        },
+        "beautifySql": {
+          "label": "Beautify SQL",
+          "description": "Format SQL in the active editor."
+        },
+        "openTableDesign": {
+          "label": "Open table design",
+          "description": "Open designer for the current table tab."
+        },
+        "refreshCurrentContext": {
+          "label": "Refresh current context",
+          "description": "Reload current data context."
+        },
+        "refreshDatabaseTree": {
+          "label": "Refresh database tree",
+          "description": "Reload tables, views, and routines."
+        },
+        "screenshotResultGrid": {
+          "label": "Screenshot result grid",
+          "description": "Capture result grid as image with table name and timestamp."
+        },
+        "copySelectedCells": {
+          "label": "Copy selected cell/row(s)",
+          "description": "Copy selected data while focus is in query results."
+        },
+        "pasteRowsIntoTable": {
+          "label": "Paste rows into table",
+          "description": "Paste tabular clipboard data into editable table results."
+        },
+        "saveEditingCell": {
+          "label": "Save editing cell",
+          "description": "Commit inline cell edit."
+        },
+        "cancelEditingCell": {
+          "label": "Cancel editing cell",
+          "description": "Cancel inline cell edit."
+        }
+      }
+    },
+    "appearance": {
+      "description": "Customize the look and feel of QuraMate.",
+      "themeLabel": "Theme",
+      "themeOptions": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
+      "usePointerCursorsLabel": "Use pointer cursors",
+      "usePointerCursorsDescription": "Change the cursor to a pointer when hovering over interactive elements.",
+      "appFontLabel": "App Font",
+      "appFontSystemDefault": "System UI (Default)"
+    },
+    "editor": {
+      "description": "Configure the SQL query editor environment.",
+      "fontFamilyLabel": "Font Family",
+      "fontSizeLabel": "Font Size",
+      "previewLabel": "Preview"
+    },
+    "ai": {
+      "description": "Configure AI providers for QuraMate's smart features.",
+      "info": "Info",
+      "comingSoonTitle": "Coming Soon!",
+      "comingSoonDescription": "AI features are currently in development. You can save your keys now for when the feature goes live.",
+      "providerLabel": "AI Provider"
+    },
+    "logs": {
+      "description": "Monitor application events and errors.",
+      "clear": "Clear Logs",
+      "empty": "No logs recorded yet."
+    },
+    "changelogs": {
+      "description": "Keep track of new features, improvements, and bug fixes."
+    },
+    "info": {
+      "description": "System information and credits."
+    },
+    "languages": {
+      "en": "English (Source)",
+      "th": "Thai",
+      "zh": "Chinese (Simplified)",
+      "ja": "Japanese",
+      "vi": "Vietnamese"
+    },
+    "sqlServer": {
+      "description": "Settings that apply only to SQL Server connections.",
+      "trustCertificateLabel": "Trust SQL Server Certificates By Default",
+      "trustCertificateDescription": "New SQL Server connections will trust server certificates automatically, which is friendlier for self-signed or private-CA environments.",
+      "trustCertificateHelp": "Skip certificate-chain verification for new SQL Server connections unless disabled per connection"
+    }
+  },
+  "savedConnections": {
+    "title": "Saved Connections",
+    "description": "Select a connection to load its details.",
+    "searchPlaceholder": "Search connections",
+    "searchAriaLabel": "Search saved connections",
+    "searchHint": "Use Arrow keys to navigate, Enter to connect, Delete to remove.",
+    "empty": "No saved connections found.",
+    "noMatches": "No matching connections.",
+    "listAriaLabel": "Saved connections list",
+    "edit": "Edit Connection",
+    "delete": "Delete Connection",
+    "deleteConfirmTitle": "Delete Saved Connection?",
+    "deleteConfirmPrefix": "This will remove",
+    "deleteConfirmSuffix": "from saved connections.",
+    "selectedConnectionFallback": "selected connection",
+    "deleteCancelled": "Delete cancelled for {label}.",
+    "noneAvailable": "No saved connections available.",
+    "countFound": "{count} connections found.",
+    "selectionAnnouncement": "Selected {index} of {total}: {label}. {subtitle}."
+  },
+  "queryHistory": {
+    "title": "Query History",
+    "closeAriaLabel": "Close query history",
+    "disabledNotice": "Query History recording is currently disabled in Settings. Existing records remain available.",
+    "emptyTitle": "No history found"
+  },
+  "aiCopilot": {
+    "title": "AI Copilot Workspace",
+    "description": "Schema-aware assistant for SQL generation, debugging, and optimization."
+  },
+  "databaseInfo": {
+    "title": "Database Information",
+    "loading": "Loading database info...",
+    "databaseFallback": "Database",
+    "yes": "Yes",
+    "no": "No",
+    "sections": {
+      "summary": "Summary",
+      "stats": "Stats",
+      "capabilities": "Capabilities",
+      "runtime": "Runtime",
+      "engineDetails": "Engine Details"
+    }
+  }
+}

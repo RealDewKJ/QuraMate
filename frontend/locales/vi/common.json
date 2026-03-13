@@ -1,0 +1,232 @@
+{
+  "save": "Lưu",
+  "delete": "Xóa",
+  "cancel": "Hủy",
+  "close": "Đóng",
+  "newConnection": "Kết nối mới",
+  "checkForUpdates": "Kiểm tra cập nhật",
+  "errors": {
+    "unknownConnectionError": "Lỗi kết nối không xác định",
+    "connectionFailed": "Kết nối thất bại"
+  },
+  "databaseTypes": {
+    "sqlite": "SQLite"
+  },
+  "recovery": {
+    "title": "Khôi phục các kết nối trước đó",
+    "description": "Chọn các kết nối cần khôi phục từ phiên trước.",
+    "selectAll": "Chọn tất cả",
+    "unselectAll": "Bỏ chọn tất cả",
+    "rememberChoice": "Ghi nhớ lựa chọn của tôi (tự động khôi phục lần sau mà không hỏi)",
+    "skip": "Bỏ qua",
+    "recoverSelected": "Khôi phục mục đã chọn",
+    "recoveringSelected": "Đang khôi phục các kết nối đã chọn...",
+    "someFailed": "Một số kết nối không thể khôi phục:",
+    "candidateMeta": "{type} - {target}",
+    "failureItem": "{name}: {message}"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "description": "Quản lý tuỳ chọn ứng dụng, giao diện và kết nối.",
+    "saveSuccess": "Đã lưu cài đặt thành công",
+    "saveFailure": "Lưu cài đặt thất bại: {error}",
+    "tabs": {
+      "general": "Chung",
+      "keybindings": "Phím tắt",
+      "appearance": "Giao diện",
+      "editor": "Trình soạn SQL",
+      "ai": "Nhà cung cấp AI",
+      "changelogs": "Nhật ký thay đổi",
+      "logs": "Nhật ký hệ thống",
+      "info": "Giới thiệu",
+      "sqlServer": "SQL Server"
+    },
+    "general": {
+      "title": "Chung",
+      "description": "Các thiết lập cơ bản của ứng dụng.",
+      "languageLabel": "Ngôn ngữ trình chỉnh sửa dữ liệu",
+      "languageDescription": "Chọn ngôn ngữ cho giao diện trình chỉnh sửa dữ liệu.",
+      "safeModeLabel": "Chế độ an toàn",
+      "safeModeDescription": "Cảnh báo trước khi chạy UPDATE hoặc DELETE không có mệnh đề WHERE",
+      "queryHistoryLabel": "Lịch sử truy vấn",
+      "queryHistoryDescription": "Lưu các câu lệnh SQL đã chạy vào lịch sử truy vấn cục bộ",
+      "queryHistoryRetentionLabel": "Thời gian lưu lịch sử truy vấn",
+      "queryHistoryRetentionDescription": "Tự động xoá lịch sử không yêu thích cũ hơn khoảng thời gian này.",
+      "workspacePersistenceLabel": "Lưu phiên làm việc",
+      "workspacePersistenceDescription": "Khôi phục các tab SQL đang mở và nội dung trình soạn sau khi khởi động lại ứng dụng",
+      "encryptLocalDataLabel": "Mã hoá dữ liệu lưu cục bộ",
+      "encryptLocalDataDescription": "Mã hoá lịch sử truy vấn và trạng thái workspace đã lưu bằng khóa trong keychain bảo mật của hệ điều hành.",
+      "encryptLocalDataHelp": "Bảo vệ lịch sử cục bộ và dữ liệu phiên được lưu trên thiết bị này",
+      "trustSqlServerCertificateLabel": "Tin cậy chứng chỉ SQL Server theo mặc định",
+      "trustSqlServerCertificateDescription": "Các kết nối SQL Server mới sẽ tự động tin cậy chứng chỉ máy chủ, phù hợp hơn với môi trường self-signed hoặc private CA.",
+      "trustSqlServerCertificateHelp": "Bỏ qua xác minh chuỗi chứng chỉ cho các kết nối SQL Server mới trừ khi đã bị tắt riêng cho từng kết nối",
+      "queryHistoryRetentionDays": {
+        "7": "7 ngày",
+        "30": "30 ngày",
+        "90": "90 ngày",
+        "180": "180 ngày",
+        "365": "365 ngày"
+      }
+    },
+    "keybindings": {
+      "description": "Các phím tắt hệ thống là cố định và không thể chỉnh sửa.",
+      "groups": {
+        "queryEditorTabs": "Trình soạn truy vấn và tab",
+        "refresh": "Làm mới",
+        "resultGrid": "Lưới kết quả"
+      },
+      "actions": {
+        "runQuery": {
+          "label": "Chạy truy vấn",
+          "description": "Thực thi SQL trong tab truy vấn đang hoạt động."
+        },
+        "saveQuery": {
+          "label": "Lưu truy vấn",
+          "description": "Lưu truy vấn hiện tại vào tệp."
+        },
+        "saveQueryAs": {
+          "label": "Lưu truy vấn thành",
+          "description": "Lưu truy vấn hiện tại thành tệp mới."
+        },
+        "openNewQueryTab": {
+          "label": "Mở tab truy vấn mới",
+          "description": "Tạo tab SQL mới."
+        },
+        "closeActiveQueryTab": {
+          "label": "Đóng tab truy vấn hiện tại",
+          "description": "Đóng tab SQL hiện tại."
+        },
+        "beautifySql": {
+          "label": "Định dạng SQL",
+          "description": "Định dạng SQL trong trình soạn hiện tại."
+        },
+        "openTableDesign": {
+          "label": "Mở thiết kế bảng",
+          "description": "Mở trình thiết kế cho tab bảng hiện tại."
+        },
+        "refreshCurrentContext": {
+          "label": "Làm mới ngữ cảnh hiện tại",
+          "description": "Tải lại ngữ cảnh dữ liệu hiện tại."
+        },
+        "refreshDatabaseTree": {
+          "label": "Làm mới cây cơ sở dữ liệu",
+          "description": "Tải lại bảng, view và routine."
+        },
+        "screenshotResultGrid": {
+          "label": "Chụp lưới kết quả",
+          "description": "Chụp lưới kết quả thành ảnh kèm tên bảng và dấu thời gian."
+        },
+        "copySelectedCells": {
+          "label": "Sao chép ô/hàng đã chọn",
+          "description": "Sao chép dữ liệu đã chọn khi tiêu điểm đang ở phần kết quả truy vấn."
+        },
+        "pasteRowsIntoTable": {
+          "label": "Dán hàng vào bảng",
+          "description": "Dán dữ liệu dạng bảng từ clipboard vào kết quả bảng có thể chỉnh sửa."
+        },
+        "saveEditingCell": {
+          "label": "Lưu ô đang sửa",
+          "description": "Xác nhận chỉnh sửa ô nội tuyến."
+        },
+        "cancelEditingCell": {
+          "label": "Hủy chỉnh sửa ô",
+          "description": "Hủy chỉnh sửa ô nội tuyến."
+        }
+      }
+    },
+    "appearance": {
+      "description": "Tùy chỉnh giao diện và cảm giác sử dụng của QuraMate.",
+      "themeLabel": "Chủ đề",
+      "themeOptions": {
+        "light": "Sáng",
+        "dark": "Tối",
+        "system": "Hệ thống"
+      },
+      "usePointerCursorsLabel": "Dùng con trỏ dạng pointer",
+      "usePointerCursorsDescription": "Đổi con trỏ thành pointer khi di chuột lên các phần tử có thể tương tác.",
+      "appFontLabel": "Phông ứng dụng",
+      "appFontSystemDefault": "System UI (Mặc định)"
+    },
+    "editor": {
+      "description": "Cấu hình môi trường trình soạn truy vấn SQL.",
+      "fontFamilyLabel": "Họ phông chữ",
+      "fontSizeLabel": "Cỡ chữ",
+      "previewLabel": "Xem trước"
+    },
+    "ai": {
+      "description": "Cấu hình nhà cung cấp AI cho các tính năng thông minh của QuraMate.",
+      "info": "Thông tin",
+      "comingSoonTitle": "Sắp ra mắt!",
+      "comingSoonDescription": "Các tính năng AI hiện đang được phát triển. Bạn có thể lưu khóa trước để dùng khi tính năng ra mắt.",
+      "providerLabel": "Nhà cung cấp AI"
+    },
+    "logs": {
+      "description": "Theo dõi sự kiện và lỗi của ứng dụng.",
+      "clear": "Xóa nhật ký",
+      "empty": "Chưa có nhật ký nào."
+    },
+    "changelogs": {
+      "description": "Theo dõi tính năng mới, cải tiến và bản sửa lỗi."
+    },
+    "info": {
+      "description": "Thông tin hệ thống và ghi công."
+    },
+    "languages": {
+      "en": "English (nguồn)",
+      "th": "Tiếng Thái",
+      "zh": "Tiếng Trung (Giản thể)",
+      "ja": "Tiếng Nhật",
+      "vi": "Tiếng Việt"
+    },
+    "sqlServer": {
+      "description": "Settings that apply only to SQL Server connections.",
+      "trustCertificateLabel": "Tin cậy chứng chỉ SQL Server theo mặc định",
+      "trustCertificateDescription": "Các kết nối SQL Server mới sẽ tự động tin cậy chứng chỉ máy chủ, phù hợp hơn với môi trường self-signed hoặc private CA.",
+      "trustCertificateHelp": "Bỏ qua xác minh chuỗi chứng chỉ cho các kết nối SQL Server mới trừ khi đã bị tắt riêng cho từng kết nối"
+    }
+  },
+  "savedConnections": {
+    "title": "Kết nối đã lưu",
+    "description": "Chọn một kết nối để tải chi tiết của nó.",
+    "searchPlaceholder": "Tìm kết nối",
+    "searchAriaLabel": "Tìm kết nối đã lưu",
+    "searchHint": "Dùng phím mũi tên để điều hướng, Enter để kết nối, Delete để xóa.",
+    "empty": "Không tìm thấy kết nối đã lưu.",
+    "noMatches": "Không có kết nối nào khớp.",
+    "listAriaLabel": "Danh sách kết nối đã lưu",
+    "edit": "Sửa kết nối",
+    "delete": "Xóa kết nối",
+    "deleteConfirmTitle": "Xóa kết nối đã lưu?",
+    "deleteConfirmPrefix": "Thao tác này sẽ xóa",
+    "deleteConfirmSuffix": "khỏi danh sách kết nối đã lưu.",
+    "selectedConnectionFallback": "kết nối đã chọn",
+    "deleteCancelled": "Đã hủy xóa cho {label}.",
+    "noneAvailable": "Không có kết nối đã lưu nào.",
+    "countFound": "Tìm thấy {count} kết nối.",
+    "selectionAnnouncement": "Đã chọn {index} trên {total}: {label}. {subtitle}."
+  },
+  "queryHistory": {
+    "title": "Lịch sử truy vấn",
+    "closeAriaLabel": "Đóng lịch sử truy vấn",
+    "disabledNotice": "Việc ghi lịch sử truy vấn hiện bị tắt trong Settings. Các bản ghi hiện có vẫn còn dùng được.",
+    "emptyTitle": "Không tìm thấy lịch sử"
+  },
+  "aiCopilot": {
+    "title": "Không gian làm việc AI Copilot",
+    "description": "Trợ lý hiểu schema cho việc tạo SQL, gỡ lỗi và tối ưu hóa."
+  },
+  "databaseInfo": {
+    "title": "Thông tin cơ sở dữ liệu",
+    "loading": "Đang tải thông tin cơ sở dữ liệu...",
+    "databaseFallback": "Cơ sở dữ liệu",
+    "yes": "Có",
+    "no": "Không",
+    "sections": {
+      "summary": "Tóm tắt",
+      "stats": "Thống kê",
+      "capabilities": "Khả năng",
+      "runtime": "Runtime",
+      "engineDetails": "Chi tiết engine"
+    }
+  }
+}

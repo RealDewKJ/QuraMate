@@ -16,10 +16,10 @@
             <!-- Header -->
             <div class="flex flex-col space-y-1.5 p-6 border-b border-border">
                 <h2 class="text-2xl font-semibold leading-none tracking-tight">
-                    Settings
+                    {{ t("common.settings.title") }}
                 </h2>
                 <p class="text-sm text-muted-foreground">
-                    Manage your app preferences, appearance, and connections.
+                    {{ t("common.settings.description") }}
                 </p>
                 <button
                     @click="close"
@@ -40,7 +40,7 @@
                         <path d="M18 6 6 18" />
                         <path d="m6 6 12 12" />
                     </svg>
-                    <span class="sr-only">Close</span>
+                    <span class="sr-only">{{ t("common.close") }}</span>
                 </button>
             </div>
 
@@ -76,9 +76,9 @@
                     <!-- General Tab -->
                     <div v-if="activeTab === 'general'" class="space-y-6">
                         <div>
-                            <h3 class="text-lg font-medium">General</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.general.title") }}</h3>
                             <p class="text-sm text-muted-foreground mb-4">
-                                Basic application settings.
+                                {{ t("common.settings.general.description") }}
                             </p>
 
                             <div class="space-y-4">
@@ -86,23 +86,75 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Data Editor Language
+                                        {{ t("common.settings.general.languageLabel") }}
                                     </label>
                                     <p class="text-xs text-muted-foreground">
-                                        Select the language for the data editor
-                                        interface.
+                                        {{ t("common.settings.general.languageDescription") }}
                                     </p>
-                                    <select
-                                        v-model="settings.general.language"
-                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                                    >
-                                        <option value="en">
-                                            English (Default)
-                                        </option>
-                                        <option value="th">
-                                            Thai (Coming Soon)
-                                        </option>
-                                    </select>
+                                    <div class="relative max-w-sm">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('language', element)"
+                                            id="settings-language"
+                                            type="button"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'language' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('language', localeSelectOptions, settings.general.language)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'language', localeSelectOptions, settings.general.language)"
+                                        >
+                                            <span>{{ getSettingsDropdownLabel(localeSelectOptions, settings.general.language) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'language' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'language'"
+                                            :ref="(element) => setSettingsDropdownMenuRef('language', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-language"
+                                            :class="settingsListboxMenuClass"
+                                        >
+                                            <button
+                                                v-for="(option, index) in localeSelectOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="settings.general.language === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    settings.general.language === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('language', option.value, (value) => { settings.general.language = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'language', localeSelectOptions, (value) => { settings.general.language = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="settings.general.language === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div
@@ -111,7 +163,7 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Safe Mode
+                                        {{ t("common.settings.general.safeModeLabel") }}
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <button
@@ -145,16 +197,14 @@
                                         </button>
                                         <span
                                             class="text-sm text-muted-foreground"
-                                            >Warn before executing UPDATE or
-                                            DELETE queries without a WHERE
-                                            clause</span
+                                            >{{ t("common.settings.general.safeModeDescription") }}</span
                                         >
                                     </div>
                                 </div>
 
                                 <div class="grid gap-2 pt-4 border-t border-border">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Query History
+                                        {{ t("common.settings.general.queryHistoryLabel") }}
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <button
@@ -171,33 +221,87 @@
                                             >
                                             </span>
                                         </button>
-                                        <span class="text-sm text-muted-foreground">Save executed SQL statements to local query history</span>
+                                        <span class="text-sm text-muted-foreground">{{ t("common.settings.general.queryHistoryDescription") }}</span>
                                     </div>
                                 </div>
 
                                 <div class="grid gap-2">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Query History Retention
+                                        {{ t("common.settings.general.queryHistoryRetentionLabel") }}
                                     </label>
                                     <p class="text-xs text-muted-foreground">
-                                        Automatically remove non-favorite history older than this period.
+                                        {{ t("common.settings.general.queryHistoryRetentionDescription") }}
                                     </p>
-                                    <select
-                                        v-model.number="settings.general.queryHistoryRetentionDays"
-                                        :disabled="!settings.general.enableQueryHistory"
-                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                                    >
-                                        <option :value="7">7 days</option>
-                                        <option :value="30">30 days</option>
-                                        <option :value="90">90 days</option>
-                                        <option :value="180">180 days</option>
-                                        <option :value="365">365 days</option>
-                                    </select>
+                                    <div class="relative max-w-sm">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('query-history-retention', element)"
+                                            id="settings-query-history-retention"
+                                            type="button"
+                                            :disabled="!settings.general.enableQueryHistory"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'query-history-retention' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('query-history-retention', queryHistoryRetentionOptions, settings.general.queryHistoryRetentionDays, !settings.general.enableQueryHistory)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'query-history-retention', queryHistoryRetentionOptions, settings.general.queryHistoryRetentionDays, !settings.general.enableQueryHistory)"
+                                        >
+                                            <span>{{ getSettingsDropdownLabel(queryHistoryRetentionOptions, settings.general.queryHistoryRetentionDays) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'query-history-retention' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'query-history-retention' && settings.general.enableQueryHistory"
+                                            :ref="(element) => setSettingsDropdownMenuRef('query-history-retention', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-query-history-retention"
+                                            :class="settingsListboxMenuClass"
+                                        >
+                                            <button
+                                                v-for="(option, index) in queryHistoryRetentionOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="settings.general.queryHistoryRetentionDays === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    settings.general.queryHistoryRetentionDays === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('query-history-retention', option.value, (value) => { settings.general.queryHistoryRetentionDays = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'query-history-retention', queryHistoryRetentionOptions, (value) => { settings.general.queryHistoryRetentionDays = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="settings.general.queryHistoryRetentionDays === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="grid gap-2 pt-4 border-t border-border">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Workspace Session Persistence
+                                        {{ t("common.settings.general.workspacePersistenceLabel") }}
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <button
@@ -214,16 +318,16 @@
                                             >
                                             </span>
                                         </button>
-                                        <span class="text-sm text-muted-foreground">Restore open SQL tabs and editor contents after restarting the app</span>
+                                        <span class="text-sm text-muted-foreground">{{ t("common.settings.general.workspacePersistenceDescription") }}</span>
                                     </div>
                                 </div>
 
                                 <div class="grid gap-2">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Encrypt Local Persisted Data
+                                        {{ t("common.settings.general.encryptLocalDataLabel") }}
                                     </label>
                                     <p class="text-xs text-muted-foreground">
-                                        Encrypt saved query history and workspace state at rest using a key stored in your OS secure keychain.
+                                        {{ t("common.settings.general.encryptLocalDataDescription") }}
                                     </p>
                                     <div class="flex items-center space-x-2">
                                         <button
@@ -240,33 +344,7 @@
                                             >
                                             </span>
                                         </button>
-                                        <span class="text-sm text-muted-foreground">Protect local history and session data stored on this device</span>
-                                    </div>
-                                </div>
-
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Trust SQL Server Certificates By Default
-                                    </label>
-                                    <p class="text-xs text-muted-foreground">
-                                        New SQL Server connections will trust server certificates automatically, which is friendlier for self-signed or private-CA environments.
-                                    </p>
-                                    <div class="flex items-center space-x-2">
-                                        <button
-                                            type="button"
-                                            role="switch"
-                                            :aria-checked="settings.general.trustSqlServerCertificateByDefault"
-                                            @click="settings.general.trustSqlServerCertificateByDefault = !settings.general.trustSqlServerCertificateByDefault"
-                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
-                                            :class="settings.general.trustSqlServerCertificateByDefault ? 'bg-primary' : 'bg-input'"
-                                        >
-                                            <span
-                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
-                                                :class="settings.general.trustSqlServerCertificateByDefault ? 'translate-x-5' : 'translate-x-0'"
-                                            >
-                                            </span>
-                                        </button>
-                                        <span class="text-sm text-muted-foreground">Skip certificate-chain verification for new SQL Server connections unless disabled per connection</span>
+                                        <span class="text-sm text-muted-foreground">{{ t("common.settings.general.encryptLocalDataHelp") }}</span>
                                     </div>
                                 </div>
 
@@ -295,12 +373,57 @@
                         </div>
                     </div>
 
+                    <!-- SQL Server Tab -->
+                    <div
+                        v-if="props.showSqlServerSettings && activeTab === 'sql-server'"
+                        class="space-y-6"
+                    >
+                        <div>
+                            <h3 class="text-lg font-medium">
+                                {{ t("common.settings.tabs.sqlServer") }}
+                            </h3>
+                            <p class="text-sm text-muted-foreground mb-4">
+                                {{ t("common.settings.sqlServer.description") }}
+                            </p>
+
+                            <div class="space-y-4">
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        {{ t("common.settings.sqlServer.trustCertificateLabel") }}
+                                    </label>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ t("common.settings.sqlServer.trustCertificateDescription") }}
+                                    </p>
+                                    <div class="flex items-center space-x-2">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            :aria-checked="settings.general.trustSqlServerCertificateByDefault"
+                                            @click="settings.general.trustSqlServerCertificateByDefault = !settings.general.trustSqlServerCertificateByDefault"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.trustSqlServerCertificateByDefault ? 'bg-primary' : 'bg-input'"
+                                        >
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.trustSqlServerCertificateByDefault ? 'translate-x-5' : 'translate-x-0'"
+                                            >
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">
+                                            {{ t("common.settings.sqlServer.trustCertificateHelp") }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Keybindings Tab -->
                     <div v-if="activeTab === 'keybindings'" class="space-y-6">
                         <div>
-                            <h3 class="text-lg font-medium">Keybindings</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.tabs.keybindings") }}</h3>
                             <p class="text-sm text-muted-foreground mb-4">
-                                System shortcuts are fixed and cannot be edited.
+                                {{ t("common.settings.keybindings.description") }}
                             </p>
 
                             <div class="space-y-4">
@@ -349,9 +472,9 @@
                     <!-- Appearance Tab -->
                     <div v-if="activeTab === 'appearance'" class="space-y-6">
                         <div>
-                            <h3 class="text-lg font-medium">Appearance</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.tabs.appearance") }}</h3>
                             <p class="text-sm text-muted-foreground mb-4">
-                                Customize the look and feel of QuraMate.
+                                {{ t("common.settings.appearance.description") }}
                             </p>
 
                             <div class="space-y-4">
@@ -359,7 +482,7 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Theme
+                                        {{ t("common.settings.appearance.themeLabel") }}
                                     </label>
                                     <div class="flex flex-wrap gap-2 pt-2">
                                         <button
@@ -393,7 +516,7 @@
                                                 <path d="m6.34 17.66-1.41 1.41" />
                                                 <path d="m19.07 4.93-1.41 1.41" />
                                             </svg>
-                                            <span>Light</span>
+                                            <span>{{ t("common.settings.appearance.themeOptions.light") }}</span>
                                         </button>
 
                                         <button
@@ -421,7 +544,7 @@
                                                     d="M12 3a6 6 0 1 0 9 9 9 9 0 1 1-9-9"
                                                 />
                                             </svg>
-                                            <span>Dark</span>
+                                            <span>{{ t("common.settings.appearance.themeOptions.dark") }}</span>
                                         </button>
 
                                         <button
@@ -455,7 +578,7 @@
                                                 <path d="M8 20h8" />
                                                 <path d="M12 16v4" />
                                             </svg>
-                                            <span>System</span>
+                                            <span>{{ t("common.settings.appearance.themeOptions.system") }}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -464,11 +587,10 @@
                                     <label
                                         class="text-sm font-medium leading-none"
                                     >
-                                        Use pointer cursors
+                                        {{ t("common.settings.appearance.usePointerCursorsLabel") }}
                                     </label>
                                     <p class="text-xs text-muted-foreground">
-                                        Change the cursor to a pointer when
-                                        hovering over interactive elements.
+                                        {{ t("common.settings.appearance.usePointerCursorsDescription") }}
                                     </p>
                                     <div class="flex items-center space-x-2">
                                         <button
@@ -510,28 +632,72 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        App Font
+                                        {{ t("common.settings.appearance.appFontLabel") }}
                                     </label>
-                                    <select
-                                        v-model="settings.appearance.appFont"
-                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                                    >
-                                        <option value="system-ui, sans-serif">
-                                            System UI (Default)
-                                        </option>
-                                        <option value="'Sarabun', sans-serif">
-                                            Sarabun
-                                        </option>
-                                        <option value="'Inter', sans-serif">
-                                            Inter
-                                        </option>
-                                        <option value="'Roboto', sans-serif">
-                                            Roboto
-                                        </option>
-                                        <option value="'Open Sans', sans-serif">
-                                            Open Sans
-                                        </option>
-                                    </select>
+                                    <div class="relative max-w-sm">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('app-font', element)"
+                                            id="settings-app-font"
+                                            type="button"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'app-font' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('app-font', appFontOptions, settings.appearance.appFont)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'app-font', appFontOptions, settings.appearance.appFont)"
+                                        >
+                                            <span>{{ getSettingsDropdownLabel(appFontOptions, settings.appearance.appFont) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'app-font' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'app-font'"
+                                            :ref="(element) => setSettingsDropdownMenuRef('app-font', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-app-font"
+                                            :class="settingsListboxMenuClass"
+                                        >
+                                            <button
+                                                v-for="(option, index) in appFontOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="settings.appearance.appFont === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    settings.appearance.appFont === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('app-font', option.value, (value) => { settings.appearance.appFont = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'app-font', appFontOptions, (value) => { settings.appearance.appFont = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="settings.appearance.appFont === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -540,9 +706,9 @@
                     <!-- SQL Editor Tab -->
                     <div v-if="activeTab === 'editor'" class="space-y-6">
                         <div>
-                            <h3 class="text-lg font-medium">SQL Editor</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.tabs.editor") }}</h3>
                             <p class="text-sm text-muted-foreground mb-4">
-                                Configure the SQL query editor environment.
+                                {{ t("common.settings.editor.description") }}
                             </p>
 
                             <div class="space-y-4">
@@ -550,39 +716,79 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Font Family
+                                        {{ t("common.settings.editor.fontFamilyLabel") }}
                                     </label>
-                                    <select
-                                        v-model="settings.editor.fontFamily"
-                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                                    >
-                                        <option
-                                            value="'JetBrains Mono', monospace"
+                                    <div class="relative max-w-sm">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('editor-font-family', element)"
+                                            id="settings-editor-font-family"
+                                            type="button"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'editor-font-family' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('editor-font-family', editorFontFamilyOptions, settings.editor.fontFamily)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'editor-font-family', editorFontFamilyOptions, settings.editor.fontFamily)"
                                         >
-                                            JetBrains Mono
-                                        </option>
-                                        <option value="'Fira Code', monospace">
-                                            Fira Code
-                                        </option>
-                                        <option
-                                            value="'Cascadia Code', monospace"
+                                            <span>{{ getSettingsDropdownLabel(editorFontFamilyOptions, settings.editor.fontFamily) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'editor-font-family' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'editor-font-family'"
+                                            :ref="(element) => setSettingsDropdownMenuRef('editor-font-family', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-editor-font-family"
+                                            :class="settingsListboxMenuClass"
                                         >
-                                            Cascadia Code
-                                        </option>
-                                        <option value="Consolas, monospace">
-                                            Consolas
-                                        </option>
-                                        <option value="Courier New, monospace">
-                                            Courier New
-                                        </option>
-                                    </select>
+                                            <button
+                                                v-for="(option, index) in editorFontFamilyOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="settings.editor.fontFamily === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    settings.editor.fontFamily === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('editor-font-family', option.value, (value) => { settings.editor.fontFamily = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'editor-font-family', editorFontFamilyOptions, (value) => { settings.editor.fontFamily = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="settings.editor.fontFamily === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="grid gap-2">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Font Size
+                                        {{ t("common.settings.editor.fontSizeLabel") }}
                                     </label>
                                     <div
                                         class="flex items-center gap-4 max-w-sm"
@@ -610,7 +816,7 @@
                                     <div
                                         class="bg-muted px-3 py-1.5 border-b border-border text-xs font-medium text-muted-foreground"
                                     >
-                                        Preview
+                                        {{ t("common.settings.editor.previewLabel") }}
                                     </div>
                                     <div
                                         class="p-4 bg-[var(--vscode-editor-background,#1e1e1e)] overflow-hidden"
@@ -640,11 +846,10 @@
                     <div v-if="activeTab === 'ai'" class="space-y-6">
                         <div>
                             <h3 class="text-lg font-medium">
-                                Artificial Intelligence
+                                {{ t("common.settings.tabs.ai") }}
                             </h3>
                             <p class="text-sm text-muted-foreground mb-4">
-                                Configure AI providers for QuraMate's smart
-                                features.
+                                {{ t("common.settings.ai.description") }}
                             </p>
 
                             <div
@@ -662,14 +867,12 @@
                                         d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z"
                                     />
                                 </svg>
-                                <span class="sr-only">Info</span>
+                                <span class="sr-only">{{ t("common.settings.ai.info") }}</span>
                                 <div>
                                     <span class="font-medium"
-                                        >Coming Soon!</span
+                                        >{{ t("common.settings.ai.comingSoonTitle") }}</span
                                     >
-                                    AI features are currently in development.
-                                    You can save your keys now for when the
-                                    feature goes live.
+                                    {{ t("common.settings.ai.comingSoonDescription") }}
                                 </div>
                             </div>
 
@@ -678,20 +881,72 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        AI Provider
+                                        {{ t("common.settings.ai.providerLabel") }}
                                     </label>
-                                    <select
-                                        v-model="settings.ai.provider"
-                                        class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-sm"
-                                    >
-                                        <option
-                                            v-for="provider in aiProviders"
-                                            :key="provider.value"
-                                            :value="provider.value"
+                                    <div class="relative max-w-sm">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('ai-provider', element)"
+                                            id="settings-ai-provider"
+                                            type="button"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'ai-provider' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('ai-provider', aiProviderOptions, settings.ai.provider)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'ai-provider', aiProviderOptions, settings.ai.provider)"
                                         >
-                                            {{ provider.label }}
-                                        </option>
-                                    </select>
+                                            <span>{{ getSettingsDropdownLabel(aiProviderOptions, settings.ai.provider) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'ai-provider' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'ai-provider'"
+                                            :ref="(element) => setSettingsDropdownMenuRef('ai-provider', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-ai-provider"
+                                            :class="settingsListboxMenuClass"
+                                        >
+                                            <button
+                                                v-for="(option, index) in aiProviderOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="settings.ai.provider === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    settings.ai.provider === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('ai-provider', option.value, (value) => { settings.ai.provider = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'ai-provider', aiProviderOptions, (value) => { settings.ai.provider = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="settings.ai.provider === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="grid gap-2">
@@ -797,23 +1052,70 @@
                                     >
                                         Model
                                     </label>
-                                    <select
-                                        v-model="selectedProviderModelOption"
-                                        class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        <option
-                                            v-for="model in currentProviderModelOptions"
-                                            :key="model"
-                                            :value="model"
+                                    <div class="relative max-w-xl">
+                                        <button
+                                            :ref="(element) => setSettingsDropdownButtonRef('ai-model', element)"
+                                            id="settings-ai-model"
+                                            type="button"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="openSettingsDropdownId === 'ai-model' ? 'true' : 'false'"
+                                            :class="settingsListboxTriggerClass"
+                                            @click="toggleSettingsDropdown('ai-model', providerModelSelectOptions, selectedProviderModelOption)"
+                                            @keydown="handleSettingsDropdownTriggerKeydown($event, 'ai-model', providerModelSelectOptions, selectedProviderModelOption)"
                                         >
-                                            {{ model }}
-                                        </option>
-                                        <option
-                                            :value="CUSTOM_MODEL_OPTION_VALUE"
+                                            <span>{{ getSettingsDropdownLabel(providerModelSelectOptions, selectedProviderModelOption) }}</span>
+                                            <svg class="h-4 w-4 text-muted-foreground transition-transform duration-150"
+                                                :class="openSettingsDropdownId === 'ai-model' ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                                                aria-hidden="true">
+                                                <path fill-rule="evenodd"
+                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            v-if="openSettingsDropdownId === 'ai-model'"
+                                            :ref="(element) => setSettingsDropdownMenuRef('ai-model', element)"
+                                            role="listbox"
+                                            aria-labelledby="settings-ai-model"
+                                            :class="settingsListboxMenuClass"
                                         >
-                                            Custom model...
-                                        </option>
-                                    </select>
+                                            <button
+                                                v-for="(option, index) in providerModelSelectOptions"
+                                                :key="option.value"
+                                                type="button"
+                                                data-settings-option
+                                                role="option"
+                                                :tabindex="highlightedSettingsDropdownIndex === index ? 0 : -1"
+                                                :aria-selected="selectedProviderModelOption === option.value ? 'true' : 'false'"
+                                                :class="[
+                                                    settingsListboxOptionClass,
+                                                    highlightedSettingsDropdownIndex === index ? 'bg-accent/50 text-accent-foreground' : '',
+                                                    selectedProviderModelOption === option.value ? 'bg-accent/70 text-accent-foreground' : '',
+                                                ]"
+                                                @click="selectSettingsDropdownOption('ai-model', option.value, (value) => { selectedProviderModelOption = value; })"
+                                                @focus="highlightedSettingsDropdownIndex = index"
+                                                @keydown="handleSettingsDropdownOptionKeydown($event, 'ai-model', providerModelSelectOptions, (value) => { selectedProviderModelOption = value; })"
+                                            >
+                                                <span>{{ option.label }}</span>
+                                                <svg
+                                                    v-if="selectedProviderModelOption === option.value"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="14"
+                                                    height="14"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="lucide lucide-check"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                     <input
                                         v-if="
                                             selectedProviderModelOption ===
@@ -989,16 +1291,16 @@
                     >
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="text-lg font-medium">System Logs</h3>
+                                <h3 class="text-lg font-medium">{{ t("common.settings.tabs.logs") }}</h3>
                                 <p class="text-sm text-muted-foreground">
-                                    Monitor application events and errors.
+                                    {{ t("common.settings.logs.description") }}
                                 </p>
                             </div>
                             <button
                                 @click="clearLogs"
                                 class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
                             >
-                                Clear Logs
+                                {{ t("common.settings.logs.clear") }}
                             </button>
                         </div>
 
@@ -1012,7 +1314,7 @@
                                     v-if="appLogs.length === 0"
                                     class="text-center text-muted-foreground py-4"
                                 >
-                                    No logs recorded yet.
+                                    {{ t("common.settings.logs.empty") }}
                                 </div>
                                 <div
                                     v-for="(log, i) in appLogs"
@@ -1049,10 +1351,9 @@
                         class="space-y-6 flex flex-col h-full"
                     >
                         <div>
-                            <h3 class="text-lg font-medium">Changelogs</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.tabs.changelogs") }}</h3>
                             <p class="text-sm text-muted-foreground">
-                                Keep track of new features, improvements, and
-                                bug fixes.
+                                {{ t("common.settings.changelogs.description") }}
                             </p>
                         </div>
 
@@ -1137,9 +1438,9 @@
                     <!-- Info Tab -->
                     <div v-if="activeTab === 'info'" class="space-y-6">
                         <div>
-                            <h3 class="text-lg font-medium">About QuraMate</h3>
+                            <h3 class="text-lg font-medium">{{ t("common.settings.tabs.info") }}</h3>
                             <p class="text-sm text-muted-foreground mb-6">
-                                System information and credits.
+                                {{ t("common.settings.info.description") }}
                             </p>
 
                             <div
@@ -1305,13 +1606,13 @@
                         @click="close"
                         class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
                     >
-                        Cancel
+                        {{ t("common.cancel") }}
                     </button>
                     <button
                         @click="save"
                         class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                     >
-                        Save Changes
+                        {{ t("common.save") }}
                     </button>
                 </div>
             </div>
@@ -1321,7 +1622,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, h, onMounted, watch, computed } from "vue";
+import {
+    ref,
+    reactive,
+    h,
+    onMounted,
+    onBeforeUnmount,
+    watch,
+    computed,
+    nextTick,
+} from "vue";
+import { useI18n } from "vue-i18n";
 import {
     GetAppLogs,
     ClearAppLogs,
@@ -1345,29 +1656,48 @@ import { completeWithProvider } from "../lib/ai/client";
 import {
     DEFAULT_GRID_SCREENSHOT_SHORTCUT,
 } from "../composables/useResultGridScreenshot";
+import { localeOptions, setAppLocale } from "../i18n";
 
 const props = defineProps({
     isOpen: {
         type: Boolean,
         default: false,
     },
+    showSqlServerSettings: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const emit = defineEmits(["close", "save"]);
+const { t } = useI18n({ useScope: "global" });
 const toastRef = ref(null);
 const loadedLocalDataEncryptionEnabled = ref(false);
+const settingsDropdownMenuRefs = new Map();
+const settingsDropdownButtonRefs = new Map();
+const openSettingsDropdownId = ref(null);
+const highlightedSettingsDropdownIndex = ref(-1);
 
 // Tabs configuration
-const tabs = [
-    { id: "general", label: "General", icon: "Settings" },
-    { id: "keybindings", label: "Keybindings", icon: "Keyboard" },
-    { id: "appearance", label: "Appearance", icon: "Palette" },
-    { id: "editor", label: "SQL Editor", icon: "Type" },
-    { id: "ai", label: "AI Provider", icon: "Bot" },
-    { id: "changelogs", label: "Changelogs", icon: "History" },
-    { id: "logs", label: "System Logs", icon: "Terminal" },
-    { id: "info", label: "About", icon: "Info" },
-];
+const tabs = computed(() => [
+    { id: "general", label: t("common.settings.tabs.general"), icon: "Settings" },
+    ...(props.showSqlServerSettings
+        ? [
+              {
+                  id: "sql-server",
+                  label: t("common.settings.tabs.sqlServer"),
+                  icon: "Database",
+              },
+          ]
+        : []),
+    { id: "keybindings", label: t("common.settings.tabs.keybindings"), icon: "Keyboard" },
+    { id: "appearance", label: t("common.settings.tabs.appearance"), icon: "Palette" },
+    { id: "editor", label: t("common.settings.tabs.editor"), icon: "Type" },
+    { id: "ai", label: t("common.settings.tabs.ai"), icon: "Bot" },
+    { id: "changelogs", label: t("common.settings.tabs.changelogs"), icon: "History" },
+    { id: "logs", label: t("common.settings.tabs.logs"), icon: "Terminal" },
+    { id: "info", label: t("common.settings.tabs.info"), icon: "Info" },
+]);
 
 const activeTab = ref("general");
 const showAiKey = ref(false);
@@ -1416,107 +1746,102 @@ const formatShortcutForPlatform = (shortcut) => {
     return String(shortcut || "").replace(/\bCtrl\b/g, platformModifierLabel);
 };
 
-const keybindingGroupsBase = [
-    {
-        id: "query-editor",
-        label: "Query Editor & Tabs",
-        items: [
-            {
-                action: "Run query",
-                key: "Ctrl+Enter",
-                description: "Execute SQL in the active query tab.",
-            },
-            {
-                action: "Save query",
-                key: "Ctrl+S",
-                description: "Save the current query to file.",
-            },
-            {
-                action: "Save query as",
-                key: "Ctrl+Shift+S",
-                description: "Save the current query as a new file.",
-            },
-            {
-                action: "Open new query tab",
-                key: "Ctrl+N",
-                description: "Create a new SQL tab.",
-            },
-            {
-                action: "Close active query tab",
-                key: "Ctrl+W",
-                description: "Close the current SQL tab.",
-            },
-            {
-                action: "Beautify SQL",
-                key: "Alt+Shift+F",
-                description: "Format SQL in the active editor.",
-            },
-            {
-                action: "Open table design",
-                key: "Ctrl+D",
-                description: "Open designer for the current table tab.",
-            },
-        ],
-    },
-    {
-        id: "refresh",
-        label: "Refresh",
-        items: [
-            {
-                action: "Refresh current context",
-                key: "F5",
-                description: "Reload current data context.",
-            },
-            {
-                action: "Refresh current context",
-                key: "Ctrl+R",
-                description: "Reload current data context.",
-            },
-            {
-                action: "Refresh database tree",
-                key: "Ctrl+Shift+R",
-                description: "Reload tables, views, and routines.",
-            },
-        ],
-    },
-    {
-        id: "result-grid",
-        label: "Result Grid",
-        items: [
-            {
-                action: "Screenshot result grid",
-                key: DEFAULT_GRID_SCREENSHOT_SHORTCUT,
-                description:
-                    "Capture result grid as image with table name and timestamp.",
-            },
-            {
-                action: "Copy selected cell/row(s)",
-                key: "Ctrl+C",
-                description:
-                    "Copy selected data while focus is in query results.",
-            },
-            {
-                action: "Paste rows into table",
-                key: "Ctrl+V",
-                description:
-                    "Paste tabular clipboard data into editable table results.",
-            },
-            {
-                action: "Save editing cell",
-                key: "Enter",
-                description: "Commit inline cell edit.",
-            },
-            {
-                action: "Cancel editing cell",
-                key: "Esc",
-                description: "Cancel inline cell edit.",
-            },
-        ],
-    },
-];
-
 const keybindingGroups = computed(() => {
-    return keybindingGroupsBase.map((group) => ({
+    return [
+        {
+            id: "query-editor",
+            label: t("common.settings.keybindings.groups.queryEditorTabs"),
+            items: [
+                {
+                    action: t("common.settings.keybindings.actions.runQuery.label"),
+                    key: "Ctrl+Enter",
+                    description: t("common.settings.keybindings.actions.runQuery.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.saveQuery.label"),
+                    key: "Ctrl+S",
+                    description: t("common.settings.keybindings.actions.saveQuery.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.saveQueryAs.label"),
+                    key: "Ctrl+Shift+S",
+                    description: t("common.settings.keybindings.actions.saveQueryAs.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.openNewQueryTab.label"),
+                    key: "Ctrl+N",
+                    description: t("common.settings.keybindings.actions.openNewQueryTab.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.closeActiveQueryTab.label"),
+                    key: "Ctrl+W",
+                    description: t("common.settings.keybindings.actions.closeActiveQueryTab.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.beautifySql.label"),
+                    key: "Alt+Shift+F",
+                    description: t("common.settings.keybindings.actions.beautifySql.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.openTableDesign.label"),
+                    key: "Ctrl+D",
+                    description: t("common.settings.keybindings.actions.openTableDesign.description"),
+                },
+            ],
+        },
+        {
+            id: "refresh",
+            label: t("common.settings.keybindings.groups.refresh"),
+            items: [
+                {
+                    action: t("common.settings.keybindings.actions.refreshCurrentContext.label"),
+                    key: "F5",
+                    description: t("common.settings.keybindings.actions.refreshCurrentContext.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.refreshCurrentContext.label"),
+                    key: "Ctrl+R",
+                    description: t("common.settings.keybindings.actions.refreshCurrentContext.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.refreshDatabaseTree.label"),
+                    key: "Ctrl+Shift+R",
+                    description: t("common.settings.keybindings.actions.refreshDatabaseTree.description"),
+                },
+            ],
+        },
+        {
+            id: "result-grid",
+            label: t("common.settings.keybindings.groups.resultGrid"),
+            items: [
+                {
+                    action: t("common.settings.keybindings.actions.screenshotResultGrid.label"),
+                    key: DEFAULT_GRID_SCREENSHOT_SHORTCUT,
+                    description: t("common.settings.keybindings.actions.screenshotResultGrid.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.copySelectedCells.label"),
+                    key: "Ctrl+C",
+                    description: t("common.settings.keybindings.actions.copySelectedCells.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.pasteRowsIntoTable.label"),
+                    key: "Ctrl+V",
+                    description: t("common.settings.keybindings.actions.pasteRowsIntoTable.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.saveEditingCell.label"),
+                    key: "Enter",
+                    description: t("common.settings.keybindings.actions.saveEditingCell.description"),
+                },
+                {
+                    action: t("common.settings.keybindings.actions.cancelEditingCell.label"),
+                    key: "Esc",
+                    description: t("common.settings.keybindings.actions.cancelEditingCell.description"),
+                },
+            ],
+        },
+    ].map((group) => ({
         ...group,
         items: group.items.map((item) => ({
             ...item,
@@ -1524,6 +1849,54 @@ const keybindingGroups = computed(() => {
         })),
     }));
 });
+
+const settingsListboxTriggerClass =
+    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent/40";
+const settingsListboxMenuClass =
+    "absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-popover/95 py-1 text-popover-foreground shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100";
+const settingsListboxOptionClass =
+    "flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground";
+
+const localeSelectOptions = computed(() =>
+    localeOptions.map((option) => ({
+        value: option.value,
+        label: t(option.labelKey),
+    })),
+);
+
+const queryHistoryRetentionOptions = computed(() => [
+    { value: 7, label: t("common.settings.general.queryHistoryRetentionDays.7") },
+    { value: 30, label: t("common.settings.general.queryHistoryRetentionDays.30") },
+    { value: 90, label: t("common.settings.general.queryHistoryRetentionDays.90") },
+    { value: 180, label: t("common.settings.general.queryHistoryRetentionDays.180") },
+    { value: 365, label: t("common.settings.general.queryHistoryRetentionDays.365") },
+]);
+
+const appFontOptions = computed(() => [
+    {
+        value: "system-ui, sans-serif",
+        label: t("common.settings.appearance.appFontSystemDefault"),
+    },
+    { value: "'Sarabun', sans-serif", label: "Sarabun" },
+    { value: "'Inter', sans-serif", label: "Inter" },
+    { value: "'Roboto', sans-serif", label: "Roboto" },
+    { value: "'Open Sans', sans-serif", label: "Open Sans" },
+]);
+
+const editorFontFamilyOptions = computed(() => [
+    { value: "'JetBrains Mono', monospace", label: "JetBrains Mono" },
+    { value: "'Fira Code', monospace", label: "Fira Code" },
+    { value: "'Cascadia Code', monospace", label: "Cascadia Code" },
+    { value: "Consolas, monospace", label: "Consolas" },
+    { value: "Courier New, monospace", label: "Courier New" },
+]);
+
+const aiProviderOptions = computed(() =>
+    aiProviders.map((provider) => ({
+        value: provider.value,
+        label: provider.label,
+    })),
+);
 
 const fetchLogs = async () => {
     try {
@@ -1549,6 +1922,15 @@ watch(activeTab, (newTab) => {
         fetchLogs();
     }
 });
+
+watch(
+    () => props.showSqlServerSettings,
+    (showSqlServerSettings) => {
+        if (!showSqlServerSettings && activeTab.value === "sql-server") {
+            activeTab.value = "general";
+        }
+    },
+);
 
 const expandedVersion = ref(null);
 
@@ -1826,6 +2208,201 @@ const selectedProviderModelOption = computed({
     },
 });
 
+const providerModelSelectOptions = computed(() => [
+    ...currentProviderModelOptions.value.map((model) => ({
+        value: model,
+        label: model,
+    })),
+    {
+        value: CUSTOM_MODEL_OPTION_VALUE,
+        label: "Custom model...",
+    },
+]);
+
+const getSettingsDropdownLabel = (options, value) => {
+    return (
+        options.find((option) => option.value === value)?.label ??
+        options[0]?.label ??
+        ""
+    );
+};
+
+const setSettingsDropdownMenuRef = (dropdownId, element) => {
+    if (element) {
+        settingsDropdownMenuRefs.set(dropdownId, element);
+        return;
+    }
+    settingsDropdownMenuRefs.delete(dropdownId);
+};
+
+const setSettingsDropdownButtonRef = (dropdownId, element) => {
+    if (element) {
+        settingsDropdownButtonRefs.set(dropdownId, element);
+        return;
+    }
+    settingsDropdownButtonRefs.delete(dropdownId);
+};
+
+const focusHighlightedSettingsOption = async (dropdownId) => {
+    await nextTick();
+    const menuElement = settingsDropdownMenuRefs.get(dropdownId);
+    const optionElements = menuElement?.querySelectorAll("[data-settings-option]");
+    const optionElement = optionElements?.[highlightedSettingsDropdownIndex.value];
+    optionElement?.focus();
+};
+
+const openSettingsDropdown = async (dropdownId, options, currentValue) => {
+    openSettingsDropdownId.value = dropdownId;
+    const selectedIndex = options.findIndex(
+        (option) => option.value === currentValue,
+    );
+    highlightedSettingsDropdownIndex.value =
+        selectedIndex >= 0 ? selectedIndex : 0;
+    await focusHighlightedSettingsOption(dropdownId);
+};
+
+const closeSettingsDropdown = () => {
+    openSettingsDropdownId.value = null;
+    highlightedSettingsDropdownIndex.value = -1;
+};
+
+const toggleSettingsDropdown = async (
+    dropdownId,
+    options,
+    currentValue,
+    disabled = false,
+) => {
+    if (disabled) {
+        return;
+    }
+    if (openSettingsDropdownId.value === dropdownId) {
+        closeSettingsDropdown();
+        return;
+    }
+    await openSettingsDropdown(dropdownId, options, currentValue);
+};
+
+const moveSettingsDropdownHighlight = async (dropdownId, options, direction) => {
+    if (!options.length) {
+        return;
+    }
+    if (highlightedSettingsDropdownIndex.value < 0) {
+        highlightedSettingsDropdownIndex.value = 0;
+    } else {
+        highlightedSettingsDropdownIndex.value =
+            (highlightedSettingsDropdownIndex.value + direction + options.length) %
+            options.length;
+    }
+    await focusHighlightedSettingsOption(dropdownId);
+};
+
+const selectSettingsDropdownOption = (
+    dropdownId,
+    value,
+    assignValue,
+) => {
+    assignValue(value);
+    closeSettingsDropdown();
+    nextTick(() => {
+        settingsDropdownButtonRefs.get(dropdownId)?.focus();
+    });
+};
+
+const handleSettingsDropdownTriggerKeydown = async (
+    event,
+    dropdownId,
+    options,
+    currentValue,
+    disabled = false,
+) => {
+    if (disabled) {
+        return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (openSettingsDropdownId.value !== dropdownId) {
+            await openSettingsDropdown(dropdownId, options, currentValue);
+            if (event.key === "ArrowUp" && options.length > 0) {
+                highlightedSettingsDropdownIndex.value = options.length - 1;
+                await focusHighlightedSettingsOption(dropdownId);
+            }
+            return;
+        }
+        await moveSettingsDropdownHighlight(
+            dropdownId,
+            options,
+            event.key === "ArrowDown" ? 1 : -1,
+        );
+        return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        await toggleSettingsDropdown(dropdownId, options, currentValue, disabled);
+        return;
+    }
+
+    if (event.key === "Escape" && openSettingsDropdownId.value === dropdownId) {
+        event.preventDefault();
+        closeSettingsDropdown();
+    }
+};
+
+const handleSettingsDropdownOptionKeydown = async (
+    event,
+    dropdownId,
+    options,
+    assignValue,
+) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        await moveSettingsDropdownHighlight(
+            dropdownId,
+            options,
+            event.key === "ArrowDown" ? 1 : -1,
+        );
+        return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const highlightedOption = options[highlightedSettingsDropdownIndex.value];
+        if (highlightedOption) {
+            selectSettingsDropdownOption(
+                dropdownId,
+                highlightedOption.value,
+                assignValue,
+            );
+        }
+        return;
+    }
+
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeSettingsDropdown();
+        nextTick(() => {
+            settingsDropdownButtonRefs.get(dropdownId)?.focus();
+        });
+    }
+};
+
+const handleSettingsDropdownDocumentClick = (event) => {
+    if (!openSettingsDropdownId.value) {
+        return;
+    }
+
+    const menuElement = settingsDropdownMenuRefs.get(openSettingsDropdownId.value);
+    const buttonElement = settingsDropdownButtonRefs.get(openSettingsDropdownId.value);
+    const target = event.target;
+
+    if (menuElement?.contains(target) || buttonElement?.contains(target)) {
+        return;
+    }
+
+    closeSettingsDropdown();
+};
+
 const currentProviderCustomModel = computed({
     get() {
         return customProviderModels[settings.ai.provider] || "";
@@ -2048,6 +2625,13 @@ onMounted(async () => {
         console.error("Failed to fetch app version:", e);
         appVersion.value = "1.1.0"; // Fallback
     }
+    document.addEventListener("click", handleSettingsDropdownDocumentClick);
+    window.addEventListener("keydown", handleEscapeKeydown);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("click", handleSettingsDropdownDocumentClick);
+    window.removeEventListener("keydown", handleEscapeKeydown);
 });
 
 watch(
@@ -2055,6 +2639,17 @@ watch(
     (newVal) => {
         if (newVal) {
             loadSettings();
+            return;
+        }
+        closeSettingsDropdown();
+    },
+);
+
+watch(
+    () => settings.general.enableQueryHistory,
+    (isEnabled) => {
+        if (!isEnabled && openSettingsDropdownId.value === "query-history-retention") {
+            closeSettingsDropdown();
         }
     },
 );
@@ -2092,13 +2687,27 @@ const save = async () => {
                 settings.general.encryptLocalPersistentData;
         }
         await SaveSetting("user_settings", JSON.stringify(settings));
-        // Also save preferred language directly if needed by other systems early
-        localStorage.setItem("language", settings.general.language); // Keep this just in case for early load fallback
-        toastRef.value?.success("Settings saved successfully!");
+        setAppLocale(settings.general.language);
+        toastRef.value?.success(t("common.settings.saveSuccess"));
         emit("save", { ...settings });
     } catch (e) {
-        toastRef.value?.error("Failed to save settings: " + e);
+        toastRef.value?.error(
+            t("common.settings.saveFailure", { error: String(e) }),
+        );
     }
+};
+
+const handleEscapeKeydown = (event) => {
+    if (event.key !== "Escape" || !props.isOpen) {
+        return;
+    }
+
+    if (openSettingsDropdownId.value) {
+        closeSettingsDropdown();
+        return;
+    }
+
+    emit("close");
 };
 
 const setTheme = (theme) => {
@@ -2264,6 +2873,23 @@ const getIcon = (name) => {
             [
                 h("polyline", { points: "4 17 10 11 4 5" }),
                 h("line", { x1: "12", x2: "20", y1: "19", y2: "19" }),
+            ],
+        ),
+        Database: h(
+            "svg",
+            {
+                xmlns: "http://www.w3.org/2000/svg",
+                viewBox: "0 0 24 24",
+                fill: "none",
+                stroke: "currentColor",
+                "stroke-width": "2",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+            },
+            [
+                h("ellipse", { cx: "12", cy: "5", rx: "9", ry: "3" }),
+                h("path", { d: "M3 5v14a9 3 0 0 0 18 0V5" }),
+                h("path", { d: "M3 12a9 3 0 0 0 18 0" }),
             ],
         ),
         Keyboard: h(

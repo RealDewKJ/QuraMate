@@ -5,8 +5,8 @@
             class="relative z-[91] w-full max-w-5xl max-h-[86vh] bg-background border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden">
             <div class="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
                 <div>
-                    <h3 class="text-base font-semibold">AI Copilot Workspace</h3>
-                    <p class="text-xs text-muted-foreground">Schema-aware assistant for SQL generation, debugging, and optimization.</p>
+                    <h3 class="text-base font-semibold">{{ t("common.aiCopilot.title") }}</h3>
+                    <p class="text-xs text-muted-foreground">{{ t("common.aiCopilot.description") }}</p>
                 </div>
                 <button @click="$emit('close')"
                     class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -72,7 +72,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AiCopilotMode, AiCopilotModeOption } from '../types/aiCopilot';
 
 const props = defineProps<{
@@ -96,6 +97,7 @@ const emit = defineEmits<{
     (e: 'update:prompt', value: string): void;
     (e: 'update:backend-language', value: string): void;
 }>();
+const { t } = useI18n({ useScope: 'global' });
 
 const selectedMode = computed({
     get: () => props.mode,
@@ -110,5 +112,19 @@ const instructionText = computed({
 const selectedBackendLanguage = computed({
     get: () => props.backendLanguage,
     set: (value: string) => emit('update:backend-language', value)
+});
+
+const handleEscapeKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && props.isOpen) {
+        emit('close');
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('keydown', handleEscapeKeydown);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleEscapeKeydown);
 });
 </script>

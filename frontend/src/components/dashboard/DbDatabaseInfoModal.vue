@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 interface DatabaseInfoShape {
     dbName?: string;
@@ -28,8 +29,9 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
     (e: 'close'): void;
 }>();
+const { t } = useI18n({ useScope: 'global' });
 
-const titleEngine = computed(() => (props.info?.engine || 'Database').toUpperCase());
+const titleEngine = computed(() => (props.info?.engine || t('common.databaseInfo.databaseFallback')).toUpperCase());
 
 const summaryRows = computed(() => {
     const fallback: Record<string, string> = {
@@ -58,7 +60,7 @@ const capabilityRows = computed(() => {
         .map(([key, value]) => ({
             key,
             label: formatLabel(key),
-            value: value ? 'Yes' : 'No',
+            value: value ? t('common.databaseInfo.yes') : t('common.databaseInfo.no'),
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
 });
@@ -82,6 +84,20 @@ function formatLabel(input: string): string {
         .trim()
         .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const handleEscapeKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && props.isOpen) {
+        emit('close');
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('keydown', handleEscapeKeydown);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleEscapeKeydown);
+});
 </script>
 
 <template>
@@ -92,7 +108,7 @@ function formatLabel(input: string): string {
         <div class="bg-card w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div>
-                    <h3 class="text-lg font-semibold text-foreground tracking-tight">Database Information</h3>
+                    <h3 class="text-lg font-semibold text-foreground tracking-tight">{{ t("common.databaseInfo.title") }}</h3>
                     <p class="text-xs text-muted-foreground mt-0.5">{{ titleEngine }} <span v-if="info?.category">• {{
                         info.category }}</span></p>
                 </div>
@@ -108,12 +124,12 @@ function formatLabel(input: string): string {
 
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-12 gap-3">
                 <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                <p class="text-sm text-muted-foreground">Loading database info...</p>
+                <p class="text-sm text-muted-foreground">{{ t("common.databaseInfo.loading") }}</p>
             </div>
 
             <div v-else-if="info" class="p-6 space-y-5 overflow-auto max-h-[calc(85vh-145px)]">
                 <section v-if="summaryRows.length" class="space-y-2">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t("common.databaseInfo.sections.summary") }}</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div v-for="item in summaryRows" :key="'summary-' + item.key" class="rounded-md border border-border p-3">
                             <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ item.label }}</p>
@@ -123,7 +139,7 @@ function formatLabel(input: string): string {
                 </section>
 
                 <section v-if="statsRows.length" class="space-y-2">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t("common.databaseInfo.sections.stats") }}</h4>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div v-for="item in statsRows" :key="'stats-' + item.key" class="rounded-md border border-border p-3">
                             <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ item.label }}</p>
@@ -133,7 +149,7 @@ function formatLabel(input: string): string {
                 </section>
 
                 <section v-if="capabilityRows.length" class="space-y-2">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Capabilities</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t("common.databaseInfo.sections.capabilities") }}</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <div v-for="item in capabilityRows" :key="'cap-' + item.key"
                             class="rounded-md border border-border px-3 py-2 flex items-center justify-between">
@@ -145,7 +161,7 @@ function formatLabel(input: string): string {
                 </section>
 
                 <section v-if="runtimeRows.length" class="space-y-2">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Runtime</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t("common.databaseInfo.sections.runtime") }}</h4>
                     <div class="space-y-2">
                         <div v-for="item in runtimeRows" :key="'runtime-' + item.key"
                             class="rounded-md border border-border px-3 py-2">
@@ -156,7 +172,7 @@ function formatLabel(input: string): string {
                 </section>
 
                 <section v-if="engineDetailRows.length" class="space-y-2">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Engine Details</h4>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t("common.databaseInfo.sections.engineDetails") }}</h4>
                     <div class="space-y-2">
                         <div v-for="item in engineDetailRows" :key="'engine-' + item.key"
                             class="rounded-md border border-border px-3 py-2">
@@ -170,7 +186,7 @@ function formatLabel(input: string): string {
             <div class="px-6 py-4 border-t border-border flex justify-end">
                 <button @click="emit('close')"
                     class="px-5 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
-                    Close
+                    {{ t("common.close") }}
                 </button>
             </div>
         </div>

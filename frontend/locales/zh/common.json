@@ -1,0 +1,232 @@
+{
+  "save": "保存",
+  "delete": "删除",
+  "cancel": "取消",
+  "close": "关闭",
+  "newConnection": "新建连接",
+  "checkForUpdates": "检查更新",
+  "errors": {
+    "unknownConnectionError": "未知连接错误",
+    "connectionFailed": "连接失败"
+  },
+  "databaseTypes": {
+    "sqlite": "SQLite"
+  },
+  "recovery": {
+    "title": "恢复上次连接",
+    "description": "选择要从上一次会话中恢复的连接。",
+    "selectAll": "全选",
+    "unselectAll": "取消全选",
+    "rememberChoice": "记住我的选择（下次自动恢复且不再询问）",
+    "skip": "跳过",
+    "recoverSelected": "恢复所选项",
+    "recoveringSelected": "正在恢复所选连接...",
+    "someFailed": "以下连接无法恢复：",
+    "candidateMeta": "{type} - {target}",
+    "failureItem": "{name}: {message}"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "管理应用偏好、外观和连接。",
+    "saveSuccess": "设置已成功保存",
+    "saveFailure": "保存设置失败：{error}",
+    "tabs": {
+      "general": "常规",
+      "keybindings": "快捷键",
+      "appearance": "外观",
+      "editor": "SQL 编辑器",
+      "ai": "AI 提供商",
+      "changelogs": "更新日志",
+      "logs": "系统日志",
+      "info": "关于",
+      "sqlServer": "SQL Server"
+    },
+    "general": {
+      "title": "常规",
+      "description": "基础应用设置。",
+      "languageLabel": "数据编辑器语言",
+      "languageDescription": "选择数据编辑器界面的显示语言。",
+      "safeModeLabel": "安全模式",
+      "safeModeDescription": "在执行没有 WHERE 子句的 UPDATE 或 DELETE 之前发出警告",
+      "queryHistoryLabel": "查询历史",
+      "queryHistoryDescription": "将执行过的 SQL 语句保存到本地查询历史中",
+      "queryHistoryRetentionLabel": "查询历史保留期限",
+      "queryHistoryRetentionDescription": "自动删除早于此期限的非收藏历史记录。",
+      "workspacePersistenceLabel": "工作区会话持久化",
+      "workspacePersistenceDescription": "重新启动应用后恢复已打开的 SQL 标签页和编辑器内容",
+      "encryptLocalDataLabel": "加密本地持久化数据",
+      "encryptLocalDataDescription": "使用操作系统安全钥匙串中的密钥对保存的查询历史和工作区状态进行静态加密。",
+      "encryptLocalDataHelp": "保护存储在此设备上的本地历史记录和会话数据",
+      "trustSqlServerCertificateLabel": "默认信任 SQL Server 证书",
+      "trustSqlServerCertificateDescription": "新的 SQL Server 连接将自动信任服务器证书，更适合自签名或私有 CA 环境。",
+      "trustSqlServerCertificateHelp": "对新的 SQL Server 连接跳过证书链验证，除非已按连接单独禁用",
+      "queryHistoryRetentionDays": {
+        "7": "7 天",
+        "30": "30 天",
+        "90": "90 天",
+        "180": "180 天",
+        "365": "365 天"
+      }
+    },
+    "keybindings": {
+      "description": "系统快捷键是固定的，无法编辑。",
+      "groups": {
+        "queryEditorTabs": "查询编辑器和标签页",
+        "refresh": "刷新",
+        "resultGrid": "结果网格"
+      },
+      "actions": {
+        "runQuery": {
+          "label": "运行查询",
+          "description": "在当前查询标签页中执行 SQL。"
+        },
+        "saveQuery": {
+          "label": "保存查询",
+          "description": "将当前查询保存到文件。"
+        },
+        "saveQueryAs": {
+          "label": "查询另存为",
+          "description": "将当前查询另存为新文件。"
+        },
+        "openNewQueryTab": {
+          "label": "打开新查询标签页",
+          "description": "创建新的 SQL 标签页。"
+        },
+        "closeActiveQueryTab": {
+          "label": "关闭当前查询标签页",
+          "description": "关闭当前 SQL 标签页。"
+        },
+        "beautifySql": {
+          "label": "美化 SQL",
+          "description": "格式化当前编辑器中的 SQL。"
+        },
+        "openTableDesign": {
+          "label": "打开表设计",
+          "description": "打开当前表标签页的设计器。"
+        },
+        "refreshCurrentContext": {
+          "label": "刷新当前上下文",
+          "description": "重新加载当前数据上下文。"
+        },
+        "refreshDatabaseTree": {
+          "label": "刷新数据库树",
+          "description": "重新加载表、视图和例程。"
+        },
+        "screenshotResultGrid": {
+          "label": "截取结果网格",
+          "description": "将结果网格连同表名和时间戳一起导出为图片。"
+        },
+        "copySelectedCells": {
+          "label": "复制所选单元格/行",
+          "description": "当焦点位于查询结果中时复制所选数据。"
+        },
+        "pasteRowsIntoTable": {
+          "label": "将行粘贴到表中",
+          "description": "将剪贴板中的表格数据粘贴到可编辑的表结果中。"
+        },
+        "saveEditingCell": {
+          "label": "保存编辑中的单元格",
+          "description": "提交单元格的内联编辑。"
+        },
+        "cancelEditingCell": {
+          "label": "取消编辑单元格",
+          "description": "取消单元格的内联编辑。"
+        }
+      }
+    },
+    "appearance": {
+      "description": "自定义 QuraMate 的外观和体验。",
+      "themeLabel": "主题",
+      "themeOptions": {
+        "light": "浅色",
+        "dark": "深色",
+        "system": "系统"
+      },
+      "usePointerCursorsLabel": "使用指针光标",
+      "usePointerCursorsDescription": "当悬停在可交互元素上时，将光标切换为指针。",
+      "appFontLabel": "应用字体",
+      "appFontSystemDefault": "System UI（默认）"
+    },
+    "editor": {
+      "description": "配置 SQL 查询编辑器环境。",
+      "fontFamilyLabel": "字体族",
+      "fontSizeLabel": "字体大小",
+      "previewLabel": "预览"
+    },
+    "ai": {
+      "description": "为 QuraMate 的智能功能配置 AI 提供商。",
+      "info": "信息",
+      "comingSoonTitle": "即将推出！",
+      "comingSoonDescription": "AI 功能仍在开发中。你现在可以先保存密钥，等待功能上线。",
+      "providerLabel": "AI 提供商"
+    },
+    "logs": {
+      "description": "监控应用事件和错误。",
+      "clear": "清除日志",
+      "empty": "尚无日志记录。"
+    },
+    "changelogs": {
+      "description": "跟踪新功能、改进和错误修复。"
+    },
+    "info": {
+      "description": "系统信息和鸣谢。"
+    },
+    "languages": {
+      "en": "English (源语言)",
+      "th": "泰语",
+      "zh": "简体中文",
+      "ja": "日语",
+      "vi": "越南语"
+    },
+    "sqlServer": {
+      "description": "Settings that apply only to SQL Server connections.",
+      "trustCertificateLabel": "默认信任 SQL Server 证书",
+      "trustCertificateDescription": "新的 SQL Server 连接将自动信任服务器证书，更适合自签名或私有 CA 环境。",
+      "trustCertificateHelp": "对新的 SQL Server 连接跳过证书链验证，除非已按连接单独禁用"
+    }
+  },
+  "savedConnections": {
+    "title": "已保存连接",
+    "description": "选择一个连接以加载其详细信息。",
+    "searchPlaceholder": "搜索连接",
+    "searchAriaLabel": "搜索已保存连接",
+    "searchHint": "使用方向键导航，按 Enter 连接，按 Delete 删除。",
+    "empty": "未找到已保存连接。",
+    "noMatches": "没有匹配的连接。",
+    "listAriaLabel": "已保存连接列表",
+    "edit": "编辑连接",
+    "delete": "删除连接",
+    "deleteConfirmTitle": "删除已保存连接？",
+    "deleteConfirmPrefix": "这将把",
+    "deleteConfirmSuffix": "从已保存连接中移除。",
+    "selectedConnectionFallback": "所选连接",
+    "deleteCancelled": "已取消删除 {label}。",
+    "noneAvailable": "没有可用的已保存连接。",
+    "countFound": "找到 {count} 个连接。",
+    "selectionAnnouncement": "已选择第 {index} / {total} 个：{label}。{subtitle}。"
+  },
+  "queryHistory": {
+    "title": "查询历史",
+    "closeAriaLabel": "关闭查询历史",
+    "disabledNotice": "设置中当前已禁用查询历史记录，但现有记录仍可查看。",
+    "emptyTitle": "未找到历史记录"
+  },
+  "aiCopilot": {
+    "title": "AI Copilot 工作区",
+    "description": "面向 SQL 生成、调试和优化的 schema 感知助手。"
+  },
+  "databaseInfo": {
+    "title": "数据库信息",
+    "loading": "正在加载数据库信息...",
+    "databaseFallback": "数据库",
+    "yes": "是",
+    "no": "否",
+    "sections": {
+      "summary": "摘要",
+      "stats": "统计",
+      "capabilities": "能力",
+      "runtime": "运行时",
+      "engineDetails": "引擎详情"
+    }
+  }
+}

@@ -13,9 +13,9 @@
                         <path d="M3 3v5h5" />
                         <path d="M12 7v5l4 2" />
                     </svg>
-                    Query History
+                    {{ t("common.queryHistory.title") }}
                 </h2>
-                <button @click="$emit('close')" aria-label="Close query history"
+                <button @click="$emit('close')" :aria-label="t('common.queryHistory.closeAriaLabel')"
                     class="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -112,7 +112,7 @@
                     </div>
 
                     <div v-if="!historyEnabled" class="mx-4 mt-3 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700">
-                        Query History recording is currently disabled in Settings. Existing records remain available.
+                        {{ t("common.queryHistory.disabledNotice") }}
                     </div>
 
                     <div v-if="actionError" class="mx-4 mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -140,7 +140,7 @@
                                 <circle cx="11" cy="11" r="8" />
                                 <path d="m21 21-4.3-4.3" />
                             </svg>
-                            <h3 class="text-base font-medium text-foreground mb-1">No history found</h3>
+                            <h3 class="text-base font-medium text-foreground mb-1">{{ t("common.queryHistory.emptyTitle") }}</h3>
                             <p class="text-sm">{{ emptyStateMessage }}</p>
                         </div>
 
@@ -248,8 +248,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ClearQueryHistory, DeleteQueryHistory, GetQueryHistorySummary, SearchQueryHistory, ToggleFavoriteQuery } from '../../wailsjs/go/app/App';
+const { t } = useI18n({ useScope: 'global' });
 
 type QueryHistoryEntry = {
     id: number;
@@ -444,6 +446,19 @@ const resetFilters = () => {
     activeDbType.value = 'all';
 };
 
+const handleEscapeKeydown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || !props.isOpen) {
+        return;
+    }
+
+    if (showClearConfirm.value) {
+        showClearConfirm.value = false;
+        return;
+    }
+
+    emit('close');
+};
+
 watch(() => props.connectionName, (newConnectionName) => {
     if (!newConnectionName || !props.isOpen) {
         return;
@@ -481,7 +496,12 @@ watch([searchText, showFavoritesOnly, dateRange, sortMode, activeDbType], () => 
     }, 180);
 });
 
+onMounted(() => {
+    window.addEventListener('keydown', handleEscapeKeydown);
+});
+
 onUnmounted(() => {
+    window.removeEventListener('keydown', handleEscapeKeydown);
     if (searchDebounce) {
         clearTimeout(searchDebounce);
     }

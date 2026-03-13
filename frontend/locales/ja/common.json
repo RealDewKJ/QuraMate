@@ -1,0 +1,232 @@
+{
+  "save": "保存",
+  "delete": "削除",
+  "cancel": "キャンセル",
+  "close": "閉じる",
+  "newConnection": "新しい接続",
+  "checkForUpdates": "アップデートを確認",
+  "errors": {
+    "unknownConnectionError": "不明な接続エラー",
+    "connectionFailed": "接続に失敗しました"
+  },
+  "databaseTypes": {
+    "sqlite": "SQLite"
+  },
+  "recovery": {
+    "title": "前回の接続を復元",
+    "description": "前回のセッションから復元する接続を選択してください。",
+    "selectAll": "すべて選択",
+    "unselectAll": "すべて解除",
+    "rememberChoice": "この選択を記憶する（次回は確認なしで自動復元）",
+    "skip": "スキップ",
+    "recoverSelected": "選択した接続を復元",
+    "recoveringSelected": "選択した接続を復元しています...",
+    "someFailed": "復元できない接続がありました:",
+    "candidateMeta": "{type} - {target}",
+    "failureItem": "{name}: {message}"
+  },
+  "settings": {
+    "title": "設定",
+    "description": "アプリの設定、外観、接続を管理します。",
+    "saveSuccess": "設定を保存しました",
+    "saveFailure": "設定の保存に失敗しました: {error}",
+    "tabs": {
+      "general": "一般",
+      "keybindings": "キーバインド",
+      "appearance": "外観",
+      "editor": "SQL エディター",
+      "ai": "AI プロバイダー",
+      "changelogs": "変更履歴",
+      "logs": "システムログ",
+      "info": "情報",
+      "sqlServer": "SQL Server"
+    },
+    "general": {
+      "title": "一般",
+      "description": "基本的なアプリ設定です。",
+      "languageLabel": "データエディターの言語",
+      "languageDescription": "データエディター画面の表示言語を選択します。",
+      "safeModeLabel": "セーフモード",
+      "safeModeDescription": "WHERE 句のない UPDATE または DELETE を実行する前に警告します",
+      "queryHistoryLabel": "クエリ履歴",
+      "queryHistoryDescription": "実行した SQL 文をローカルのクエリ履歴に保存します",
+      "queryHistoryRetentionLabel": "クエリ履歴の保持期間",
+      "queryHistoryRetentionDescription": "この期間より古い未お気に入りの履歴を自動的に削除します。",
+      "workspacePersistenceLabel": "ワークスペースセッションの保持",
+      "workspacePersistenceDescription": "アプリ再起動後に開いていた SQL タブとエディター内容を復元します",
+      "encryptLocalDataLabel": "ローカル保存データを暗号化",
+      "encryptLocalDataDescription": "OS の安全なキーチェーンに保存された鍵を使って、クエリ履歴とワークスペース状態を保存時に暗号化します。",
+      "encryptLocalDataHelp": "このデバイスに保存されるローカル履歴とセッションデータを保護します",
+      "trustSqlServerCertificateLabel": "SQL Server 証明書を既定で信頼",
+      "trustSqlServerCertificateDescription": "新しい SQL Server 接続ではサーバー証明書を自動で信頼します。自己署名証明書や private CA 環境で使いやすくなります。",
+      "trustSqlServerCertificateHelp": "接続ごとに無効化されていない限り、新しい SQL Server 接続では証明書チェーンの検証をスキップします",
+      "queryHistoryRetentionDays": {
+        "7": "7 日",
+        "30": "30 日",
+        "90": "90 日",
+        "180": "180 日",
+        "365": "365 日"
+      }
+    },
+    "keybindings": {
+      "description": "システムショートカットは固定されており、編集できません。",
+      "groups": {
+        "queryEditorTabs": "クエリエディターとタブ",
+        "refresh": "更新",
+        "resultGrid": "結果グリッド"
+      },
+      "actions": {
+        "runQuery": {
+          "label": "クエリを実行",
+          "description": "現在のクエリタブで SQL を実行します。"
+        },
+        "saveQuery": {
+          "label": "クエリを保存",
+          "description": "現在のクエリをファイルに保存します。"
+        },
+        "saveQueryAs": {
+          "label": "名前を付けてクエリを保存",
+          "description": "現在のクエリを新しいファイルとして保存します。"
+        },
+        "openNewQueryTab": {
+          "label": "新しいクエリタブを開く",
+          "description": "新しい SQL タブを作成します。"
+        },
+        "closeActiveQueryTab": {
+          "label": "現在のクエリタブを閉じる",
+          "description": "現在の SQL タブを閉じます。"
+        },
+        "beautifySql": {
+          "label": "SQL を整形",
+          "description": "現在のエディター内の SQL を整形します。"
+        },
+        "openTableDesign": {
+          "label": "テーブル設計を開く",
+          "description": "現在のテーブルタブのデザイナーを開きます。"
+        },
+        "refreshCurrentContext": {
+          "label": "現在のコンテキストを更新",
+          "description": "現在のデータコンテキストを再読み込みします。"
+        },
+        "refreshDatabaseTree": {
+          "label": "データベースツリーを更新",
+          "description": "テーブル、ビュー、ルーチンを再読み込みします。"
+        },
+        "screenshotResultGrid": {
+          "label": "結果グリッドをスクリーンショット",
+          "description": "表名とタイムスタンプ付きで結果グリッドを画像として保存します。"
+        },
+        "copySelectedCells": {
+          "label": "選択したセル/行をコピー",
+          "description": "クエリ結果にフォーカスがある状態で選択データをコピーします。"
+        },
+        "pasteRowsIntoTable": {
+          "label": "行をテーブルに貼り付け",
+          "description": "クリップボードの表形式データを編集可能な結果テーブルに貼り付けます。"
+        },
+        "saveEditingCell": {
+          "label": "編集中のセルを保存",
+          "description": "インラインセル編集を確定します。"
+        },
+        "cancelEditingCell": {
+          "label": "セル編集をキャンセル",
+          "description": "インラインセル編集をキャンセルします。"
+        }
+      }
+    },
+    "appearance": {
+      "description": "QuraMate の見た目と操作感をカスタマイズします。",
+      "themeLabel": "テーマ",
+      "themeOptions": {
+        "light": "ライト",
+        "dark": "ダーク",
+        "system": "システム"
+      },
+      "usePointerCursorsLabel": "ポインターカーソルを使用",
+      "usePointerCursorsDescription": "操作可能な要素にホバーしたとき、カーソルをポインターに変更します。",
+      "appFontLabel": "アプリフォント",
+      "appFontSystemDefault": "System UI（既定）"
+    },
+    "editor": {
+      "description": "SQL クエリエディター環境を設定します。",
+      "fontFamilyLabel": "フォントファミリー",
+      "fontSizeLabel": "フォントサイズ",
+      "previewLabel": "プレビュー"
+    },
+    "ai": {
+      "description": "QuraMate のスマート機能向け AI プロバイダーを設定します。",
+      "info": "情報",
+      "comingSoonTitle": "近日公開！",
+      "comingSoonDescription": "AI 機能は現在開発中です。機能公開に備えて今のうちにキーを保存できます。",
+      "providerLabel": "AI プロバイダー"
+    },
+    "logs": {
+      "description": "アプリケーションのイベントとエラーを監視します。",
+      "clear": "ログをクリア",
+      "empty": "まだログはありません。"
+    },
+    "changelogs": {
+      "description": "新機能、改善点、バグ修正を確認します。"
+    },
+    "info": {
+      "description": "システム情報とクレジット。"
+    },
+    "languages": {
+      "en": "English (ソース)",
+      "th": "タイ語",
+      "zh": "中国語（簡体字）",
+      "ja": "日本語",
+      "vi": "ベトナム語"
+    },
+    "sqlServer": {
+      "description": "Settings that apply only to SQL Server connections.",
+      "trustCertificateLabel": "SQL Server 証明書を既定で信頼",
+      "trustCertificateDescription": "新しい SQL Server 接続ではサーバー証明書を自動で信頼します。自己署名証明書や private CA 環境で使いやすくなります。",
+      "trustCertificateHelp": "接続ごとに無効化されていない限り、新しい SQL Server 接続では証明書チェーンの検証をスキップします"
+    }
+  },
+  "savedConnections": {
+    "title": "保存済み接続",
+    "description": "接続を選択して詳細を読み込みます。",
+    "searchPlaceholder": "接続を検索",
+    "searchAriaLabel": "保存済み接続を検索",
+    "searchHint": "矢印キーで移動、Enter で接続、Delete で削除。",
+    "empty": "保存済み接続が見つかりません。",
+    "noMatches": "一致する接続がありません。",
+    "listAriaLabel": "保存済み接続リスト",
+    "edit": "接続を編集",
+    "delete": "接続を削除",
+    "deleteConfirmTitle": "保存済み接続を削除しますか？",
+    "deleteConfirmPrefix": "この操作により",
+    "deleteConfirmSuffix": "が保存済み接続から削除されます。",
+    "selectedConnectionFallback": "選択中の接続",
+    "deleteCancelled": "{label} の削除をキャンセルしました。",
+    "noneAvailable": "利用可能な保存済み接続はありません。",
+    "countFound": "{count} 件の接続が見つかりました。",
+    "selectionAnnouncement": "{total} 件中 {index} 件目を選択中: {label}。{subtitle}。"
+  },
+  "queryHistory": {
+    "title": "クエリ履歴",
+    "closeAriaLabel": "クエリ履歴を閉じる",
+    "disabledNotice": "設定でクエリ履歴の記録は無効ですが、既存の記録は利用できます。",
+    "emptyTitle": "履歴が見つかりません"
+  },
+  "aiCopilot": {
+    "title": "AI Copilot ワークスペース",
+    "description": "SQL 生成、デバッグ、最適化のためのスキーマ対応アシスタント。"
+  },
+  "databaseInfo": {
+    "title": "データベース情報",
+    "loading": "データベース情報を読み込み中...",
+    "databaseFallback": "データベース",
+    "yes": "はい",
+    "no": "いいえ",
+    "sections": {
+      "summary": "概要",
+      "stats": "統計",
+      "capabilities": "機能",
+      "runtime": "ランタイム",
+      "engineDetails": "エンジン詳細"
+    }
+  }
+}

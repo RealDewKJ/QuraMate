@@ -147,6 +147,13 @@ const selectedDatabaseTypeIndex = computed(() =>
     databaseTypeOptions.findIndex((option) => option.value === config.type),
   ),
 );
+const showSqlServerSettings = computed(
+  () =>
+    config.type === "mssql" ||
+    props.activeConnections.some(
+      (conn) => (conn.config.type || "").toLowerCase() === "mssql",
+    ),
+);
 
 onKeyStroke("Escape", () => {
   showSettings.value = false;
@@ -739,7 +746,12 @@ onBeforeUnmount(() => {
       @select="handleSelectConn" @edit="handleEditConn" @remove="handleRemoveConn" />
 
     <Toast ref="toastRef" />
-    <SettingsDialog :isOpen="showSettings" @close="toggleSettings(false)" @save="handleSettingsSave" />
+    <SettingsDialog
+      :isOpen="showSettings"
+      :showSqlServerSettings="showSqlServerSettings"
+      @close="toggleSettings(false)"
+      @save="handleSettingsSave"
+    />
   </div>
 </template>
 

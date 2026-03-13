@@ -1,0 +1,232 @@
+{
+  "save": "บันทึก",
+  "delete": "ลบ",
+  "cancel": "ยกเลิก",
+  "close": "ปิด",
+  "newConnection": "การเชื่อมต่อใหม่",
+  "checkForUpdates": "ตรวจสอบการอัปเดต",
+  "errors": {
+    "unknownConnectionError": "ข้อผิดพลาดการเชื่อมต่อที่ไม่ทราบสาเหตุ",
+    "connectionFailed": "การเชื่อมต่อล้มเหลว"
+  },
+  "databaseTypes": {
+    "sqlite": "SQLite"
+  },
+  "recovery": {
+    "title": "กู้คืนการเชื่อมต่อก่อนหน้า",
+    "description": "เลือกการเชื่อมต่อที่ต้องการกู้คืนจากเซสชันก่อนหน้า",
+    "selectAll": "เลือกทั้งหมด",
+    "unselectAll": "ยกเลิกทั้งหมด",
+    "rememberChoice": "จดจำตัวเลือกของฉัน (กู้คืนอัตโนมัติครั้งถัดไปโดยไม่ต้องถาม)",
+    "skip": "ข้าม",
+    "recoverSelected": "กู้คืนรายการที่เลือก",
+    "recoveringSelected": "กำลังกู้คืนการเชื่อมต่อที่เลือก...",
+    "someFailed": "ไม่สามารถกู้คืนบางการเชื่อมต่อได้:",
+    "candidateMeta": "{type} - {target}",
+    "failureItem": "{name}: {message}"
+  },
+  "settings": {
+    "title": "การตั้งค่า",
+    "description": "จัดการค่ากำหนด รูปลักษณ์ และการเชื่อมต่อของแอป",
+    "saveSuccess": "บันทึกการตั้งค่าเรียบร้อยแล้ว",
+    "saveFailure": "บันทึกการตั้งค่าไม่สำเร็จ: {error}",
+    "tabs": {
+      "general": "ทั่วไป",
+      "keybindings": "คีย์ลัด",
+      "appearance": "รูปลักษณ์",
+      "editor": "ตัวแก้ไข SQL",
+      "ai": "ผู้ให้บริการ AI",
+      "changelogs": "บันทึกการเปลี่ยนแปลง",
+      "logs": "บันทึกระบบ",
+      "info": "เกี่ยวกับ",
+      "sqlServer": "SQL Server"
+    },
+    "general": {
+      "title": "ทั่วไป",
+      "description": "การตั้งค่าพื้นฐานของแอปพลิเคชัน",
+      "languageLabel": "ภาษาของตัวแก้ไขข้อมูล",
+      "languageDescription": "เลือกภาษาสำหรับอินเทอร์เฟซตัวแก้ไขข้อมูล",
+      "safeModeLabel": "โหมดปลอดภัย",
+      "safeModeDescription": "เตือนก่อนเรียกใช้คำสั่ง UPDATE หรือ DELETE ที่ไม่มี WHERE",
+      "queryHistoryLabel": "ประวัติคำสั่ง",
+      "queryHistoryDescription": "บันทึกคำสั่ง SQL ที่รันแล้วไว้ในประวัติภายในเครื่อง",
+      "queryHistoryRetentionLabel": "ระยะเวลาเก็บประวัติคำสั่ง",
+      "queryHistoryRetentionDescription": "ลบประวัติที่ไม่ได้ติดดาวโดยอัตโนมัติเมื่อเก่ากว่าระยะเวลานี้",
+      "workspacePersistenceLabel": "จดจำเซสชันพื้นที่ทำงาน",
+      "workspacePersistenceDescription": "กู้คืนแท็บ SQL ที่เปิดอยู่และเนื้อหาในตัวแก้ไขหลังจากเปิดแอปใหม่",
+      "encryptLocalDataLabel": "เข้ารหัสข้อมูลภายในเครื่องที่บันทึกไว้",
+      "encryptLocalDataDescription": "เข้ารหัสประวัติคำสั่งและสถานะพื้นที่ทำงานที่จัดเก็บไว้ด้วยคีย์จาก keychain ของระบบปฏิบัติการ",
+      "encryptLocalDataHelp": "ปกป้องประวัติภายในเครื่องและข้อมูลเซสชันที่จัดเก็บบนอุปกรณ์นี้",
+      "trustSqlServerCertificateLabel": "เชื่อถือใบรับรอง SQL Server เป็นค่าเริ่มต้น",
+      "trustSqlServerCertificateDescription": "การเชื่อมต่อ SQL Server ใหม่จะเชื่อถือใบรับรองเซิร์ฟเวอร์อัตโนมัติ เหมาะกับสภาพแวดล้อมที่ใช้ self-signed หรือ private CA",
+      "trustSqlServerCertificateHelp": "ข้ามการตรวจสอบสายโซ่ใบรับรองสำหรับการเชื่อมต่อ SQL Server ใหม่ เว้นแต่จะปิดไว้เป็นราย connection",
+      "queryHistoryRetentionDays": {
+        "7": "7 วัน",
+        "30": "30 วัน",
+        "90": "90 วัน",
+        "180": "180 วัน",
+        "365": "365 วัน"
+      }
+    },
+    "keybindings": {
+      "description": "คีย์ลัดของระบบถูกกำหนดไว้ตายตัวและไม่สามารถแก้ไขได้",
+      "groups": {
+        "queryEditorTabs": "ตัวแก้ไขคำสั่งและแท็บ",
+        "refresh": "รีเฟรช",
+        "resultGrid": "ตารางผลลัพธ์"
+      },
+      "actions": {
+        "runQuery": {
+          "label": "รันคำสั่ง",
+          "description": "เรียกใช้ SQL ในแท็บคำสั่งที่กำลังเปิดอยู่"
+        },
+        "saveQuery": {
+          "label": "บันทึกคำสั่ง",
+          "description": "บันทึกคำสั่งปัจจุบันลงไฟล์"
+        },
+        "saveQueryAs": {
+          "label": "บันทึกคำสั่งเป็น",
+          "description": "บันทึกคำสั่งปัจจุบันเป็นไฟล์ใหม่"
+        },
+        "openNewQueryTab": {
+          "label": "เปิดแท็บคำสั่งใหม่",
+          "description": "สร้างแท็บ SQL ใหม่"
+        },
+        "closeActiveQueryTab": {
+          "label": "ปิดแท็บคำสั่งปัจจุบัน",
+          "description": "ปิดแท็บ SQL ปัจจุบัน"
+        },
+        "beautifySql": {
+          "label": "จัดรูปแบบ SQL",
+          "description": "จัดรูปแบบ SQL ในตัวแก้ไขที่กำลังใช้งาน"
+        },
+        "openTableDesign": {
+          "label": "เปิดออกแบบตาราง",
+          "description": "เปิดตัวออกแบบสำหรับแท็บตารางปัจจุบัน"
+        },
+        "refreshCurrentContext": {
+          "label": "รีเฟรชบริบทปัจจุบัน",
+          "description": "โหลดบริบทข้อมูลปัจจุบันใหม่"
+        },
+        "refreshDatabaseTree": {
+          "label": "รีเฟรชแผนผังฐานข้อมูล",
+          "description": "โหลดตาราง มุมมอง และรูทีนใหม่"
+        },
+        "screenshotResultGrid": {
+          "label": "จับภาพตารางผลลัพธ์",
+          "description": "จับภาพตารางผลลัพธ์เป็นรูปพร้อมชื่อตารางและเวลา"
+        },
+        "copySelectedCells": {
+          "label": "คัดลอกเซลล์/แถวที่เลือก",
+          "description": "คัดลอกข้อมูลที่เลือกเมื่อโฟกัสอยู่ในผลลัพธ์คำสั่ง"
+        },
+        "pasteRowsIntoTable": {
+          "label": "วางแถวลงตาราง",
+          "description": "วางข้อมูลตารางจากคลิปบอร์ดลงในผลลัพธ์ตารางที่แก้ไขได้"
+        },
+        "saveEditingCell": {
+          "label": "บันทึกเซลล์ที่แก้ไข",
+          "description": "ยืนยันการแก้ไขเซลล์แบบอินไลน์"
+        },
+        "cancelEditingCell": {
+          "label": "ยกเลิกการแก้ไขเซลล์",
+          "description": "ยกเลิกการแก้ไขเซลล์แบบอินไลน์"
+        }
+      }
+    },
+    "appearance": {
+      "description": "ปรับแต่งรูปลักษณ์และความรู้สึกของ QuraMate",
+      "themeLabel": "ธีม",
+      "themeOptions": {
+        "light": "สว่าง",
+        "dark": "มืด",
+        "system": "ระบบ"
+      },
+      "usePointerCursorsLabel": "ใช้เคอร์เซอร์แบบตัวชี้",
+      "usePointerCursorsDescription": "เปลี่ยนเคอร์เซอร์เป็นรูปตัวชี้เมื่อวางเหนือองค์ประกอบที่โต้ตอบได้",
+      "appFontLabel": "ฟอนต์ของแอป",
+      "appFontSystemDefault": "System UI (ค่าเริ่มต้น)"
+    },
+    "editor": {
+      "description": "กำหนดค่าสภาพแวดล้อมของตัวแก้ไขคำสั่ง SQL",
+      "fontFamilyLabel": "ตระกูลฟอนต์",
+      "fontSizeLabel": "ขนาดฟอนต์",
+      "previewLabel": "ตัวอย่าง"
+    },
+    "ai": {
+      "description": "กำหนดค่าผู้ให้บริการ AI สำหรับความสามารถอัจฉริยะของ QuraMate",
+      "info": "ข้อมูล",
+      "comingSoonTitle": "เร็ว ๆ นี้!",
+      "comingSoonDescription": "ฟีเจอร์ AI กำลังอยู่ระหว่างการพัฒนา คุณสามารถบันทึกคีย์ไว้ก่อนได้ก่อนฟีเจอร์จะเปิดใช้งาน",
+      "providerLabel": "ผู้ให้บริการ AI"
+    },
+    "logs": {
+      "description": "ตรวจสอบเหตุการณ์และข้อผิดพลาดของแอปพลิเคชัน",
+      "clear": "ล้างบันทึก",
+      "empty": "ยังไม่มีบันทึก"
+    },
+    "changelogs": {
+      "description": "ติดตามฟีเจอร์ใหม่ การปรับปรุง และการแก้ไขบั๊ก"
+    },
+    "info": {
+      "description": "ข้อมูลระบบและเครดิต"
+    },
+    "languages": {
+      "en": "English (ต้นฉบับ)",
+      "th": "ไทย",
+      "zh": "จีนตัวย่อ",
+      "ja": "ญี่ปุ่น",
+      "vi": "เวียดนาม"
+    },
+    "sqlServer": {
+      "description": "Settings that apply only to SQL Server connections.",
+      "trustCertificateLabel": "เชื่อถือใบรับรอง SQL Server เป็นค่าเริ่มต้น",
+      "trustCertificateDescription": "การเชื่อมต่อ SQL Server ใหม่จะเชื่อถือใบรับรองเซิร์ฟเวอร์อัตโนมัติ เหมาะกับสภาพแวดล้อมที่ใช้ self-signed หรือ private CA",
+      "trustCertificateHelp": "ข้ามการตรวจสอบสายโซ่ใบรับรองสำหรับการเชื่อมต่อ SQL Server ใหม่ เว้นแต่จะปิดไว้เป็นราย connection"
+    }
+  },
+  "savedConnections": {
+    "title": "การเชื่อมต่อที่บันทึกไว้",
+    "description": "เลือกการเชื่อมต่อเพื่อโหลดรายละเอียด",
+    "searchPlaceholder": "ค้นหาการเชื่อมต่อ",
+    "searchAriaLabel": "ค้นหาการเชื่อมต่อที่บันทึกไว้",
+    "searchHint": "ใช้ปุ่มลูกศรเพื่อเลื่อน Enter เพื่อเชื่อมต่อ Delete เพื่อลบ",
+    "empty": "ไม่พบการเชื่อมต่อที่บันทึกไว้",
+    "noMatches": "ไม่พบการเชื่อมต่อที่ตรงกัน",
+    "listAriaLabel": "รายการการเชื่อมต่อที่บันทึกไว้",
+    "edit": "แก้ไขการเชื่อมต่อ",
+    "delete": "ลบการเชื่อมต่อ",
+    "deleteConfirmTitle": "ลบการเชื่อมต่อที่บันทึกไว้?",
+    "deleteConfirmPrefix": "การดำเนินการนี้จะลบ",
+    "deleteConfirmSuffix": "ออกจากรายการการเชื่อมต่อที่บันทึกไว้",
+    "selectedConnectionFallback": "การเชื่อมต่อที่เลือก",
+    "deleteCancelled": "ยกเลิกการลบสำหรับ {label}",
+    "noneAvailable": "ไม่มีการเชื่อมต่อที่บันทึกไว้",
+    "countFound": "พบ {count} การเชื่อมต่อ",
+    "selectionAnnouncement": "เลือก {index} จาก {total}: {label}. {subtitle}."
+  },
+  "queryHistory": {
+    "title": "ประวัติคำสั่ง",
+    "closeAriaLabel": "ปิดประวัติคำสั่ง",
+    "disabledNotice": "การบันทึกประวัติคำสั่งถูกปิดอยู่ใน Settings แต่รายการเดิมยังดูได้",
+    "emptyTitle": "ไม่พบประวัติ"
+  },
+  "aiCopilot": {
+    "title": "พื้นที่ทำงาน AI Copilot",
+    "description": "ผู้ช่วยที่รับรู้ schema สำหรับสร้าง SQL ดีบัก และปรับแต่งประสิทธิภาพ"
+  },
+  "databaseInfo": {
+    "title": "ข้อมูลฐานข้อมูล",
+    "loading": "กำลังโหลดข้อมูลฐานข้อมูล...",
+    "databaseFallback": "ฐานข้อมูล",
+    "yes": "ใช่",
+    "no": "ไม่ใช่",
+    "sections": {
+      "summary": "สรุป",
+      "stats": "สถิติ",
+      "capabilities": "ความสามารถ",
+      "runtime": "รันไทม์",
+      "engineDetails": "รายละเอียดเอนจิน"
+    }
+  }
+}
