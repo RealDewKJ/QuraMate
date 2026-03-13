@@ -1,4 +1,4 @@
-export namespace main {
+export namespace app {
 	
 	export class ActionResult {
 	    success: boolean;
@@ -32,6 +32,95 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class ConnectResult {
+	    id: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.error = source["error"];
+	    }
+	}
+	export class LogEntry {
+	    time: string;
+	    level: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.time = source["time"];
+	        this.level = source["level"];
+	        this.message = source["message"];
+	    }
+	}
+	export class QueryResult {
+	    resultSets: database.ResultSet[];
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.resultSets = this.convertValues(source["resultSets"], database.ResultSet);
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SSHHostKeyInfo {
+	    host: string;
+	    port: number;
+	    pattern: string;
+	    keyType: string;
+	    fingerprint: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SSHHostKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.pattern = source["pattern"];
+	        this.keyType = source["keyType"];
+	        this.fingerprint = source["fingerprint"];
+	        this.error = source["error"];
+	    }
+	}
+
+}
+
+export namespace database {
+	
 	export class ColumnDefinition {
 	    name: string;
 	    type: string;
@@ -87,20 +176,6 @@ export namespace main {
 		}
 	}
 	
-	export class ConnectResult {
-	    id: string;
-	    error: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ConnectResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.error = source["error"];
-	    }
-	}
 	export class DBConfig {
 	    id: string;
 	    type: string;
@@ -215,56 +290,6 @@ export namespace main {
 	        this.primary = source["primary"];
 	    }
 	}
-	export class LogEntry {
-	    time: string;
-	    level: string;
-	    message: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new LogEntry(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.time = source["time"];
-	        this.level = source["level"];
-	        this.message = source["message"];
-	    }
-	}
-	export class QueryHistoryEntry {
-	    id: number;
-	    query: string;
-	    db_type: string;
-	    timestamp: string;
-	    is_favorite: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new QueryHistoryEntry(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.query = source["query"];
-	        this.db_type = source["db_type"];
-	        this.timestamp = source["timestamp"];
-	        this.is_favorite = source["is_favorite"];
-	    }
-	}
-	export class QueryHistorySummary {
-	    total: number;
-	    db_types: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new QueryHistorySummary(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.total = source["total"];
-	        this.db_types = source["db_types"];
-	    }
-	}
 	export class ResultSet {
 	    columns: string[];
 	    rows: any[][];
@@ -279,61 +304,6 @@ export namespace main {
 	        this.columns = source["columns"];
 	        this.rows = source["rows"];
 	        this.message = source["message"];
-	    }
-	}
-	export class QueryResult {
-	    resultSets: ResultSet[];
-	    error: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new QueryResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.resultSets = this.convertValues(source["resultSets"], ResultSet);
-	        this.error = source["error"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	
-	export class SSHHostKeyInfo {
-	    host: string;
-	    port: number;
-	    pattern: string;
-	    keyType: string;
-	    fingerprint: string;
-	    error: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SSHHostKeyInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.host = source["host"];
-	        this.port = source["port"];
-	        this.pattern = source["pattern"];
-	        this.keyType = source["keyType"];
-	        this.fingerprint = source["fingerprint"];
-	        this.error = source["error"];
 	    }
 	}
 	export class ServerProcess {
@@ -414,6 +384,69 @@ export namespace main {
 		    return a;
 		}
 	}
+
+}
+
+export namespace options {
+	
+	export class SecondInstanceData {
+	    Args: string[];
+	    WorkingDirectory: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SecondInstanceData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Args = source["Args"];
+	        this.WorkingDirectory = source["WorkingDirectory"];
+	    }
+	}
+
+}
+
+export namespace storage {
+	
+	export class QueryHistoryEntry {
+	    id: number;
+	    query: string;
+	    db_type: string;
+	    timestamp: string;
+	    is_favorite: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryHistoryEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.query = source["query"];
+	        this.db_type = source["db_type"];
+	        this.timestamp = source["timestamp"];
+	        this.is_favorite = source["is_favorite"];
+	    }
+	}
+	export class QueryHistorySummary {
+	    total: number;
+	    db_types: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryHistorySummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.db_types = source["db_types"];
+	    }
+	}
+
+}
+
+export namespace updater {
+	
 	export class UpdateInfo {
 	    available: boolean;
 	    currentVersion: string;

@@ -1195,7 +1195,7 @@ import {
     SaveAIProviderKey,
     LoadAIProviderKey,
     DeleteAIProviderKey,
-} from "../../wailsjs/go/main/App";
+} from "../../wailsjs/go/app/App";
 import Toast from "./Toast.vue";
 import { colorMode } from "../composables/useTheme";
 import changelogData from "../data/changelog.json";

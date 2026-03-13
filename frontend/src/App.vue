@@ -6,7 +6,7 @@ import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 import { colorMode } from './composables/useTheme';
 import { getConnectionLabel, type ConnectionConfig } from './composables/useConnectionForm';
-import { LoadSetting, SaveSetting, GetStartupFile, ReadTextFile, ConnectDB } from '../wailsjs/go/main/App';
+import { LoadSetting, SaveSetting, GetStartupFile, ReadTextFile, ConnectDB } from '../wailsjs/go/app/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
@@ -639,7 +639,7 @@ onUnmounted(() => {
             <input v-model="candidate.selected" type="checkbox" class="mt-1 h-4 w-4" />
             <div class="min-w-0">
               <div class="text-sm font-medium truncate">{{ candidate.name }}</div>
-              <div class="text-xs text-muted-foreground truncate">{{ candidate.config.type }} • {{ candidate.config.database || candidate.config.host }}</div>
+              <div class="text-xs text-muted-foreground truncate">{{ candidate.config.type }} ï¿½ {{ candidate.config.database || candidate.config.host }}</div>
             </div>
           </label>
         </div>

@@ -1,4 +1,4 @@
-import { LoadAIProviderKey, LoadSetting } from "../../wailsjs/go/main/App";
+import { LoadAIProviderKey, LoadSetting } from "../../wailsjs/go/app/App";
 import {
   AI_PROVIDER_DEFAULT_CONFIGS,
   AI_PROVIDER_IDS,

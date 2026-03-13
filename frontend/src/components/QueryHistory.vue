@@ -249,7 +249,7 @@
 
 <script lang="ts" setup>
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue';
-import { ClearQueryHistory, DeleteQueryHistory, GetQueryHistorySummary, SearchQueryHistory, ToggleFavoriteQuery } from '../../wailsjs/go/main/App';
+import { ClearQueryHistory, DeleteQueryHistory, GetQueryHistorySummary, SearchQueryHistory, ToggleFavoriteQuery } from '../../wailsjs/go/app/App';
 
 type QueryHistoryEntry = {
     id: number;

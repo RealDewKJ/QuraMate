@@ -1,6 +1,6 @@
 import { computed, nextTick, ref, toValue } from 'vue';
 import type { MaybeRefOrGetter, Ref } from 'vue';
-import { ExecuteTransientQuery, GetTableDefinition, InsertRowsBatch, UpdateRecord } from '../../wailsjs/go/main/App';
+import { ExecuteTransientQuery, GetTableDefinition, InsertRowsBatch, UpdateRecord } from '../../wailsjs/go/app/App';
 import { QueryTab } from '../types/dashboard';
 
 interface ColumnDefMeta {

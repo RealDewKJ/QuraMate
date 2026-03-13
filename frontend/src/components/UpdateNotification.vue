@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { EventsOff, EventsOn } from '../../wailsjs/runtime/runtime';
-import { CheckForUpdates, GetCurrentVersion, OpenDownloadURL, PerformUpdate } from '../../wailsjs/go/main/App';
+import { CheckForUpdates, GetCurrentVersion, OpenDownloadURL, PerformUpdate } from '../../wailsjs/go/app/App';
 import Toast from './Toast.vue';
 
 interface UpdateInfo {

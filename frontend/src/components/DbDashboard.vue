@@ -268,7 +268,8 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, GetTables, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/main/App';
+import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, GetTables, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/app/App';
+import type { database } from '../../wailsjs/go/models';
 import { format } from 'sql-formatter';
 
 // Components
@@ -2829,22 +2830,22 @@ const handleScriptTableAs = async (action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DEL
             return;
         }
 
-        const columns = await GetTableDefinition(props.connectionId, tableName);
+        const columns: database.ColumnDefinition[] = await GetTableDefinition(props.connectionId, tableName);
         if (!columns || columns.length === 0) {
             toastRef.value?.error('Could not read table columns for scripting.');
             closeContextMenu();
             return;
         }
 
-        const pkColumns = columns.filter(col => col.primaryKey).map(col => col.name);
+        const pkColumns = columns.filter((col: database.ColumnDefinition) => col.primaryKey).map((col: database.ColumnDefinition) => col.name);
         const firstColumn = columns[0]?.name;
         const fallbackWhereColumns = firstColumn ? [firstColumn] : [];
 
         if (action === 'INSERT') {
-            const insertColumns = columns.filter(col => !col.autoIncrement);
+            const insertColumns = columns.filter((col: database.ColumnDefinition) => !col.autoIncrement);
             const targetColumns = insertColumns.length > 0 ? insertColumns : columns;
-            const columnLines = targetColumns.map(col => `  ${getEscapedIdentifier(col.name)}`).join(',\n');
-            const valueLines = targetColumns.map(col => `  /* ${col.name} */`).join(',\n');
+            const columnLines = targetColumns.map((col: database.ColumnDefinition) => `  ${getEscapedIdentifier(col.name)}`).join(',\n');
+            const valueLines = targetColumns.map((col: database.ColumnDefinition) => `  /* ${col.name} */`).join(',\n');
             const sql = `INSERT INTO ${escapedTableName} (\n${columnLines}\n)\nVALUES (\n${valueLines}\n);`;
             openSqlTemplateTab(`Script ${action}: ${tableName}`, sql);
             closeContextMenu();
@@ -2852,11 +2853,11 @@ const handleScriptTableAs = async (action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DEL
         }
 
         if (action === 'UPDATE') {
-            const setColumns = columns.filter(col => !col.primaryKey);
+            const setColumns = columns.filter((col: database.ColumnDefinition) => !col.primaryKey);
             const targetSetColumns = setColumns.length > 0 ? setColumns : columns;
             const whereColumns = pkColumns.length > 0 ? pkColumns : fallbackWhereColumns;
-            const setLines = targetSetColumns.map(col => `  ${getEscapedIdentifier(col.name)} = /* ${col.name} */`).join(',\n');
-            const whereLines = whereColumns.map(col => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
+            const setLines = targetSetColumns.map((col: database.ColumnDefinition) => `  ${getEscapedIdentifier(col.name)} = /* ${col.name} */`).join(',\n');
+            const whereLines = whereColumns.map((col: string) => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
             const sql = `UPDATE ${escapedTableName}\nSET\n${setLines}\nWHERE\n${whereLines || '  /* condition */'};`;
             openSqlTemplateTab(`Script ${action}: ${tableName}`, sql);
             closeContextMenu();
@@ -2864,7 +2865,7 @@ const handleScriptTableAs = async (action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DEL
         }
 
         const deleteWhereColumns = pkColumns.length > 0 ? pkColumns : fallbackWhereColumns;
-        const deleteWhereLines = deleteWhereColumns.map(col => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
+        const deleteWhereLines = deleteWhereColumns.map((col: string) => `  ${getEscapedIdentifier(col)} = /* ${col} */`).join('\n  AND ');
         const deleteSql = `DELETE FROM ${escapedTableName}\nWHERE\n${deleteWhereLines || '  /* condition */'};`;
         openSqlTemplateTab(`Script ${action}: ${tableName}`, deleteSql);
     } catch (e) {
@@ -2880,15 +2881,15 @@ const handleGenerateCreateStatement = async () => {
     if (!tableName) return;
 
     try {
-        const columns = await GetTableDefinition(props.connectionId, tableName);
+        const columns: database.ColumnDefinition[] = await GetTableDefinition(props.connectionId, tableName);
         if (!columns || columns.length === 0) {
             toastRef.value?.error('Could not read table columns.');
             closeContextMenu();
             return;
         }
 
-        const pkColumns = columns.filter(col => col.primaryKey).map(col => col.name);
-        const columnDefs = columns.map(col => {
+        const pkColumns = columns.filter((col: database.ColumnDefinition) => col.primaryKey).map((col: database.ColumnDefinition) => col.name);
+        const columnDefs = columns.map((col: database.ColumnDefinition) => {
             let line = `${getEscapedIdentifier(col.name)} ${col.type || 'TEXT'}`;
             if (!col.nullable) line += ' NOT NULL';
             if (col.defaultValue !== null && col.defaultValue !== undefined && String(col.defaultValue) !== '') {
@@ -2898,10 +2899,10 @@ const handleGenerateCreateStatement = async () => {
         });
 
         if (pkColumns.length > 0) {
-            columnDefs.push(`PRIMARY KEY (${pkColumns.map(col => getEscapedIdentifier(col)).join(', ')})`);
+            columnDefs.push(`PRIMARY KEY (${pkColumns.map((col: string) => getEscapedIdentifier(col)).join(', ')})`);
         }
 
-        const createSql = `CREATE TABLE ${getEscapedTableName(tableName)} (\n${columnDefs.map(line => `  ${line}`).join(',\n')}\n);`;
+        const createSql = `CREATE TABLE ${getEscapedTableName(tableName)} (\n${columnDefs.map((line: string) => `  ${line}`).join(',\n')}\n);`;
         await navigator.clipboard.writeText(createSql);
         toastRef.value?.success('CREATE TABLE statement copied to clipboard.');
     } catch (e) {
@@ -3214,7 +3215,7 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
 
         if (!res.error && res.resultSets && res.resultSets.length > 0) {
             const rs = res.resultSets[0];
-            const cols = rs.rows.map(row => {
+            const cols = rs.rows.map((row: unknown) => {
                 // Row is array or map depending on driver?
                 // ExecuteQuery returns ResultSet which has Rows [][]interface{} and Columns []string
                 // Wait, existing code says:

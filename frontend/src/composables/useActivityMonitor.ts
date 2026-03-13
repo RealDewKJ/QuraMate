@@ -37,7 +37,7 @@ interface MonitorSample {
     bucketGt5: number;
 }
 
-import { GetServerProcesses, KillServerProcess } from '../../wailsjs/go/main/App';
+import { GetServerProcesses, KillServerProcess } from '../../wailsjs/go/app/App';
 
 interface UseActivityMonitorOptions {
     tabs: Ref<QueryTab[]>;

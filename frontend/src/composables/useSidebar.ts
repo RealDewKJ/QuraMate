@@ -1,6 +1,6 @@
 import { computed, ref, toValue } from 'vue';
 import type { MaybeRefOrGetter } from 'vue';
-import { GetTables, GetViews, GetStoredProcedures, GetFunctions } from '../../wailsjs/go/main/App';
+import { GetTables, GetViews, GetStoredProcedures, GetFunctions } from '../../wailsjs/go/app/App';
 
 export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
     const tableSearch = ref('');
@@ -39,7 +39,7 @@ export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
         if (!id) return;
         try {
             const result = await GetTables(id);
-            tables.value = (result || []).sort((a, b) => a.localeCompare(b));
+            tables.value = (result || []).sort((a: string, b: string) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load tables", e);
         }
@@ -50,7 +50,7 @@ export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
         if (!id) return;
         try {
             const result = await GetViews(id);
-            views.value = (result || []).sort((a, b) => a.localeCompare(b));
+            views.value = (result || []).sort((a: string, b: string) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load views", e);
         }
@@ -61,7 +61,7 @@ export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
         if (!id) return;
         try {
             const result = await GetStoredProcedures(id);
-            storedProcedures.value = (result || []).sort((a, b) => a.localeCompare(b));
+            storedProcedures.value = (result || []).sort((a: string, b: string) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load stored procedures", e);
         }
@@ -72,7 +72,7 @@ export function useSidebar(connectionId: MaybeRefOrGetter<string>) {
         if (!id) return;
         try {
             const result = await GetFunctions(id);
-            functions.value = (result || []).sort((a, b) => a.localeCompare(b));
+            functions.value = (result || []).sort((a: string, b: string) => a.localeCompare(b));
         } catch (e) {
             console.error("Failed to load functions", e);
         }

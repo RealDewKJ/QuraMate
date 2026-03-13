@@ -1,7 +1,7 @@
 import { markRaw, reactive } from 'vue';
 import type { Ref } from 'vue';
 
-import { CancelQuery, ExecuteQuery, ExecuteQueryStream, LogClientEvent, SaveQueryHistory } from '../../wailsjs/go/main/App';
+import { CancelQuery, ExecuteQuery, ExecuteQueryStream, LogClientEvent, SaveQueryHistory } from '../../wailsjs/go/app/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 import type { QueryTab } from '../types/dashboard';
@@ -33,7 +33,7 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
             : serializedPayload;
         const message = `[QueryPerf] ${event} ${compactPayload}`;
 
-        void LogClientEvent('INFO', message).catch((err) => {
+        void LogClientEvent('INFO', message).catch((err: unknown) => {
             console.warn('Failed to write query perf event to app logs', err);
         });
         console.info(message);
@@ -350,12 +350,12 @@ export function useQueryExecution(options: UseQueryExecutionOptions) {
                         reject(new Error(errMsg));
                     });
 
-                    ExecuteQueryStream(options.connectionId.value, statement, statementReqId).then((err) => {
+                    ExecuteQueryStream(options.connectionId.value, statement, statementReqId).then((err: string) => {
                         if (err) {
                             cleanup();
                             reject(new Error(err));
                         }
-                    }).catch(e => {
+                    }).catch((e: unknown) => {
                         cleanup();
                         reject(e);
                     });

@@ -1,6 +1,7 @@
-package main
+package updater
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,14 +16,10 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// AppVersion is the current version of the application.
-// This is overridden at build time via: -ldflags "-X main.AppVersion=x.y.z"
 var AppVersion = "1.1.8"
 
-// GitHubRepo is the GitHub repository for update checks.
 const GitHubRepo = "RealDewKJ/QuraMate"
 
-// UpdateInfo holds information about an available update.
 type UpdateInfo struct {
 	Available      bool   `json:"available"`
 	CurrentVersion string `json:"currentVersion"`
@@ -32,7 +29,6 @@ type UpdateInfo struct {
 	PublishedAt    string `json:"publishedAt"`
 }
 
-// githubRelease represents the JSON structure from GitHub API.
 type githubRelease struct {
 	TagName     string        `json:"tag_name"`
 	Name        string        `json:"name"`
@@ -48,13 +44,17 @@ type githubAsset struct {
 	ContentType        string `json:"content_type"`
 }
 
-// GetCurrentVersion returns the current app version.
-func (a *App) GetCurrentVersion() string {
+type Service struct{}
+
+func NewService() *Service {
+	return &Service{}
+}
+
+func (s *Service) GetCurrentVersion() string {
 	return AppVersion
 }
 
-// CheckForUpdates checks GitHub for a newer release.
-func (a *App) CheckForUpdates() UpdateInfo {
+func (s *Service) CheckForUpdates() UpdateInfo {
 	info := UpdateInfo{
 		Available:      false,
 		CurrentVersion: AppVersion,
@@ -92,13 +92,10 @@ func (a *App) CheckForUpdates() UpdateInfo {
 		info.LatestVersion = latestVersion
 		info.ReleaseNotes = release.Body
 		info.PublishedAt = release.PublishedAt
-
-		// Try to find the correct asset for the current OS.
 		info.DownloadURL = release.HTMLURL
 		for _, asset := range release.Assets {
 			name := strings.ToLower(asset.Name)
 			if goRuntime.GOOS == "windows" {
-				// Prefer installer assets so we can run a silent update flow.
 				if strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, ".msi") || strings.Contains(name, "setup") {
 					info.DownloadURL = asset.BrowserDownloadURL
 					break
@@ -122,8 +119,7 @@ func (a *App) CheckForUpdates() UpdateInfo {
 	return info
 }
 
-// OpenDownloadURL opens the given URL in the default browser.
-func (a *App) OpenDownloadURL(url string) string {
+func (s *Service) OpenDownloadURL(url string) string {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		return "Error opening URL: Invalid URL scheme. Only http and https are allowed."
 	}
@@ -144,36 +140,26 @@ func (a *App) OpenDownloadURL(url string) string {
 	return "Success"
 }
 
-func (a *App) emitUpdateProgress(stage string, percent int, message string) {
-	if a.ctx == nil {
-		return
-	}
-
-	wailsRuntime.EventsEmit(a.ctx, "app:update-progress", map[string]interface{}{
+func (s *Service) EmitProgress(ctx context.Context, stage string, percent int, message string) {
+	wailsRuntime.EventsEmit(ctx, "app:update-progress", map[string]interface{}{
 		"stage":   stage,
 		"percent": percent,
 		"message": message,
 	})
 }
 
-// compareVersions compares two semver strings.
-// Returns 1 if a > b, -1 if a < b, 0 if equal.
-func compareVersions(a, b string) int {
+func compareVersions(a string, b string) int {
 	aParts := strings.Split(a, ".")
 	bParts := strings.Split(b, ".")
-
-	// Pad to equal length
 	for len(aParts) < 3 {
 		aParts = append(aParts, "0")
 	}
 	for len(bParts) < 3 {
 		bParts = append(bParts, "0")
 	}
-
 	for i := 0; i < 3; i++ {
 		aNum := parseVersionPart(aParts[i])
 		bNum := parseVersionPart(bParts[i])
-
 		if aNum > bNum {
 			return 1
 		}
@@ -181,30 +167,25 @@ func compareVersions(a, b string) int {
 			return -1
 		}
 	}
-
 	return 0
 }
 
-// parseVersionPart parses a version part string to an integer.
 func parseVersionPart(s string) int {
 	n := 0
 	for _, c := range s {
 		if c >= '0' && c <= '9' {
 			n = n*10 + int(c-'0')
 		} else {
-			break // stop at first non-digit (e.g. "1-beta")
+			break
 		}
 	}
 	return n
 }
 
-// PerformUpdate downloads the update from the provided URL and runs a silent installer.
-func (a *App) PerformUpdate(downloadURL string) error {
+func (s *Service) PerformUpdate(downloadURL string) error {
 	if !strings.HasPrefix(downloadURL, "https://github.com/RealDewKJ/QuraMate/releases/download/") {
 		return fmt.Errorf("invalid download URL source: must be an official update URL")
 	}
-
-	a.emitUpdateProgress("preparing", 5, "Preparing update package...")
 
 	client := &http.Client{Timeout: 5 * time.Minute}
 	req, err := http.NewRequest("GET", downloadURL, nil)
@@ -233,8 +214,6 @@ func (a *App) PerformUpdate(downloadURL string) error {
 	}
 	defer tmpFile.Close()
 
-	a.emitUpdateProgress("downloading", 10, "Downloading update...")
-
 	contentLength := resp.ContentLength
 	if contentLength <= 0 {
 		if _, err = io.Copy(tmpFile, resp.Body); err != nil {
@@ -242,29 +221,13 @@ func (a *App) PerformUpdate(downloadURL string) error {
 		}
 	} else {
 		buf := make([]byte, 64*1024)
-		var written int64
-
 		for {
 			n, readErr := resp.Body.Read(buf)
 			if n > 0 {
 				if _, writeErr := tmpFile.Write(buf[:n]); writeErr != nil {
 					return fmt.Errorf("failed to save update file: %w", writeErr)
 				}
-
-				written += int64(n)
-				downloadPercent := int((written * 100) / contentLength)
-				if downloadPercent > 100 {
-					downloadPercent = 100
-				}
-
-				// Keep room for install steps by mapping download progress to 10-85.
-				uiPercent := 10 + int(float64(downloadPercent)*0.75)
-				if uiPercent > 85 {
-					uiPercent = 85
-				}
-				a.emitUpdateProgress("downloading", uiPercent, "Downloading update...")
 			}
-
 			if readErr == io.EOF {
 				break
 			}
@@ -281,8 +244,6 @@ func (a *App) PerformUpdate(downloadURL string) error {
 		return fmt.Errorf("failed to close update file: %w", err)
 	}
 
-	a.emitUpdateProgress("installing", 90, "Installing update...")
-
 	installerPath := tmpFile.Name()
 	lowerPath := strings.ToLower(installerPath)
 
@@ -292,7 +253,6 @@ func (a *App) PerformUpdate(downloadURL string) error {
 		if strings.HasSuffix(lowerPath, ".msi") {
 			cmd = exec.Command("msiexec", "/i", installerPath, "/qn", "/norestart")
 		} else if strings.HasSuffix(lowerPath, ".exe") {
-			// Wails NSIS installers accept /S for silent mode.
 			cmd = exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
 				"Start-Process -FilePath $args[0] -ArgumentList '/S' -Verb RunAs", installerPath)
 		} else {
@@ -307,8 +267,6 @@ func (a *App) PerformUpdate(downloadURL string) error {
 	if err = cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start installer: %w", err)
 	}
-
-	a.emitUpdateProgress("finalizing", 98, "Finalizing update...")
 
 	time.Sleep(600 * time.Millisecond)
 	os.Exit(0)

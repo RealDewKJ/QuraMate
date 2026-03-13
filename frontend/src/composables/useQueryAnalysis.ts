@@ -1,6 +1,6 @@
 import type { Ref } from 'vue';
 
-import { ExplainQuery } from '../../wailsjs/go/main/App';
+import { ExplainQuery } from '../../wailsjs/go/app/App';
 import { useAiCopilot } from './useAiCopilot';
 import type { QueryTab } from '../types/dashboard';
 import type { AIMessage } from '../lib/ai/client';

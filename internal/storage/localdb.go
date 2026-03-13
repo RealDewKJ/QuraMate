@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"database/sql"
@@ -54,6 +54,12 @@ func NewLocalDB() (*LocalDB, error) {
 	if err != nil {
 		return nil, err
 	}
+	initialized := false
+	defer func() {
+		if !initialized {
+			_ = conn.Close()
+		}
+	}()
 	if chmodErr := os.Chmod(dbPath, 0o600); chmodErr != nil {
 		log.Printf("Unable to tighten local DB file permissions: %v", chmodErr)
 	}
@@ -87,6 +93,7 @@ func NewLocalDB() (*LocalDB, error) {
 	}
 	l.initQueryHistoryFTS()
 	l.CleanupOldQueries(defaultQueryHistoryRetentionDays)
+	initialized = true
 	return l, nil
 }
 
@@ -154,7 +161,7 @@ func (l *LocalDB) LoadSetting(key string) (string, error) {
 	var value string
 	err := l.conn.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
 	if err == sql.ErrNoRows {
-		return "", nil // Return empty string if not found
+		return "", nil
 	}
 	return value, err
 }
@@ -348,24 +355,11 @@ func (l *LocalDB) GetQueryHistorySummary() (QueryHistorySummary, error) {
 	return summary, nil
 }
 
-func normalizeRetentionDays(retentionDays int) int {
-	if retentionDays <= 0 {
-		return defaultQueryHistoryRetentionDays
-	}
-	if retentionDays > 3650 {
-		return 3650
-	}
-	return retentionDays
-}
-
 func (l *LocalDB) CleanupOldQueries(retentionDays int) error {
-	retentionDays = normalizeRetentionDays(retentionDays)
-	retentionExpr := fmt.Sprintf("-%d days", retentionDays)
-	// Keep favorites, delete others older than 30 days
-	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0 AND timestamp < datetime('now', ?)`, retentionExpr)
-	if err != nil {
-		log.Printf("Failed to cleanup old queries: %v", err)
+	if retentionDays <= 0 {
+		retentionDays = defaultQueryHistoryRetentionDays
 	}
+	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0 AND timestamp < datetime('now', '-' || ? || ' days')`, retentionDays)
 	return err
 }
 

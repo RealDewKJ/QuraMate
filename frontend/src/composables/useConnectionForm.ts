@@ -13,8 +13,8 @@ import {
   SelectExportFile,
   TrustSSHHost,
   WriteTextFile,
-} from "../../wailsjs/go/main/App";
-import { main } from "../../wailsjs/go/models";
+} from "../../wailsjs/go/app/App";
+import { app } from "../../wailsjs/go/models";
 
 // ---------- types ----------
 
@@ -246,7 +246,7 @@ export function useConnectionForm(
   const testSuccess = ref("");
   const isTrustingHost = ref(false);
   const isLoadingHostKeyInfo = ref(false);
-  const sshHostKeyInfo = ref<main.SSHHostKeyInfo | null>(null);
+    const sshHostKeyInfo = ref<app.SSHHostKeyInfo | null>(null);
   const expectedSshFingerprint = ref("");
   const sshRotationReason = ref("");
   const sshRotationConfirmText = ref("");

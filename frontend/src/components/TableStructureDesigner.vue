@@ -376,9 +376,9 @@ async function fetchData() {
     }
     isLoading.value = true;
     try {
-        if (window.go && window.go.main && window.go.main.App) {
+        if (window.go && window.go.app && window.go.app.App) {
             // Fetch Columns
-            const cols = await window.go.main.App.GetTableDefinition(props.connectionId, props.tableName);
+            const cols = await window.go.app.App.GetTableDefinition(props.connectionId, props.tableName);
             originalColumns.value = JSON.parse(JSON.stringify(cols));
             // Store originalName to track renames
             localColumns.value = cols.map(c => {
@@ -393,20 +393,20 @@ async function fetchData() {
             });
 
             // Fetch Indexes
-            const indexes = await window.go.main.App.GetTableIndexes(props.connectionId, props.tableName);
+            const indexes = await window.go.app.App.GetTableIndexes(props.connectionId, props.tableName);
             originalIndexes.value = JSON.parse(JSON.stringify(indexes));
             localIndexes.value = indexes.map(i => ({ ...i, originalName: i.name, status: 'existing' }));
 
-            const fks = await window.go.main.App.GetForeignKeys(props.connectionId, props.tableName);
+            const fks = await window.go.app.App.GetForeignKeys(props.connectionId, props.tableName);
             const outgoingFks = (fks || []).filter(fk => fk.table === props.tableName);
             originalForeignKeys.value = JSON.parse(JSON.stringify(outgoingFks));
             localForeignKeys.value = outgoingFks.map(fk => ({ ...fk, originalConstraint: fk.constraint, status: 'existing' }));
 
-            allTables.value = await window.go.main.App.GetTables(props.connectionId);
+            allTables.value = await window.go.app.App.GetTables(props.connectionId);
 
             for (const fk of localForeignKeys.value) {
                 if (fk.refTable && !referencedTableColumns.value[fk.refTable]) {
-                    const refCols = await window.go.main.App.GetTableDefinition(props.connectionId, fk.refTable);
+                    const refCols = await window.go.app.App.GetTableDefinition(props.connectionId, fk.refTable);
                     referencedTableColumns.value[fk.refTable] = (refCols || []).map(c => c.name);
                 }
             }
@@ -475,8 +475,8 @@ function toggleIndexColumn(idx, columnName) {
 // Foreign Key Actions
 async function ensureRefTableColumns(tableName) {
     if (!tableName || referencedTableColumns.value[tableName]) return;
-    if (window.go && window.go.main && window.go.main.App) {
-        const cols = await window.go.main.App.GetTableDefinition(props.connectionId, tableName);
+    if (window.go && window.go.app && window.go.app.App) {
+        const cols = await window.go.app.App.GetTableDefinition(props.connectionId, tableName);
         referencedTableColumns.value[tableName] = (cols || []).map(c => c.name);
     }
 }
@@ -633,8 +633,8 @@ async function saveChanges() {
                     autoIncrement: c.autoIncrement
                 }));
 
-            if (window.go && window.go.main && window.go.main.App) {
-                const result = await window.go.main.App.CreateTable(props.connectionId, inputTableName.value, columnsToCreate);
+            if (window.go && window.go.app && window.go.app.App) {
+                const result = await window.go.app.App.CreateTable(props.connectionId, inputTableName.value, columnsToCreate);
                 if (result === "Success") {
                     emit('refresh');
                     emit('success', 'Table created successfully!');
@@ -790,8 +790,8 @@ async function saveChanges() {
         changes.dropFKs = Array.from(dropFkSet);
         console.log("Saving changes:", changes);
 
-        if (window.go && window.go.main && window.go.main.App) {
-            const result = await window.go.main.App.AlterTable(props.connectionId, props.tableName, changes);
+        if (window.go && window.go.app && window.go.app.App) {
+            const result = await window.go.app.App.AlterTable(props.connectionId, props.tableName, changes);
             if (result === "Success") {
                 // Refresh data
                 await fetchData();

@@ -1,7 +1,7 @@
 import { reactive } from 'vue';
 import type { Ref } from 'vue';
 
-import { DropDatabase, ExportDatabase, GetDatabaseInfo, SelectFolder } from '../../wailsjs/go/main/App';
+import { DropDatabase, ExportDatabase, GetDatabaseInfo, SelectFolder } from '../../wailsjs/go/app/App';
 
 interface DatabaseInfoShape {
     dbName?: string;
