@@ -431,7 +431,6 @@ defineExpose({
                             <span class="inline-flex h-7 min-w-[2rem] items-center justify-center rounded-full border border-border/70 bg-background/80 px-2 text-[11px] font-semibold text-muted-foreground shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80">
                                 R1
                             </span>
-                            <span class="font-semibold text-sm text-foreground">Result 1</span>
                             <span
                                 class="rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-xs text-muted-foreground dark:border-zinc-700/70 dark:bg-zinc-950/80 dark:text-zinc-300">
                                 {{ activeTab.resultSets[0].rows ? activeTab.resultSets[0].rows.length : 0 }} rows
@@ -483,7 +482,6 @@ defineExpose({
                             <span class="inline-flex h-7 min-w-[2rem] items-center justify-center rounded-full border border-border/70 bg-background/80 px-2 text-[11px] font-semibold text-muted-foreground shadow-sm dark:border-zinc-700/70 dark:bg-zinc-950/80">
                                 R{{ Number(rsIndex) + 2 }}
                             </span>
-                            <span class="font-semibold text-sm text-foreground">Result {{ Number(rsIndex) + 2 }}</span>
                             <span
                                 class="rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-xs text-muted-foreground dark:border-zinc-700/70 dark:bg-zinc-950/80 dark:text-zinc-300">
                                 {{ resultSet.rows ? resultSet.rows.length : 0 }} rows
