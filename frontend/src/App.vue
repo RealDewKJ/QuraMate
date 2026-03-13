@@ -6,11 +6,12 @@ import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 import { colorMode } from './composables/useTheme';
 import { getConnectionLabel, type ConnectionConfig } from './composables/useConnectionForm';
+import { setAppLocale } from './i18n';
 import { LoadSetting, SaveSetting, GetStartupFile, ReadTextFile, ConnectDB } from '../wailsjs/go/app/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 const updateNotificationRef = ref<InstanceType<typeof UpdateNotification> | null>(null);
-const { locale } = useI18n({ useScope: 'global' });
+const { locale, t } = useI18n({ useScope: 'global' });
 
 const APP_CONNECTION_SESSION_KEY = 'app_connection_session_v1';
 const APP_CONNECTION_SESSION_VERSION = 1;
@@ -416,10 +417,16 @@ const recoverConnections = async (targets: PersistedConnectionEntry[]) => {
         });
         recoveredIdBySessionKey.set(entry.sessionKey, result.id);
       } else {
-        recoveryErrors.value.push(`${entry.name}: ${result?.error || 'Unknown connection error'}`);
+        recoveryErrors.value.push(t('common.recovery.failureItem', {
+          name: entry.name,
+          message: result?.error || t('common.errors.unknownConnectionError'),
+        }));
       }
     } catch (e: any) {
-      recoveryErrors.value.push(`${entry.name}: ${e?.message || e?.toString?.() || 'Connection failed'}`);
+      recoveryErrors.value.push(t('common.recovery.failureItem', {
+        name: entry.name,
+        message: e?.message || e?.toString?.() || t('common.errors.connectionFailed'),
+      }));
     }
   }
 
@@ -521,7 +528,7 @@ onMounted(async () => {
       trustSqlServerCertificateByDefault.value =
         parsed?.general?.trustSqlServerCertificateByDefault !== false;
       if (parsed.general && parsed.general.language) {
-        locale.value = parsed.general.language;
+        locale.value = setAppLocale(parsed.general.language);
       }
       if (parsed.appearance && parsed.appearance.appFont) {
         appFont = parsed.appearance.appFont;
@@ -585,7 +592,7 @@ onUnmounted(() => {
             <path d="M5 12h14" />
             <path d="M12 5v14" />
           </svg>
-          New Connection
+          {{ t('common.newConnection') }}
         </button>
 
         <div v-for="conn in connections" :key="conn.id" @click="switchToTab(conn.id)"
@@ -610,7 +617,7 @@ onUnmounted(() => {
         </span>
         <button @click="updateNotificationRef?.manualCheck()"
           class="flex items-center justify-center w-7 h-7 rounded-md transition-colors hover:bg-muted/60 text-muted-foreground hover:text-primary"
-          :class="{ 'animate-spin': updateNotificationRef?.checking }" title="Check for updates">
+          :class="{ 'animate-spin': updateNotificationRef?.checking }" :title="t('common.checkForUpdates')">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -639,18 +646,18 @@ onUnmounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div class="w-full max-w-xl rounded-xl border border-border bg-card text-card-foreground shadow-xl p-6 space-y-4">
         <div>
-          <h2 class="text-lg font-semibold">Restore Previous Connections</h2>
-          <p class="text-sm text-muted-foreground">Select the connections to recover from the previous session.</p>
+          <h2 class="text-lg font-semibold">{{ t('common.recovery.title') }}</h2>
+          <p class="text-sm text-muted-foreground">{{ t('common.recovery.description') }}</p>
         </div>
 
         <div class="flex items-center justify-end gap-2">
           <button @click="selectAllRecoveryCandidates"
             class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-3 py-1.5">
-            Select All
+            {{ t('common.recovery.selectAll') }}
           </button>
           <button @click="unselectAllRecoveryCandidates"
             class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-3 py-1.5">
-            Unselect All
+            {{ t('common.recovery.unselectAll') }}
           </button>
         </div>
 
@@ -667,17 +674,17 @@ onUnmounted(() => {
 
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           <input v-model="rememberRecoveryChoice" type="checkbox" class="h-4 w-4" />
-          Remember my choice (auto-recover next time without asking)
+          {{ t('common.recovery.rememberChoice') }}
         </label>
 
         <div class="flex justify-end gap-2">
           <button @click="skipRecoveryPrompt"
             class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-9 px-4 py-2">
-            Skip
+            {{ t('common.recovery.skip') }}
           </button>
           <button @click="recoverSelectedConnections" :disabled="!hasAnyRecoverySelection"
             class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 h-9 px-4 py-2">
-            Recover Selected
+            {{ t('common.recovery.recoverSelected') }}
           </button>
         </div>
       </div>
@@ -685,12 +692,12 @@ onUnmounted(() => {
 
     <div v-if="isRecoveringSession"
       class="fixed bottom-4 right-4 z-40 rounded-md border border-border bg-card px-4 py-2 text-sm shadow">
-      Recovering selected connections...
+      {{ t('common.recovery.recoveringSelected') }}
     </div>
 
     <div v-if="recoveryErrors.length > 0"
       class="fixed bottom-4 left-4 z-40 max-w-lg rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-      <div class="font-medium mb-1">Some connections could not be recovered:</div>
+      <div class="font-medium mb-1">{{ t('common.recovery.someFailed') }}</div>
       <ul class="list-disc pl-5">
         <li v-for="item in recoveryErrors" :key="item">{{ item }}</li>
       </ul>

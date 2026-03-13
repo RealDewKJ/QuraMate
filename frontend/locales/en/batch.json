@@ -1,0 +1,6 @@
+{
+  "start": "Start batch",
+  "completed": "Batch completed",
+  "itemsProcessed_one": "{count} item processed",
+  "itemsProcessed_other": "{count} items processed"
+}

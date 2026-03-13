@@ -18,6 +18,7 @@ interface Props {
     startColumnResize: (e: MouseEvent, col: string) => void;
     handleCellClick: (item: any, col: string, rsIndex: number) => void;
     handleRowContextMenu: (e: MouseEvent, row: any, col: string, rowIndex?: number | string) => void;
+    openHeaderContextMenu: (e: MouseEvent, col: string, resultSetIndex: number) => void;
     getEditorType: (col: string) => string;
     saveCellEdit: (item: any, col: string) => void | Promise<void>;
     isImageValue: (value: any, col: string) => boolean;
@@ -461,7 +462,8 @@ defineExpose({
                             @cellDragEnter="handleCellDragEnter" @cellDragEnd="handleCellDragEnd"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
-                            @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
+                            @handleRowContextMenu="handleRowContextMenu"
+                            @openHeaderContextMenu="openHeaderContextMenu" @saveCellEdit="saveCellEdit"
                             @openImagePreview="openImagePreview" @toggleSort="toggleSort" />
                         <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors dark:border-zinc-700/70 dark:bg-zinc-900/50 dark:hover:bg-primary/30"
                             title="Drag to resize this query result"
@@ -513,7 +515,8 @@ defineExpose({
                             @cellDragEnter="handleCellDragEnter" @cellDragEnd="handleCellDragEnd"
                             @openMockDataModal="openMockDataModal" @openInsertRowModal="openInsertRowModal"
                             @startColumnResize="startColumnResize" @handleCellClick="handleCellClick"
-                            @handleRowContextMenu="handleRowContextMenu" @saveCellEdit="saveCellEdit"
+                            @handleRowContextMenu="handleRowContextMenu"
+                            @openHeaderContextMenu="openHeaderContextMenu" @saveCellEdit="saveCellEdit"
                             @openImagePreview="openImagePreview" @toggleSort="toggleSort" />
                         <div class="h-2 shrink-0 border-t border-border/60 bg-muted/20 hover:bg-primary/20 cursor-row-resize transition-colors dark:border-zinc-700/70 dark:bg-zinc-900/50 dark:hover:bg-primary/30"
                             title="Drag to resize this query result"

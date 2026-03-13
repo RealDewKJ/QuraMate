@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
 type RoutineType = 'PROCEDURE' | 'FUNCTION';
 
 interface Props {
@@ -39,6 +40,7 @@ const emit = defineEmits<{
     'update:stored-procedure-search': [value: string];
     'update:function-search': [value: string];
 }>();
+const { t } = useI18n({ useScope: 'global' });
 </script>
 
 <template>
@@ -53,7 +55,7 @@ const emit = defineEmits<{
 
         <div class="px-3 py-2 border-b border-border/70 bg-muted/20">
             <div class="flex items-center justify-end gap-1">
-                <button @click="emit('open-history')" title="History"
+                <button @click="emit('open-history')" :title="t('common.queryHistory.title')"
                     class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -75,7 +77,7 @@ const emit = defineEmits<{
                         {{ activityTaskCount }}
                     </span>
                 </button>
-                <button @click="emit('open-ai-copilot')" title="AI Copilot"
+                <button @click="emit('open-ai-copilot')" :title="t('common.aiCopilot.title')"
                     class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -87,7 +89,7 @@ const emit = defineEmits<{
                         <path d="M17 19h4" />
                     </svg>
                 </button>
-                <button @click="emit('open-settings')" title="Settings"
+                <button @click="emit('open-settings')" :title="t('common.settings.title')"
                     class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -97,7 +99,7 @@ const emit = defineEmits<{
                         <circle cx="12" cy="12" r="3" />
                     </svg>
                 </button>
-                <button @click="emit('open-database-info')" title="Database Info"
+                <button @click="emit('open-database-info')" :title="t('common.databaseInfo.title')"
                     class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

@@ -1,0 +1,6 @@
+{
+  "start": "Bắt đầu batch",
+  "completed": "Batch đã hoàn tất",
+  "itemsProcessed_one": "Đã xử lý {count} mục",
+  "itemsProcessed_other": "Đã xử lý {count} mục"
+}

@@ -1,0 +1,6 @@
+{
+  "start": "开始批处理",
+  "completed": "批处理已完成",
+  "itemsProcessed_one": "已处理 {count} 项",
+  "itemsProcessed_other": "已处理 {count} 项"
+}

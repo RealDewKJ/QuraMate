@@ -37,6 +37,8 @@ interface Props {
     handleCopyRowWithHeader: () => void | Promise<void>;
     handleCopyCellValue: () => void | Promise<void>;
     handleCopyCellValueWithHeader: () => void | Promise<void>;
+    handleCopyHeaderName: () => void | Promise<void>;
+    handleCopyHeaderRow: () => void | Promise<void>;
     handleAddWhereToCondition: () => void;
     handleSetNull: () => void;
     handleSetEmpty: () => void;
@@ -86,6 +88,8 @@ const {
     handleCopyRowWithHeader,
     handleCopyCellValue,
     handleCopyCellValueWithHeader,
+    handleCopyHeaderName,
+    handleCopyHeaderRow,
     handleAddWhereToCondition,
     handleSetNull,
     handleSetEmpty,
@@ -1026,6 +1030,33 @@ watch(() => contextMenu.showRow, (show) => {
                     </button>
                 </div>
             </div>
+        </div>
+
+        <!-- Header Context Menu -->
+        <div v-if="contextMenu.showHeader"
+            :class="menuPanelClass"
+            :style="{ top: `${contextMenu.position.y}px`, left: `${contextMenu.position.x}px` }">
+            <button @click="handleCopyHeaderName"
+                :class="menuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-tag">
+                    <path d="M20 12V5a2 2 0 0 0-2-2h-7l-9 9 9 9 9-9Z" />
+                    <line x1="7" x2="7.01" y1="7" y2="7" />
+                </svg>
+                Copy Column Header
+            </button>
+            <button @click="handleCopyHeaderRow"
+                :class="menuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-rows-3">
+                    <path d="M21 6H3" />
+                    <path d="M21 12H3" />
+                    <path d="M21 18H3" />
+                </svg>
+                Copy Header Row
+            </button>
         </div>
 
 </template>

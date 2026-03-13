@@ -1,0 +1,6 @@
+{
+  "start": "バッチを開始",
+  "completed": "バッチが完了しました",
+  "itemsProcessed_one": "{count} 件を処理しました",
+  "itemsProcessed_other": "{count} 件を処理しました"
+}

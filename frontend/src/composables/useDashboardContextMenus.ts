@@ -10,12 +10,14 @@ export interface DashboardContextMenuState {
     showFolder: boolean;
     show: boolean;
     showRow: boolean;
+    showHeader: boolean;
     showView: boolean;
     showRoutine: boolean;
     position: { x: number; y: number };
     targetTable: string;
     targetRow: Record<string, unknown> | null;
     targetColumn: string;
+    targetResultSetIndex: number | null;
     targetFolder: string;
     targetView: string;
     targetRoutine: string;
@@ -30,11 +32,13 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         showFolder: false,
         show: false,
         showRow: false,
+        showHeader: false,
         showView: false,
         showRoutine: false,
         position: { x: 0, y: 0 },
         targetTable: '', targetRow: null,
         targetColumn: '',
+        targetResultSetIndex: null,
         targetFolder: '',
         targetView: '',
         targetRoutine: '',
@@ -47,6 +51,7 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         contextMenu.showFolder = false;
         contextMenu.show = false;
         contextMenu.showRow = false;
+        contextMenu.showHeader = false;
         contextMenu.showView = false;
         contextMenu.showRoutine = false;
     };
@@ -94,9 +99,21 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         closeContextMenu();
         contextMenu.targetRow = row;
         contextMenu.targetColumn = col;
+        contextMenu.targetResultSetIndex = null;
         contextMenu.targetRowIndex = rowIndex ?? null;
         contextMenu.position = { x: event.clientX, y: event.clientY };
         contextMenu.showRow = true;
+        adjustPosition();
+    };
+
+    const openHeaderContextMenu = (event: MouseEvent, col: string, resultSetIndex: number) => {
+        closeContextMenu();
+        contextMenu.targetRow = null;
+        contextMenu.targetColumn = col;
+        contextMenu.targetResultSetIndex = resultSetIndex;
+        contextMenu.targetRowIndex = null;
+        contextMenu.position = { x: event.clientX, y: event.clientY };
+        contextMenu.showHeader = true;
         adjustPosition();
     };
 
@@ -137,6 +154,7 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         || contextMenu.showFolder
         || contextMenu.show
         || contextMenu.showRow
+        || contextMenu.showHeader
         || contextMenu.showView
         || contextMenu.showRoutine;
 
@@ -152,6 +170,7 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
             contextMenu.showFolder,
             contextMenu.show,
             contextMenu.showRow,
+            contextMenu.showHeader,
             contextMenu.showView,
             contextMenu.showRoutine,
         ],
@@ -178,6 +197,7 @@ export function useDashboardContextMenus(options: UseDashboardContextMenusOption
         openFolderContextMenu,
         openContextMenu,
         handleRowContextMenu,
+        openHeaderContextMenu,
         openViewContextMenu,
         openRoutineContextMenu,
         closeContextMenu,

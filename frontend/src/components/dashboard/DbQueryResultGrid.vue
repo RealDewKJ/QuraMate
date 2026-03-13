@@ -29,6 +29,7 @@ const emit = defineEmits<{
     (e: 'startColumnResize', ev: MouseEvent, col: string): void;
     (e: 'handleCellClick', item: any, col: string, rsIndex: number): void;
     (e: 'handleRowContextMenu', ev: MouseEvent, row: any, col: string, rowIndex?: number | string): void;
+    (e: 'openHeaderContextMenu', ev: MouseEvent, col: string, resultSetIndex: number): void;
     (e: 'saveCellEdit', item: any, col: string): void;
     (e: 'openImagePreview', url: string): void;
     (e: 'toggleSort', col: string): void;
@@ -205,7 +206,8 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                     <th v-for="(col, index) in resultSet.columns" :key="index + '-' + col" scope="col"
                         class="px-3 py-1.5 text-xs whitespace-nowrap border-b border-border min-w-[50px] cursor-pointer hover:bg-muted/80 select-none relative group/th dark:border-zinc-700/70 dark:hover:bg-zinc-800/80"
                         :style="{ width: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px', minWidth: activeTab.columnWidths[col] ? activeTab.columnWidths[col] + 'px' : '150px' }"
-                        @click="emit('toggleSort', col)">
+                        @click="emit('toggleSort', col)"
+                        @contextmenu.prevent.stop="emit('openHeaderContextMenu', $event, col, resultSetIndex)">
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center justify-between gap-2">
                                 <span>{{ col }}</span>

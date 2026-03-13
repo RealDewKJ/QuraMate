@@ -1,0 +1,6 @@
+{
+  "start": "เริ่มแบตช์",
+  "completed": "แบตช์เสร็จสมบูรณ์",
+  "itemsProcessed_one": "ประมวลผลแล้ว {count} รายการ",
+  "itemsProcessed_other": "ประมวลผลแล้ว {count} รายการ"
+}

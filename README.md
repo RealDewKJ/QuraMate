@@ -32,13 +32,13 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.1.8)
+## Latest Release (v1.2.0)
 
-- Improved Query History safety with SQL redaction support for sensitive values before persistence
-- Added Query History settings for enable/disable and retention-day cleanup
-- Improved Query History UX and reliability with better error states and loading guards
-- Fixed MSSQL table designer behavior to avoid invalid ALTER TYPE for `timestamp` columns
-- Updated application version across app/frontend/npm manifests to 1.1.8
+- Added advanced query workspace tools and broader database dashboard polish for faster day-to-day SQL work
+- Improved query workspace controls and dialog handling, including Escape-to-close support across key UI flows
+- Hardened local data handling and restored SQL Server compatibility in sensitive connection paths
+- Translated default AI Copilot prompts to English for a more consistent out-of-the-box experience
+- Added npm publish automation from tags/releases and updated application version across app/frontend/npm manifests to 1.2.0
 
 ## Features
 

@@ -1,5 +1,35 @@
 [
     {
+        "version":  "v1.2.0",
+        "date":  "2026-03-13",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added advanced query tools and polished the database workspace for faster daily SQL workflows"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Improved query workspace controls, close-on-Escape behavior, and SQL Server settings copy across key UI dialogs"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Hardened local data handling and restored SQL Server compatibility in sensitive connection flows"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Translated default AI Copilot prompts to English and reorganized backend service packages"
+                        },
+                        {
+                            "type":  "ci",
+                            "text":  "Added npm publish automation triggered by tags, published releases, and manual dispatch"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm manifests to 1.2.0"
+                        }
+                    ]
+    },
+    {
         "version":  "v1.1.8",
         "date":  "2026-03-11",
         "changes":  [

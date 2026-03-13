@@ -5,29 +5,29 @@
             class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full animate-in fade-in zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-48">
             <div class="flex flex-col space-y-1.5 text-center sm:text-left">
                 <h2 class="text-lg font-semibold leading-none tracking-tight">
-                    Saved Connections
+                    {{ t("common.savedConnections.title") }}
                 </h2>
                 <p class="text-sm text-muted-foreground">
-                    Select a connection to load its details.
+                    {{ t("common.savedConnections.description") }}
                 </p>
             </div>
             <div class="space-y-2">
-                <input ref="searchInputRef" v-model="searchQuery" type="text" placeholder="Search connections"
-                    aria-label="Search saved connections"
+                <input ref="searchInputRef" v-model="searchQuery" type="text" :placeholder="t('common.savedConnections.searchPlaceholder')"
+                    :aria-label="t('common.savedConnections.searchAriaLabel')"
                     class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
-                <p class="text-[11px] text-muted-foreground">Use Arrow keys to navigate, Enter to connect, Delete to remove.</p>
+                <p class="text-[11px] text-muted-foreground">{{ t("common.savedConnections.searchHint") }}</p>
             </div>
             <div class="sr-only" aria-live="polite" aria-atomic="true">{{ activeSelectionAnnouncement }}</div>
             <div class="sr-only" aria-live="polite" aria-atomic="true">{{ statusAnnouncementText }}</div>
             <div class="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
                 <div v-if="connections.length === 0" class="text-center text-muted-foreground text-sm py-8">
-                    No saved connections found.
+                    {{ t("common.savedConnections.empty") }}
                 </div>
                 <div v-else-if="filteredConnections.length === 0" class="text-center text-muted-foreground text-sm py-8">
-                    No matching connections.
+                    {{ t("common.savedConnections.noMatches") }}
                 </div>
                 <div v-else role="listbox" tabindex="0"
-                    aria-label="Saved connections list"
+                    :aria-label="t('common.savedConnections.listAriaLabel')"
                     :aria-activedescendant="activeOptionId"
                     class="space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md">
                     <div v-for="(conn, index) in filteredConnections" :id="getOptionId(conn, index)" :key="conn.id" role="option"
@@ -82,7 +82,7 @@
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button @click.stop="emit('edit', conn)"
                                 class="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                                title="Edit Connection" aria-label="Edit connection">
+                                :title="t('common.savedConnections.edit')" :aria-label="t('common.savedConnections.edit')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                     stroke-linejoin="round" class="lucide lucide-pencil">
@@ -92,7 +92,7 @@
                             </button>
                             <button @click.stop="requestRemoveConnection(conn)"
                                 class="p-2 rounded-md hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                                title="Delete Connection" aria-label="Delete connection">
+                                :title="t('common.savedConnections.delete')" :aria-label="t('common.savedConnections.delete')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                     stroke-linejoin="round" class="lucide lucide-trash-2">
@@ -110,7 +110,7 @@
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
                 <button @click="emit('close')"
                     class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                    Cancel
+                    {{ t("common.cancel") }}
                 </button>
             </div>
 
@@ -119,21 +119,21 @@
                 <div ref="warningDialogRef" role="dialog" aria-modal="true" aria-label="Delete saved connection warning"
                     class="w-full max-w-sm rounded-lg border border-destructive/40 bg-card p-4 shadow-lg space-y-3">
                     <div>
-                        <h3 class="text-sm font-semibold text-destructive">Delete Saved Connection?</h3>
+                        <h3 class="text-sm font-semibold text-destructive">{{ t("common.savedConnections.deleteConfirmTitle") }}</h3>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            This will remove
+                            {{ t("common.savedConnections.deleteConfirmPrefix") }}
                             <span class="font-medium text-foreground">{{ getConnectionLabel(pendingDeleteConnection) }}</span>
-                            from saved connections.
+                            {{ t("common.savedConnections.deleteConfirmSuffix") }}
                         </p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <button @click="cancelPendingDelete"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-9 px-3">
-                            Cancel
+                            {{ t("common.cancel") }}
                         </button>
                         <button @click="confirmPendingDelete"
                             class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-3">
-                            Delete
+                            {{ t("common.delete") }}
                         </button>
                     </div>
                 </div>
@@ -145,6 +145,7 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { onClickOutside } from "@vueuse/core";
+import { useI18n } from "vue-i18n";
 import {
     type ConnectionConfig,
     getConnectionLabel,
@@ -162,6 +163,7 @@ const emit = defineEmits<{
     edit: [conn: ConnectionConfig];
     remove: [conn: ConnectionConfig];
 }>();
+const { t } = useI18n({ useScope: "global" });
 
 const modalRef = ref<HTMLElement | null>(null);
 const searchInputRef = ref<HTMLInputElement | null>(null);
@@ -207,9 +209,9 @@ const requestRemoveConnection = (conn: ConnectionConfig) => {
 const cancelPendingDelete = async () => {
     const label = pendingDeleteConnection.value
         ? getConnectionLabel(pendingDeleteConnection.value)
-        : "selected connection";
+        : t("common.savedConnections.selectedConnectionFallback");
     pendingDeleteConnection.value = null;
-    await announceStatus(`Delete cancelled for ${label}.`);
+    await announceStatus(t("common.savedConnections.deleteCancelled", { label }));
 };
 
 const confirmPendingDelete = () => {
@@ -230,20 +232,25 @@ const activeOptionId = computed(() => {
 
 const activeSelectionAnnouncement = computed(() => {
     if (props.connections.length === 0) {
-        return "No saved connections available.";
+        return t("common.savedConnections.noneAvailable");
     }
     if (filteredConnections.value.length === 0) {
-        return "No matching connections.";
+        return t("common.savedConnections.noMatches");
     }
 
     const selected = filteredConnections.value[activeIndex.value];
     if (!selected) {
-        return `${filteredConnections.value.length} connections found.`;
+        return t("common.savedConnections.countFound", { count: filteredConnections.value.length });
     }
 
     const label = getConnectionLabel(selected);
     const subtitle = getConnectionSubtitle(selected);
-    return `Selected ${activeIndex.value + 1} of ${filteredConnections.value.length}: ${label}. ${subtitle}.`;
+    return t("common.savedConnections.selectionAnnouncement", {
+        index: activeIndex.value + 1,
+        total: filteredConnections.value.length,
+        label,
+        subtitle,
+    });
 });
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
