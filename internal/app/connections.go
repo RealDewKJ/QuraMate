@@ -64,12 +64,22 @@ func formatConnectionError(err error) string {
 		return ""
 	}
 
+	message := err.Error()
 	code := classifyConnectionErrorCode(err)
 	if code != "" {
-		return fmt.Sprintf("Error [%s]: %s", code, err.Error())
+		return fmt.Sprintf("Error [%s]: %s", code, message)
 	}
 
-	return fmt.Sprintf("Error: %s", err.Error())
+	lowerMessage := strings.ToLower(message)
+	if strings.Contains(lowerMessage, "forcibly closed by the remote host") ||
+		strings.Contains(lowerMessage, "wsarecv") {
+		return fmt.Sprintf(
+			"Error: %s. The database server closed the connection during setup. For SQL Server, check Settings > Trust SQL Server Certificates By Default, verify the server allows encrypted connections, and confirm the server supports the negotiated TLS version.",
+			message,
+		)
+	}
+
+	return fmt.Sprintf("Error: %s", message)
 }
 
 func (a *App) ConnectDB(config DBConfig) ConnectResult {

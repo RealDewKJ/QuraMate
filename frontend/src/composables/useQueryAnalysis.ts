@@ -1,6 +1,7 @@
 import type { Ref } from 'vue';
 
 import { ExplainQuery } from '../../wailsjs/go/app/App';
+import { loadAiSettings } from './useAiProvider';
 import { useAiCopilot } from './useAiCopilot';
 import type { QueryTab } from '../types/dashboard';
 import type { AIMessage } from '../lib/ai/client';
@@ -124,7 +125,11 @@ export function useQueryAnalysis(options: UseQueryAnalysisOptions) {
 
         try {
             const dbType = options.dbType.value || 'SQL';
-            const contextPlan = tab.explanation ? `\n\nQuery execution plan:\n${tab.explanation}` : '';
+            const aiSettings = await loadAiSettings();
+            const includeExecutionPlan = aiSettings.provider === 'local' || aiSettings.shareExecutionPlan;
+            const contextPlan = includeExecutionPlan && tab.explanation
+                ? `\n\nQuery execution plan:\n${tab.explanation}`
+                : '';
             const result = await options.complete(
                 [
                     {

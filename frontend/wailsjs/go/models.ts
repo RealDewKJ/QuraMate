@@ -186,6 +186,7 @@ export namespace database {
 	    database: string;
 	    encoding?: string;
 	    readOnly: boolean;
+	    trustServerCertificate: boolean;
 	    sshEnabled: boolean;
 	    sshHost: string;
 	    sshPort: number;
@@ -208,6 +209,7 @@ export namespace database {
 	        this.database = source["database"];
 	        this.encoding = source["encoding"];
 	        this.readOnly = source["readOnly"];
+	        this.trustServerCertificate = source["trustServerCertificate"];
 	        this.sshEnabled = source["sshEnabled"];
 	        this.sshHost = source["sshHost"];
 	        this.sshPort = source["sshPort"];

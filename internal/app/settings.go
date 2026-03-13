@@ -34,6 +34,23 @@ func (a *App) LoadSetting(key string) string {
 	return value
 }
 
+func (a *App) GetLocalDataEncryptionEnabled() bool {
+	if a.localDB == nil {
+		return false
+	}
+	return a.localDB.IsEncryptionEnabled()
+}
+
+func (a *App) SetLocalDataEncryptionEnabled(enabled bool) string {
+	if a.localDB == nil {
+		return "Error: LocalDB is not initialized"
+	}
+	if err := a.localDB.SetEncryptionEnabled(enabled); err != nil {
+		return fmt.Sprintf("Error updating local data encryption: %s", err.Error())
+	}
+	return "Success"
+}
+
 func (a *App) SaveAIProviderKey(provider string, apiKey string) string {
 	normalizedProvider, err := normalizeAIProvider(provider)
 	if err != nil {

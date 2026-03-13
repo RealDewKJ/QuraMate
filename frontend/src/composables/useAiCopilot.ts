@@ -1,5 +1,6 @@
 import { reactive, watch } from 'vue';
 import type { AIMessage } from '../lib/ai/client';
+import { loadAiSettings } from './useAiProvider';
 import type { AiCopilotMode, AiCopilotModeOption } from '../types/aiCopilot';
 
 interface AiCopilotState {
@@ -154,8 +155,28 @@ export const useAiCopilot = (options: UseAiCopilotOptions) => {
 
         try {
             const context = await options.getRuntimeContext();
-            const history = await options.loadHistory(context.historyScope);
-            const recentHistory = (history || []).slice(0, 8).map((item) => item.query).join('\n---\n');
+            const aiSettings = await loadAiSettings();
+            const provider = aiSettings.provider;
+            const allowExpandedContext = provider === 'local';
+            const includeSchemaContext = allowExpandedContext || aiSettings.shareSchemaContext;
+            const includeQueryHistory = allowExpandedContext || aiSettings.shareQueryHistory;
+            const includeResultSample = allowExpandedContext || aiSettings.shareResultSample;
+            const includeExecutionPlan = allowExpandedContext || aiSettings.shareExecutionPlan;
+            const history = includeQueryHistory
+                ? await options.loadHistory(context.historyScope)
+                : [];
+            const recentHistory = includeQueryHistory
+                ? (history || []).slice(0, 8).map((item) => item.query).join('\n---\n')
+                : '(disabled by privacy settings)';
+            const executionPlan = includeExecutionPlan
+                ? (context.currentPlan || '(none)')
+                : '(disabled by privacy settings)';
+            const schemaSnapshot = includeSchemaContext
+                ? (context.schemaContext || '(none)')
+                : '(disabled by privacy settings)';
+            const resultSample = includeResultSample
+                ? (context.resultSample || '(none)')
+                : '(disabled by privacy settings)';
 
             const taskLabel = modeOptions.find((m) => m.value === aiCopilot.mode)?.label || aiCopilot.mode;
             const sqlOnlyMode = isSqlOnlyMode(aiCopilot.mode);
@@ -186,16 +207,16 @@ Current Error:
 ${context.currentError || '(none)'}
 
 Execution Plan:
-${context.currentPlan || '(none)'}
+${executionPlan}
 
 Recent Query History:
 ${recentHistory || '(none)'}
 
 Schema Snapshot:
-${context.schemaContext}
+${schemaSnapshot}
 
 Result Sample (JSON):
-${context.resultSample}`;
+${resultSample}`;
 
             const response = await options.complete(
                 [

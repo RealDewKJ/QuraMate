@@ -15,15 +15,16 @@ import (
 // schema inspection, and database metadata helpers.
 
 type DBConfig struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Database string `json:"database"`
-	Encoding string `json:"encoding,omitempty"`
-	ReadOnly bool   `json:"readOnly"`
+	ID                     string `json:"id"`
+	Type                   string `json:"type"`
+	Host                   string `json:"host"`
+	Port                   int    `json:"port"`
+	User                   string `json:"user"`
+	Password               string `json:"password"`
+	Database               string `json:"database"`
+	Encoding               string `json:"encoding,omitempty"`
+	ReadOnly               bool   `json:"readOnly"`
+	TrustServerCertificate bool   `json:"trustServerCertificate"`
 
 	// SSH Tunnel Config
 	SSHEnabled  bool   `json:"sshEnabled"`

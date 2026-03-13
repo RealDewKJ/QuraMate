@@ -28,6 +28,7 @@ export interface ConnectionConfig {
   password: string;
   database: string;
   readOnly: boolean;
+  trustServerCertificate: boolean;
   sshEnabled: boolean;
   sshHost: string;
   sshPort: number;
@@ -78,6 +79,7 @@ const DEFAULT_CONFIG: ConnectionConfig = {
   password: "",
   database: "postgres",
   readOnly: false,
+  trustServerCertificate: true,
   sshEnabled: false,
   sshHost: "",
   sshPort: 22,
@@ -205,6 +207,7 @@ export function isConfigEqual(
   const sshEnabled1 = !!c1.sshEnabled;
   const sshEnabled2 = !!c2.sshEnabled;
   if (sshEnabled1 !== sshEnabled2) return false;
+  if (!!c1.trustServerCertificate !== !!c2.trustServerCertificate) return false;
 
   if (sshEnabled1) {
     const sshHost1 = (c1.sshHost || "").toLowerCase();
@@ -234,11 +237,17 @@ export function useConnectionForm(
   emitConnected: (conn: ActiveConnection) => void,
   emitConnectionExists: (id: string) => void,
   emitConnectionUpdated: (update: { id: string; config: ConnectionConfig }) => void,
+  getTrustServerCertificateDefault: () => boolean = () => true,
 ) {
-  const config = reactive<ConnectionConfig>({ ...DEFAULT_CONFIG });
+  const buildDefaultConfig = (): ConnectionConfig => ({
+    ...DEFAULT_CONFIG,
+    trustServerCertificate: getTrustServerCertificateDefault(),
+  });
+
+  const config = reactive<ConnectionConfig>(buildDefaultConfig());
 
   const resetConfig = () => {
-    Object.assign(config, { ...DEFAULT_CONFIG });
+    Object.assign(config, buildDefaultConfig());
   };
 
   const error = ref("");
@@ -265,6 +274,20 @@ export function useConnectionForm(
   const setError = (message: string) => {
     error.value = message;
     lastErrorCode.value = extractErrorCode(message);
+  };
+  const applySqlServerTrustDefault = (
+    target: ConnectionConfig,
+  ): ConnectionConfig => {
+    if ((target.type || "").toLowerCase() === "mssql") {
+      return {
+        ...target,
+        trustServerCertificate: getTrustServerCertificateDefault(),
+      };
+    }
+    return {
+      ...target,
+      trustServerCertificate: false,
+    };
   };
 
   const connectionLabel = computed(() => getConnectionLabel(config));
@@ -362,6 +385,11 @@ export function useConnectionForm(
         config.sshPassword = "";
         config.sshKeyFile = "";
       }
+      if (newType === "mssql") {
+        config.trustServerCertificate = getTrustServerCertificateDefault();
+      } else {
+        config.trustServerCertificate = false;
+      }
     },
   );
 
@@ -401,32 +429,38 @@ export function useConnectionForm(
   };
 
   const saveConnection = async (newConfig: ConnectionConfig) => {
-    if (!newConfig.id) {
+    const normalizedConfig = applySqlServerTrustDefault({ ...newConfig });
+
+    if (!normalizedConfig.id) {
       const existing = savedConnections.value.find((c) =>
-        isConfigEqual(c, newConfig),
+        isConfigEqual(c, normalizedConfig),
       );
       if (existing && existing.id) {
-        newConfig.id = existing.id;
+        normalizedConfig.id = existing.id;
       } else {
-        newConfig.id = crypto.randomUUID();
+        normalizedConfig.id = crypto.randomUUID();
       }
     }
 
-    config.id = newConfig.id;
+    config.id = normalizedConfig.id;
 
-    if (newConfig.password || newConfig.sshPassword) {
+    if (normalizedConfig.password || normalizedConfig.sshPassword) {
       try {
         await SaveCredential(
-          newConfig.id,
-          newConfig.password || "",
-          newConfig.sshPassword || "",
+          normalizedConfig.id,
+          normalizedConfig.password || "",
+          normalizedConfig.sshPassword || "",
         );
       } catch (e) {
         console.error("Failed to save credentials to keyring", e);
       }
     }
 
-    const storageConfig: ConnectionConfig = { ...newConfig, password: "", sshPassword: "" };
+    const storageConfig: ConnectionConfig = {
+      ...normalizedConfig,
+      password: "",
+      sshPassword: "",
+    };
 
     const existsIndex = savedConnections.value.findIndex(
       (c) => c.id === storageConfig.id || isConfigEqual(c, storageConfig),
@@ -443,8 +477,9 @@ export function useConnectionForm(
     clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
+    const effectiveConfig = applySqlServerTrustDefault({ ...config });
 
-    const validationError = validateConnectionConfig(config);
+    const validationError = validateConnectionConfig(effectiveConfig);
     if (validationError) {
       setError(validationError);
       return;
@@ -455,7 +490,7 @@ export function useConnectionForm(
 
     // Check for existing connection
     const existing = activeConnections().find((c) =>
-      isConfigEqual(c.config, config),
+      isConfigEqual(c.config, effectiveConfig),
     );
 
     if (existing) {
@@ -480,17 +515,17 @@ export function useConnectionForm(
     }
 
     try {
-      const result = await ConnectDB(config);
+      const result = await ConnectDB(effectiveConfig);
       if (currentToken !== connectionToken.value) return;
 
       if (result.id) {
-        await saveConnection({ ...config });
+        await saveConnection(effectiveConfig);
         if (currentToken !== connectionToken.value) return;
 
         emitConnected({
           id: result.id,
-          name: config.name || getConnectionLabel(config),
-          config: { ...config },
+          name: effectiveConfig.name || getConnectionLabel(effectiveConfig),
+          config: effectiveConfig,
         });
         resetConfig();
       } else {
@@ -515,8 +550,9 @@ export function useConnectionForm(
     clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
+    const effectiveConfig = applySqlServerTrustDefault({ ...config });
 
-    const validationError = validateConnectionConfig(config);
+    const validationError = validateConnectionConfig(effectiveConfig);
     if (validationError) {
       setError(validationError);
       return;
@@ -526,7 +562,7 @@ export function useConnectionForm(
     const currentToken = ++connectionToken.value;
 
     try {
-      const testConfig = { ...config };
+      const testConfig = { ...effectiveConfig };
       if (!testConfig.id) {
         testConfig.id = "";
       }
@@ -561,8 +597,14 @@ export function useConnectionForm(
   };
 
   const selectConnection = (conn: ConnectionConfig) => {
-    config.name = conn.name || "";
-    Object.assign(config, conn);
+    Object.assign(
+      config,
+      applySqlServerTrustDefault({
+        ...DEFAULT_CONFIG,
+        ...conn,
+        name: conn.name || "",
+      }),
+    );
     config.password = "";
     config.sshPassword = "";
 
@@ -571,8 +613,14 @@ export function useConnectionForm(
   };
 
   const editConnection = (conn: ConnectionConfig) => {
-    config.name = conn.name || "";
-    Object.assign(config, conn);
+    Object.assign(
+      config,
+      applySqlServerTrustDefault({
+        ...DEFAULT_CONFIG,
+        ...conn,
+        name: conn.name || "",
+      }),
+    );
     config.password = "";
     config.sshPassword = "";
   };
@@ -585,6 +633,11 @@ export function useConnectionForm(
       let modified = false;
       if (!conn.id) {
         conn.id = crypto.randomUUID();
+        modified = true;
+      }
+      const normalizedConn = applySqlServerTrustDefault({ ...conn });
+      if (JSON.stringify(normalizedConn) !== JSON.stringify(conn)) {
+        Object.assign(conn, normalizedConn);
         modified = true;
       }
       if (conn.password || conn.sshPassword) {

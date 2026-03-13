@@ -195,6 +195,81 @@
                                     </select>
                                 </div>
 
+                                <div class="grid gap-2 pt-4 border-t border-border">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Workspace Session Persistence
+                                    </label>
+                                    <div class="flex items-center space-x-2">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            :aria-checked="settings.general.persistWorkspaceState"
+                                            @click="settings.general.persistWorkspaceState = !settings.general.persistWorkspaceState"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.persistWorkspaceState ? 'bg-primary' : 'bg-input'"
+                                        >
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.persistWorkspaceState ? 'translate-x-5' : 'translate-x-0'"
+                                            >
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Restore open SQL tabs and editor contents after restarting the app</span>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Encrypt Local Persisted Data
+                                    </label>
+                                    <p class="text-xs text-muted-foreground">
+                                        Encrypt saved query history and workspace state at rest using a key stored in your OS secure keychain.
+                                    </p>
+                                    <div class="flex items-center space-x-2">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            :aria-checked="settings.general.encryptLocalPersistentData"
+                                            @click="settings.general.encryptLocalPersistentData = !settings.general.encryptLocalPersistentData"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.encryptLocalPersistentData ? 'bg-primary' : 'bg-input'"
+                                        >
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.encryptLocalPersistentData ? 'translate-x-5' : 'translate-x-0'"
+                                            >
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Protect local history and session data stored on this device</span>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Trust SQL Server Certificates By Default
+                                    </label>
+                                    <p class="text-xs text-muted-foreground">
+                                        New SQL Server connections will trust server certificates automatically, which is friendlier for self-signed or private-CA environments.
+                                    </p>
+                                    <div class="flex items-center space-x-2">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            :aria-checked="settings.general.trustSqlServerCertificateByDefault"
+                                            @click="settings.general.trustSqlServerCertificateByDefault = !settings.general.trustSqlServerCertificateByDefault"
+                                            class="peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            :class="settings.general.trustSqlServerCertificateByDefault ? 'bg-primary' : 'bg-input'"
+                                        >
+                                            <span
+                                                class="pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform"
+                                                :class="settings.general.trustSqlServerCertificateByDefault ? 'translate-x-5' : 'translate-x-0'"
+                                            >
+                                            </span>
+                                        </button>
+                                        <span class="text-sm text-muted-foreground">Skip certificate-chain verification for new SQL Server connections unless disabled per connection</span>
+                                    </div>
+                                </div>
+
                                 <!-- <div class="grid gap-2 pt-4 border-t border-border">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -756,6 +831,67 @@
                                     </p>
                                 </div>
 
+                                <div class="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                                    <div class="text-xs text-muted-foreground">
+                                        External AI providers can receive query text and optional database context. Leave these switches off unless you intentionally want to share that information.
+                                    </div>
+                                    <label class="flex items-start gap-3">
+                                        <input
+                                            v-model="settings.ai.allowCustomBaseURL"
+                                            type="checkbox"
+                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                        />
+                                        <span class="space-y-1">
+                                            <span class="block text-sm font-medium">Allow custom AI endpoint hosts</span>
+                                            <span class="block text-[11px] text-muted-foreground">Required before sending API keys or prompts to a non-default provider URL.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input
+                                            v-model="settings.ai.shareSchemaContext"
+                                            type="checkbox"
+                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                        />
+                                        <span class="space-y-1">
+                                            <span class="block text-sm font-medium">Share schema context</span>
+                                            <span class="block text-[11px] text-muted-foreground">Includes table names and sampled column lists in AI prompts.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input
+                                            v-model="settings.ai.shareQueryHistory"
+                                            type="checkbox"
+                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                        />
+                                        <span class="space-y-1">
+                                            <span class="block text-sm font-medium">Share recent query history</span>
+                                            <span class="block text-[11px] text-muted-foreground">Adds recent queries for better context, but may include sensitive business logic.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input
+                                            v-model="settings.ai.shareResultSample"
+                                            type="checkbox"
+                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                        />
+                                        <span class="space-y-1">
+                                            <span class="block text-sm font-medium">Share result samples</span>
+                                            <span class="block text-[11px] text-muted-foreground">Sends a small sample of query results for explanation and summarization tasks.</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input
+                                            v-model="settings.ai.shareExecutionPlan"
+                                            type="checkbox"
+                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                        />
+                                        <span class="space-y-1">
+                                            <span class="block text-sm font-medium">Share execution plans</span>
+                                            <span class="block text-[11px] text-muted-foreground">Includes optimizer output and performance metadata in AI prompts.</span>
+                                        </span>
+                                    </label>
+                                </div>
+
                                 <div class="pt-2 flex flex-col gap-2">
                                     <button
                                         @click="testProviderConnection"
@@ -1192,9 +1328,11 @@ import {
     SaveSetting,
     LoadSetting,
     GetCurrentVersion,
+    GetLocalDataEncryptionEnabled,
     SaveAIProviderKey,
     LoadAIProviderKey,
     DeleteAIProviderKey,
+    SetLocalDataEncryptionEnabled,
 } from "../../wailsjs/go/app/App";
 import Toast from "./Toast.vue";
 import { colorMode } from "../composables/useTheme";
@@ -1217,6 +1355,7 @@ const props = defineProps({
 
 const emit = defineEmits(["close", "save"]);
 const toastRef = ref(null);
+const loadedLocalDataEncryptionEnabled = ref(false);
 
 // Tabs configuration
 const tabs = [
@@ -1423,8 +1562,11 @@ const settings = reactive({
         language: "en",
         enableSafeMode: true,
         enablePerfLogs: false,
-        enableQueryHistory: true,
+        enableQueryHistory: false,
         queryHistoryRetentionDays: 30,
+        persistWorkspaceState: false,
+        encryptLocalPersistentData: false,
+        trustSqlServerCertificateByDefault: true,
     },
     appearance: {
         theme: "system",
@@ -1438,6 +1580,11 @@ const settings = reactive({
     ai: {
         provider: "openai",
         providerConfigs: JSON.parse(JSON.stringify(defaultAiProviderConfigs)),
+        allowCustomBaseURL: false,
+        shareSchemaContext: false,
+        shareQueryHistory: false,
+        shareResultSample: false,
+        shareExecutionPlan: false,
     },
 });
 
@@ -1582,6 +1729,11 @@ const normalizeAiSettings = () => {
         }
     });
     settings.ai.providerConfigs = mergedProviderConfigs;
+    settings.ai.allowCustomBaseURL = settings.ai.allowCustomBaseURL === true;
+    settings.ai.shareSchemaContext = settings.ai.shareSchemaContext === true;
+    settings.ai.shareQueryHistory = settings.ai.shareQueryHistory === true;
+    settings.ai.shareResultSample = settings.ai.shareResultSample === true;
+    settings.ai.shareExecutionPlan = settings.ai.shareExecutionPlan === true;
 
     if ("baseURL" in settings.ai) {
         delete settings.ai.baseURL;
@@ -1817,6 +1969,8 @@ const migrateLegacyAiKeysToKeychain = async (legacyApiKeys) => {
 const loadSettings = async () => {
     let parsed = null;
     try {
+        loadedLocalDataEncryptionEnabled.value =
+            await GetLocalDataEncryptionEnabled();
         const savedSettingsJson = await LoadSetting("user_settings");
         if (savedSettingsJson) {
             parsed = JSON.parse(savedSettingsJson);
@@ -1862,8 +2016,16 @@ const loadSettings = async () => {
         settings.general.enablePerfLogs = false;
     }
     if (settings.general.enableQueryHistory === undefined) {
-        settings.general.enableQueryHistory = true;
+        settings.general.enableQueryHistory = false;
     }
+    if (settings.general.persistWorkspaceState === undefined) {
+        settings.general.persistWorkspaceState = false;
+    }
+    if (settings.general.trustSqlServerCertificateByDefault === undefined) {
+        settings.general.trustSqlServerCertificateByDefault = true;
+    }
+    settings.general.encryptLocalPersistentData =
+        loadedLocalDataEncryptionEnabled.value;
     const retention = Number(settings.general.queryHistoryRetentionDays);
     if (!Number.isFinite(retention) || retention <= 0) {
         settings.general.queryHistoryRetentionDays = 30;
@@ -1916,6 +2078,19 @@ const save = async () => {
 
     try {
         await saveProviderApiKeys();
+        if (
+            settings.general.encryptLocalPersistentData !==
+            loadedLocalDataEncryptionEnabled.value
+        ) {
+            const encryptionResult = await SetLocalDataEncryptionEnabled(
+                settings.general.encryptLocalPersistentData,
+            );
+            if (encryptionResult !== "Success") {
+                throw new Error(encryptionResult);
+            }
+            loadedLocalDataEncryptionEnabled.value =
+                settings.general.encryptLocalPersistentData;
+        }
         await SaveSetting("user_settings", JSON.stringify(settings));
         // Also save preferred language directly if needed by other systems early
         localStorage.setItem("language", settings.general.language); // Keep this just in case for early load fallback

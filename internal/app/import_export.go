@@ -405,6 +405,7 @@ func (a *App) SelectExportFile(defaultFilename string) string {
 	if err != nil {
 		return ""
 	}
+	a.approveWritePath(selection)
 	return selection
 }
 
@@ -425,6 +426,7 @@ func (a *App) SelectImportFile() string {
 	if err != nil {
 		return ""
 	}
+	a.approveReadPath(selection)
 	return selection
 }
 
@@ -441,6 +443,7 @@ func (a *App) SelectSqliteFile() string {
 	if err != nil {
 		return ""
 	}
+	a.approveReadPath(selection)
 	return selection
 }
 

@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +15,7 @@ import (
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
 
-	_ "github.com/go-sql-driver/mysql"
+	mysql "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	// _ "github.com/marcboeker/go-duckdb"
@@ -53,7 +56,7 @@ func (d *Database) Connect(config DBConfig) error {
 	switch config.Type {
 	case "postgres", "greenplum", "redshift", "cockroachdb":
 		driverName = "pgx"
-		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s", config.User, config.Password, dbHost, dbPort, config.Database)
+		dsn = buildPostgresDSN(config, dbHost, dbPort)
 	case "mysql", "mariadb", "databend":
 		driverName = "mysql"
 		mysqlCharset := normalizeMySQLCharset(config.Encoding)
@@ -63,13 +66,13 @@ func (d *Database) Connect(config DBConfig) error {
 		if mysqlCharset == "" {
 			mysqlCharset = defaultMySQLCharset
 		}
-		dsn = buildMySQLDSN(config.User, config.Password, dbHost, dbPort, config.Database, mysqlCharset)
+		dsn = buildMySQLDSN(config, dbHost, dbPort, mysqlCharset)
 		if strings.TrimSpace(config.Encoding) == "" {
 			d.Encoding = mapMySQLCharsetToDecoder(mysqlCharset)
 		}
 	case "mssql":
 		driverName = "sqlserver"
-		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable", config.User, config.Password, dbHost, dbPort, config.Database)
+		dsn = buildSQLServerDSN(config, dbHost, dbPort)
 	case "sqlite", "libsql":
 		driverName = "sqlite"
 		dsn = config.Database // Path to DB file (local)
@@ -134,8 +137,83 @@ func (d *Database) Connect(config DBConfig) error {
 	return nil
 }
 
-func buildMySQLDSN(user string, password string, host string, port int, database string, charset string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local", user, password, host, port, database, charset)
+func buildPostgresDSN(config DBConfig, host string, port int) string {
+	dsnURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(config.User, config.Password),
+		Host:   net.JoinHostPort(host, strconv.Itoa(port)),
+		Path:   "/" + config.Database,
+	}
+
+	query := url.Values{}
+	if shouldRequireEncryptedConnection(host, config.SSHEnabled) {
+		query.Set("sslmode", "require")
+	} else {
+		query.Set("sslmode", "disable")
+	}
+	dsnURL.RawQuery = query.Encode()
+
+	return dsnURL.String()
+}
+
+func buildMySQLDSN(config DBConfig, host string, port int, charset string) string {
+	dsnConfig := mysql.NewConfig()
+	dsnConfig.User = config.User
+	dsnConfig.Passwd = config.Password
+	dsnConfig.Net = "tcp"
+	dsnConfig.Addr = net.JoinHostPort(host, strconv.Itoa(port))
+	dsnConfig.DBName = config.Database
+	dsnConfig.Params = map[string]string{
+		"charset": charset,
+	}
+	dsnConfig.ParseTime = true
+	dsnConfig.Loc = time.Local
+
+	if shouldRequireEncryptedConnection(host, config.SSHEnabled) {
+		dsnConfig.TLSConfig = "true"
+	}
+
+	return dsnConfig.FormatDSN()
+}
+
+func buildSQLServerDSN(config DBConfig, host string, port int) string {
+	dsnURL := &url.URL{
+		Scheme: "sqlserver",
+		User:   url.UserPassword(config.User, config.Password),
+		Host:   net.JoinHostPort(host, strconv.Itoa(port)),
+	}
+
+	query := url.Values{}
+	query.Set("database", config.Database)
+	// Preserve legacy SQL Server behavior for compatibility with servers that
+	// reject TLS negotiation during prelogin.
+	query.Set("encrypt", "disable")
+	dsnURL.RawQuery = query.Encode()
+
+	return dsnURL.String()
+}
+
+func shouldRequireEncryptedConnection(host string, sshEnabled bool) bool {
+	if sshEnabled {
+		return false
+	}
+
+	return !isLoopbackHost(host)
+}
+
+func isLoopbackHost(host string) bool {
+	trimmedHost := strings.TrimSpace(host)
+	if trimmedHost == "" {
+		return false
+	}
+
+	unwrappedHost := strings.Trim(trimmedHost, "[]")
+	if strings.EqualFold(unwrappedHost, "localhost") {
+		return true
+	}
+
+	ip := net.ParseIP(unwrappedHost)
+	return ip != nil && ip.IsLoopback()
 }
 
 func normalizeMySQLCharset(encodingName string) string {
@@ -168,7 +246,7 @@ func mapMySQLCharsetToDecoder(charset string) string {
 }
 
 func detectMySQLSchemaCharset(host string, port int, config DBConfig) string {
-	dsn := buildMySQLDSN(config.User, config.Password, host, port, config.Database, defaultMySQLCharset)
+	dsn := buildMySQLDSN(config, host, port, defaultMySQLCharset)
 	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return ""

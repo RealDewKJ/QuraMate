@@ -15,6 +15,11 @@ import {
 export interface AiSettingsSnapshot {
   provider: AIProviderId;
   providerConfigs: AIProviderConfigMap;
+  allowCustomBaseURL: boolean;
+  shareSchemaContext: boolean;
+  shareQueryHistory: boolean;
+  shareResultSample: boolean;
+  shareExecutionPlan: boolean;
 }
 
 const deepCloneDefaults = (): AIProviderConfigMap =>
@@ -24,12 +29,25 @@ const parseAiSettings = (settingsJson: string): AiSettingsSnapshot => {
   const defaults: AiSettingsSnapshot = {
     provider: "openai",
     providerConfigs: deepCloneDefaults(),
+    allowCustomBaseURL: false,
+    shareSchemaContext: false,
+    shareQueryHistory: false,
+    shareResultSample: false,
+    shareExecutionPlan: false,
   };
   if (!settingsJson) return defaults;
 
   try {
     const parsed = JSON.parse(settingsJson) as {
-      ai?: { provider?: string; providerConfigs?: Partial<AIProviderConfigMap> };
+      ai?: {
+        provider?: string;
+        providerConfigs?: Partial<AIProviderConfigMap>;
+        allowCustomBaseURL?: boolean;
+        shareSchemaContext?: boolean;
+        shareQueryHistory?: boolean;
+        shareResultSample?: boolean;
+        shareExecutionPlan?: boolean;
+      };
     };
     const provider = parsed.ai?.provider;
     if (provider && (AI_PROVIDER_IDS as readonly string[]).includes(provider)) {
@@ -49,6 +67,12 @@ const parseAiSettings = (settingsJson: string): AiSettingsSnapshot => {
         }
       });
     }
+
+    defaults.allowCustomBaseURL = parsed.ai?.allowCustomBaseURL === true;
+    defaults.shareSchemaContext = parsed.ai?.shareSchemaContext === true;
+    defaults.shareQueryHistory = parsed.ai?.shareQueryHistory === true;
+    defaults.shareResultSample = parsed.ai?.shareResultSample === true;
+    defaults.shareExecutionPlan = parsed.ai?.shareExecutionPlan === true;
   } catch {
     return defaults;
   }
@@ -59,6 +83,30 @@ const parseAiSettings = (settingsJson: string): AiSettingsSnapshot => {
 export const loadAiSettings = async (): Promise<AiSettingsSnapshot> => {
   const rawSettings = await LoadSetting("user_settings");
   return parseAiSettings(rawSettings);
+};
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const extractURLOrigin = (value: string): string | null => {
+  try {
+    return new URL(value).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+
+const isCustomProviderEndpoint = (provider: AIProviderId, baseURL: string): boolean => {
+  if (provider === "local") {
+    return false;
+  }
+
+  const configuredOrigin = extractURLOrigin(trimTrailingSlash(baseURL));
+  const defaultOrigin = extractURLOrigin(trimTrailingSlash(AI_PROVIDER_DEFAULT_CONFIGS[provider].baseURL));
+  if (!configuredOrigin || !defaultOrigin) {
+    return true;
+  }
+
+  return configuredOrigin !== defaultOrigin;
 };
 
 export const completeWithSavedProvider = async (
@@ -73,6 +121,13 @@ export const completeWithSavedProvider = async (
   }
 
   const runtimeConfig = settings.providerConfigs[provider] || AI_PROVIDER_DEFAULT_CONFIGS[provider];
+  if (isCustomProviderEndpoint(provider, runtimeConfig.baseURL) && !settings.allowCustomBaseURL) {
+    throw new AIProviderError(
+      "Custom AI endpoints are disabled. Enable them in Settings before using a non-default provider URL.",
+      provider,
+    );
+  }
+
   return completeWithProvider({
     provider,
     apiKey,

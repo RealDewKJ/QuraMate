@@ -20,6 +20,9 @@ type App struct {
 	ctx              context.Context
 	dbs              map[string]*Database
 	mu               sync.Mutex
+	approvedFileMu   sync.Mutex
+	approvedRead     map[string]struct{}
+	approvedWrite    map[string]struct{}
 	queryCancelFuncs map[string]context.CancelFunc
 	muQueries        sync.Mutex
 	appLogs          []LogEntry
@@ -46,6 +49,8 @@ func NewApp() *App {
 
 	return &App{
 		dbs:              make(map[string]*Database),
+		approvedRead:     make(map[string]struct{}),
+		approvedWrite:    make(map[string]struct{}),
 		queryCancelFuncs: make(map[string]context.CancelFunc),
 		localDB:          ldb,
 		updater:          updatepkg.NewService(),
@@ -127,14 +132,13 @@ func (a *App) LogClientEvent(level string, message string) string {
 }
 
 func (a *App) debugLog(msg string) {
-	execPath, err := os.Executable()
-	logDir := "."
-	if err == nil {
-		logDir = filepath.Dir(execPath)
+	appDir, err := getAppSupportDir()
+	if err != nil {
+		return
 	}
-	logFile := filepath.Join(logDir, "debug_open.log")
+	logFile := filepath.Join(appDir, "debug_open.log")
 	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("15:04:05.000"), msg)
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}
@@ -143,21 +147,21 @@ func (a *App) debugLog(msg string) {
 }
 
 func (a *App) GetStartupFile() string {
-	a.debugLog(fmt.Sprintf("GetStartupFile called, os.Args=%v", os.Args))
+	a.debugLog(fmt.Sprintf("GetStartupFile called, argCount=%d", len(os.Args)))
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
 		if _, err := os.Stat(arg); err == nil {
-			a.debugLog(fmt.Sprintf("GetStartupFile returning: %s", arg))
+			a.debugLog(fmt.Sprintf("GetStartupFile returning file=%s", redactFilePathForLog(arg)))
 			return arg
 		}
-		a.debugLog(fmt.Sprintf("GetStartupFile arg not a file: %s", arg))
+		a.debugLog(fmt.Sprintf("GetStartupFile arg not a file: %s", redactFilePathForLog(arg)))
 	}
 	a.debugLog("GetStartupFile returning empty")
 	return ""
 }
 
 func (a *App) OnSecondInstanceLaunch(secondInstanceData options.SecondInstanceData) {
-	a.debugLog(fmt.Sprintf("onSecondInstanceLaunch called with args: %v", secondInstanceData.Args))
+	a.debugLog(fmt.Sprintf("OnSecondInstanceLaunch called, argCount=%d", len(secondInstanceData.Args)))
 
 	// Bring window to front
 	runtime.WindowUnminimise(a.ctx)
@@ -168,12 +172,12 @@ func (a *App) OnSecondInstanceLaunch(secondInstanceData options.SecondInstanceDa
 
 	if len(secondInstanceData.Args) > 0 {
 		for _, arg := range secondInstanceData.Args {
-			a.debugLog(fmt.Sprintf("Checking arg: %s", arg))
+			a.debugLog(fmt.Sprintf("Checking arg: %s", redactFilePathForLog(arg)))
 			if _, err := os.Stat(arg); err == nil {
 				// Write to pending file for the running instance to pick up
 				pendingPath := a.getPendingFilePath()
-				writeErr := os.WriteFile(pendingPath, []byte(arg), 0644)
-				a.debugLog(fmt.Sprintf("Wrote pending file: %s -> %s (err=%v)", arg, pendingPath, writeErr))
+				writeErr := os.WriteFile(pendingPath, []byte(arg), 0600)
+				a.debugLog(fmt.Sprintf("Wrote pending file for %s (err=%v)", redactFilePathForLog(arg), writeErr))
 				// Also emit event so frontend can react immediately (no polling needed)
 				runtime.EventsEmit(a.ctx, "app:open-file", arg)
 				break
@@ -185,13 +189,9 @@ func (a *App) OnSecondInstanceLaunch(secondInstanceData options.SecondInstanceDa
 }
 
 func (a *App) getPendingFilePath() string {
-	execPath, err := os.Executable()
+	appDir, err := getAppSupportDir()
 	if err != nil {
-		return "pending_open.txt"
-	}
-	appDir := filepath.Dir(execPath)
-	if strings.Contains(appDir, "Temp") || strings.Contains(appDir, "tmp") {
-		appDir, _ = os.Getwd()
+		return filepath.Join(".", "pending_open.txt")
 	}
 	return filepath.Join(appDir, "pending_open.txt")
 }
@@ -211,14 +211,18 @@ func (a *App) CheckPendingFile() string {
 	}
 	// Verify file exists
 	if _, err := os.Stat(filePath); err != nil {
-		a.debugLog(fmt.Sprintf("CheckPendingFile: file not found: %s", filePath))
+		a.debugLog(fmt.Sprintf("CheckPendingFile: file not found: %s", redactFilePathForLog(filePath)))
 		return ""
 	}
-	a.debugLog(fmt.Sprintf("CheckPendingFile: returning %s", filePath))
+	a.debugLog(fmt.Sprintf("CheckPendingFile: returning %s", redactFilePathForLog(filePath)))
 	return filePath
 }
 
 func (a *App) ReadTextFile(path string) (string, error) {
+	if err := a.ensureApprovedFilePath(path, false); err != nil {
+		return "", err
+	}
+
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -249,12 +253,108 @@ func (a *App) WriteTextFile(path string, content string) string {
 	if strings.TrimSpace(path) == "" {
 		return "file path is required"
 	}
+	if err := a.ensureApprovedFilePath(path, true); err != nil {
+		return err.Error()
+	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return err.Error()
 	}
 
 	return ""
+}
+
+func (a *App) approveReadPath(path string) {
+	a.approveFilePath(path, false)
+}
+
+func (a *App) approveWritePath(path string) {
+	a.approveFilePath(path, true)
+}
+
+func (a *App) approveFilePath(path string, write bool) {
+	normalizedPath, err := normalizeApprovedFilePath(path)
+	if err != nil {
+		return
+	}
+
+	a.approvedFileMu.Lock()
+	defer a.approvedFileMu.Unlock()
+
+	if write {
+		a.approvedWrite[normalizedPath] = struct{}{}
+		return
+	}
+
+	a.approvedRead[normalizedPath] = struct{}{}
+}
+
+func (a *App) ensureApprovedFilePath(path string, write bool) error {
+	normalizedPath, err := normalizeApprovedFilePath(path)
+	if err != nil {
+		return err
+	}
+
+	a.approvedFileMu.Lock()
+	defer a.approvedFileMu.Unlock()
+
+	if write {
+		if _, ok := a.approvedWrite[normalizedPath]; ok {
+			return nil
+		}
+		return fmt.Errorf("file path is not approved for writing; choose the file through the save dialog first")
+	}
+
+	if _, ok := a.approvedRead[normalizedPath]; ok {
+		return nil
+	}
+	return fmt.Errorf("file path is not approved for reading; choose the file through the open dialog first")
+}
+
+func normalizeApprovedFilePath(path string) (string, error) {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return "", fmt.Errorf("file path is required")
+	}
+
+	absolutePath, err := filepath.Abs(trimmedPath)
+	if err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
+
+	return filepath.Clean(absolutePath), nil
+}
+
+func getAppSupportDir() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil || strings.TrimSpace(configDir) == "" {
+		fallbackDir, fallbackErr := os.Getwd()
+		if fallbackErr != nil {
+			return "", fmt.Errorf("unable to determine app support directory")
+		}
+		configDir = fallbackDir
+	}
+
+	appDir := filepath.Join(configDir, "QuraMate")
+	if err := os.MkdirAll(appDir, 0700); err != nil {
+		return "", fmt.Errorf("unable to create app support directory: %w", err)
+	}
+
+	return appDir, nil
+}
+
+func redactFilePathForLog(path string) string {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return "<empty>"
+	}
+
+	baseName := filepath.Base(trimmedPath)
+	if baseName == "." || baseName == string(filepath.Separator) || baseName == "" {
+		return "<path>"
+	}
+
+	return baseName
 }
 
 func decodeUTF16(b []byte, isBE bool) string {

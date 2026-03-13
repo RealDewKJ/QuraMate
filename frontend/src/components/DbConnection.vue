@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useToggle, onKeyStroke } from "@vueuse/core";
+import { LoadSetting } from "../../wailsjs/go/app/App";
 import SettingsDialog from "./SettingsDialog.vue";
 import Toast from "./Toast.vue";
 import SavedConnectionsModal from "./connection/SavedConnectionsModal.vue";
@@ -11,9 +12,32 @@ import {
 } from "../composables/useConnectionForm";
 
 const toastRef = ref<InstanceType<typeof Toast> | null>(null);
+const trustServerCertificateDefault = ref(true);
 
-const handleSettingsSave = () => {
-  // Handled internally by SettingsDialog
+const applyTrustServerCertificateDefault = (value: boolean) => {
+  trustServerCertificateDefault.value = value;
+  if (config.type === "mssql") {
+    config.trustServerCertificate = value;
+  }
+};
+
+const handleSettingsSave = (nextSettings?: any) => {
+  const nextValue =
+    nextSettings?.general?.trustSqlServerCertificateByDefault !== false;
+  applyTrustServerCertificateDefault(nextValue);
+};
+
+const loadConnectionDefaults = async () => {
+  try {
+    const savedSettingsJson = await LoadSetting("user_settings");
+    if (!savedSettingsJson) return;
+    const parsed = JSON.parse(savedSettingsJson);
+    applyTrustServerCertificateDefault(
+      parsed?.general?.trustSqlServerCertificateByDefault !== false,
+    );
+  } catch (e) {
+    console.error("Failed to load connection defaults:", e);
+  }
 };
 
 const props = defineProps<{
@@ -71,6 +95,7 @@ const {
   (conn) => emit("connected", conn),
   (id) => emit("connection-exists", id),
   (update) => emit("connection-updated", update),
+  () => trustServerCertificateDefault.value,
 );
 
 const [showSettings, toggleSettings] = useToggle(false);
@@ -290,7 +315,8 @@ const handleRemoveConn = (conn: ConnectionConfig) => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
+  await loadConnectionDefaults();
   migrateSavedConnections();
   document.addEventListener("click", handleDocumentClick);
 });

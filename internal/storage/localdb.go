@@ -1,14 +1,22 @@
 package storage
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
+	"github.com/zalando/go-keyring"
 	_ "modernc.org/sqlite"
 )
 
@@ -26,15 +34,24 @@ type QueryHistorySummary struct {
 }
 
 type LocalDB struct {
-	conn    *sql.DB
-	hasFTS5 bool
+	conn              *sql.DB
+	hasFTS5           bool
+	encryptionEnabled bool
+	mu                sync.RWMutex
 }
 
 const defaultQueryHistoryRetentionDays = 30
+const localDataEncryptionMetadataKey = "__local_data_encryption_enabled"
+const localDataEncryptionKeyringService = "QuraMate-LocalData"
+const localDataEncryptionKeyringAccount = "default"
+const localDataEncryptionPrefix = "enc:v1:"
 
 var sensitiveQuotedValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*('(?:''|[^'])*'|"(?:\\"|[^"])*")`)
 var sensitiveBareValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*([^\s,;)\]}]+)`)
 var sensitiveURLCredentialPattern = regexp.MustCompile(`(?i)\b((?:postgres(?:ql)?|mysql|mssql|sqlserver):\/\/[^:\s\/]+:)([^@\s\/]+)@`)
+var localDataKeyringGet = keyring.Get
+var localDataKeyringSet = keyring.Set
+var localDataKeyringDelete = keyring.Delete
 
 func NewLocalDB() (*LocalDB, error) {
 	// Store next to the executable
@@ -50,6 +67,10 @@ func NewLocalDB() (*LocalDB, error) {
 	}
 
 	dbPath := filepath.Join(appDir, "quramate.db")
+	return newLocalDBWithPath(dbPath)
+}
+
+func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
 	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, err
@@ -60,10 +81,6 @@ func NewLocalDB() (*LocalDB, error) {
 			_ = conn.Close()
 		}
 	}()
-	if chmodErr := os.Chmod(dbPath, 0o600); chmodErr != nil {
-		log.Printf("Unable to tighten local DB file permissions: %v", chmodErr)
-	}
-
 	_, err = conn.Exec(`
 		CREATE TABLE IF NOT EXISTS query_history (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,11 +105,17 @@ func NewLocalDB() (*LocalDB, error) {
 	}
 
 	l := &LocalDB{conn: conn}
+	if err := l.loadEncryptionMetadataLocked(); err != nil {
+		return nil, err
+	}
 	if err := l.initQueryHistoryIndexes(); err != nil {
 		return nil, err
 	}
 	l.initQueryHistoryFTS()
 	l.CleanupOldQueries(defaultQueryHistoryRetentionDays)
+	if chmodErr := os.Chmod(dbPath, 0o600); chmodErr != nil {
+		log.Printf("Unable to tighten local DB file permissions: %v", chmodErr)
+	}
 	initialized = true
 	return l, nil
 }
@@ -150,6 +173,19 @@ func (l *LocalDB) initQueryHistoryFTS() {
 }
 
 func (l *LocalDB) SaveSetting(key string, value string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.saveSettingLocked(key, value)
+}
+
+func (l *LocalDB) saveSettingLocked(key string, value string) error {
+	if key != localDataEncryptionMetadataKey {
+		encryptedValue, err := l.encryptValueIfNeededLocked(value)
+		if err != nil {
+			return err
+		}
+		value = encryptedValue
+	}
 	_, err := l.conn.Exec(`
 		INSERT INTO settings (key, value) VALUES (?, ?)
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value
@@ -158,26 +194,40 @@ func (l *LocalDB) SaveSetting(key string, value string) error {
 }
 
 func (l *LocalDB) LoadSetting(key string) (string, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	var value string
 	err := l.conn.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
-	return value, err
+	if err != nil {
+		return "", err
+	}
+	if key == localDataEncryptionMetadataKey {
+		return value, nil
+	}
+	return l.decryptValueIfNeededLocked(value)
 }
 
 func (l *LocalDB) SaveQuery(query string, dbType string, retentionDays int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	normalizedQuery := strings.TrimSpace(query)
 	if normalizedQuery == "" {
 		return nil
 	}
 	redactedQuery := redactSensitiveQuery(normalizedQuery)
-	_, err := l.conn.Exec(`INSERT INTO query_history (query, db_type, is_favorite) VALUES (?, ?, 0)`, redactedQuery, dbType)
+	storedQuery, err := l.encryptValueIfNeededLocked(redactedQuery)
+	if err != nil {
+		return err
+	}
+	_, err = l.conn.Exec(`INSERT INTO query_history (query, db_type, is_favorite) VALUES (?, ?, 0)`, storedQuery, dbType)
 	if err != nil {
 		return err
 	}
 
-	if cleanupErr := l.CleanupOldQueries(retentionDays); cleanupErr != nil {
+	if cleanupErr := l.cleanupOldQueriesLocked(retentionDays); cleanupErr != nil {
 		log.Printf("Failed to cleanup query history: %v", cleanupErr)
 	}
 	return err
@@ -191,6 +241,8 @@ func redactSensitiveQuery(query string) string {
 }
 
 func (l *LocalDB) GetQueries(dbType string) ([]QueryHistoryEntry, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	var rows *sql.Rows
 	var err error
 
@@ -211,12 +263,18 @@ func (l *LocalDB) GetQueries(dbType string) ([]QueryHistoryEntry, error) {
 		if err := rows.Scan(&entry.ID, &entry.Query, &entry.DBType, &entry.Timestamp, &entry.IsFavorite); err != nil {
 			return nil, err
 		}
+		entry.Query, err = l.decryptValueIfNeededLocked(entry.Query)
+		if err != nil {
+			return nil, err
+		}
 		entries = append(entries, entry)
 	}
 	return entries, nil
 }
 
 func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly bool, dateRange string, sortMode string, limit int) ([]QueryHistoryEntry, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	baseQuery := `SELECT id, query, db_type, timestamp, is_favorite FROM query_history`
 	var conditions []string
 	var args []interface{}
@@ -240,7 +298,8 @@ func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly b
 	}
 
 	cleanedQuery := strings.TrimSpace(queryText)
-	if cleanedQuery != "" {
+	needsPostFilter := l.encryptionEnabled && cleanedQuery != ""
+	if cleanedQuery != "" && !needsPostFilter {
 		appliedTextFilter := false
 		if l.hasFTS5 {
 			ftsQuery := buildFTSQuery(cleanedQuery)
@@ -270,7 +329,7 @@ func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly b
 	}
 	queryBuilder.WriteString(orderBy)
 
-	if limit > 0 {
+	if limit > 0 && !needsPostFilter {
 		queryBuilder.WriteString(" LIMIT ?")
 		args = append(args, limit)
 	}
@@ -287,7 +346,20 @@ func (l *LocalDB) SearchQueries(queryText string, dbType string, favoritesOnly b
 		if err := rows.Scan(&entry.ID, &entry.Query, &entry.DBType, &entry.Timestamp, &entry.IsFavorite); err != nil {
 			return nil, err
 		}
+		entry.Query, err = l.decryptValueIfNeededLocked(entry.Query)
+		if err != nil {
+			return nil, err
+		}
+		if needsPostFilter {
+			normalizedSearch := strings.ToLower(cleanedQuery)
+			if !strings.Contains(strings.ToLower(entry.Query), normalizedSearch) && !strings.Contains(strings.ToLower(entry.DBType), normalizedSearch) {
+				continue
+			}
+		}
 		entries = append(entries, entry)
+		if needsPostFilter && limit > 0 && len(entries) >= limit {
+			break
+		}
 	}
 	return entries, nil
 }
@@ -307,6 +379,8 @@ func buildFTSQuery(searchText string) string {
 }
 
 func (l *LocalDB) ToggleFavorite(id int, isFavorite bool) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	val := 0
 	if isFavorite {
 		val = 1
@@ -316,16 +390,22 @@ func (l *LocalDB) ToggleFavorite(id int, isFavorite bool) error {
 }
 
 func (l *LocalDB) DeleteQuery(id int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	_, err := l.conn.Exec(`DELETE FROM query_history WHERE id = ?`, id)
 	return err
 }
 
 func (l *LocalDB) ClearNonFavoriteQueries() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	_, err := l.conn.Exec(`DELETE FROM query_history WHERE is_favorite = 0`)
 	return err
 }
 
 func (l *LocalDB) GetQueryHistorySummary() (QueryHistorySummary, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	summary := QueryHistorySummary{
 		DBTypes: []string{},
 	}
@@ -356,6 +436,12 @@ func (l *LocalDB) GetQueryHistorySummary() (QueryHistorySummary, error) {
 }
 
 func (l *LocalDB) CleanupOldQueries(retentionDays int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.cleanupOldQueriesLocked(retentionDays)
+}
+
+func (l *LocalDB) cleanupOldQueriesLocked(retentionDays int) error {
 	if retentionDays <= 0 {
 		retentionDays = defaultQueryHistoryRetentionDays
 	}
@@ -365,4 +451,263 @@ func (l *LocalDB) CleanupOldQueries(retentionDays int) error {
 
 func (l *LocalDB) Close() error {
 	return l.conn.Close()
+}
+
+func (l *LocalDB) IsEncryptionEnabled() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.encryptionEnabled
+}
+
+func (l *LocalDB) SetEncryptionEnabled(enabled bool) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.encryptionEnabled == enabled {
+		return nil
+	}
+	if enabled {
+		if _, err := l.getOrCreateEncryptionKeyLocked(); err != nil {
+			return err
+		}
+	}
+
+	tx, err := l.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("begin encryption migration: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := l.migrateSettingsLocked(tx, enabled); err != nil {
+		return err
+	}
+	if err := l.migrateQueriesLocked(tx, enabled); err != nil {
+		return err
+	}
+	if err := l.setEncryptionMetadataTx(tx, enabled); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit encryption migration: %w", err)
+	}
+
+	l.encryptionEnabled = enabled
+	if !enabled {
+		if err := localDataKeyringDelete(localDataEncryptionKeyringService, localDataEncryptionKeyringAccount); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+			log.Printf("Unable to remove local data encryption key: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *LocalDB) loadEncryptionMetadataLocked() error {
+	var value string
+	err := l.conn.QueryRow(`SELECT value FROM settings WHERE key = ?`, localDataEncryptionMetadataKey).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		l.encryptionEnabled = false
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load encryption metadata: %w", err)
+	}
+	l.encryptionEnabled = strings.EqualFold(strings.TrimSpace(value), "true")
+	return nil
+}
+
+func (l *LocalDB) setEncryptionMetadataTx(tx *sql.Tx, enabled bool) error {
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	_, err := tx.Exec(`
+		INSERT INTO settings (key, value) VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value=excluded.value
+	`, localDataEncryptionMetadataKey, value)
+	if err != nil {
+		return fmt.Errorf("save encryption metadata: %w", err)
+	}
+	return nil
+}
+
+func (l *LocalDB) migrateSettingsLocked(tx *sql.Tx, enableEncryption bool) error {
+	rows, err := tx.Query(`SELECT key, value FROM settings WHERE key <> ?`, localDataEncryptionMetadataKey)
+	if err != nil {
+		return fmt.Errorf("load settings for encryption migration: %w", err)
+	}
+	defer rows.Close()
+
+	type settingRow struct {
+		key   string
+		value string
+	}
+	var settings []settingRow
+	for rows.Next() {
+		var row settingRow
+		if err := rows.Scan(&row.key, &row.value); err != nil {
+			return fmt.Errorf("scan setting for encryption migration: %w", err)
+		}
+		settings = append(settings, row)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate settings for encryption migration: %w", err)
+	}
+
+	for _, row := range settings {
+		convertedValue, err := l.transformValueForMigrationLocked(row.value, enableEncryption)
+		if err != nil {
+			return fmt.Errorf("migrate setting %s: %w", row.key, err)
+		}
+		if _, err := tx.Exec(`UPDATE settings SET value = ? WHERE key = ?`, convertedValue, row.key); err != nil {
+			return fmt.Errorf("update setting %s: %w", row.key, err)
+		}
+	}
+	return nil
+}
+
+func (l *LocalDB) migrateQueriesLocked(tx *sql.Tx, enableEncryption bool) error {
+	rows, err := tx.Query(`SELECT id, query FROM query_history`)
+	if err != nil {
+		return fmt.Errorf("load queries for encryption migration: %w", err)
+	}
+	defer rows.Close()
+
+	type queryRow struct {
+		id    int
+		query string
+	}
+	var queries []queryRow
+	for rows.Next() {
+		var row queryRow
+		if err := rows.Scan(&row.id, &row.query); err != nil {
+			return fmt.Errorf("scan query for encryption migration: %w", err)
+		}
+		queries = append(queries, row)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate queries for encryption migration: %w", err)
+	}
+
+	for _, row := range queries {
+		convertedValue, err := l.transformValueForMigrationLocked(row.query, enableEncryption)
+		if err != nil {
+			return fmt.Errorf("migrate query %d: %w", row.id, err)
+		}
+		if _, err := tx.Exec(`UPDATE query_history SET query = ? WHERE id = ?`, convertedValue, row.id); err != nil {
+			return fmt.Errorf("update query %d: %w", row.id, err)
+		}
+	}
+	return nil
+}
+
+func (l *LocalDB) transformValueForMigrationLocked(value string, enableEncryption bool) (string, error) {
+	if enableEncryption {
+		if strings.HasPrefix(value, localDataEncryptionPrefix) {
+			return value, nil
+		}
+		return l.encryptStringLocked(value)
+	}
+	return l.decryptValueIfNeededLocked(value)
+}
+
+func (l *LocalDB) encryptValueIfNeededLocked(value string) (string, error) {
+	if !l.encryptionEnabled {
+		return value, nil
+	}
+	if strings.HasPrefix(value, localDataEncryptionPrefix) {
+		return value, nil
+	}
+	return l.encryptStringLocked(value)
+}
+
+func (l *LocalDB) encryptStringLocked(value string) (string, error) {
+	key, err := l.getOrCreateEncryptionKeyLocked()
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("create local encryption cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("create local encryption gcm: %w", err)
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("generate local encryption nonce: %w", err)
+	}
+	ciphertext := gcm.Seal(nil, nonce, []byte(value), nil)
+	payload := append(nonce, ciphertext...)
+	return localDataEncryptionPrefix + base64.StdEncoding.EncodeToString(payload), nil
+}
+
+func (l *LocalDB) decryptValueIfNeededLocked(value string) (string, error) {
+	if !strings.HasPrefix(value, localDataEncryptionPrefix) {
+		return value, nil
+	}
+	encodedPayload := strings.TrimPrefix(value, localDataEncryptionPrefix)
+	payload, err := base64.StdEncoding.DecodeString(encodedPayload)
+	if err != nil {
+		return "", fmt.Errorf("decode local encrypted payload: %w", err)
+	}
+	key, err := l.getEncryptionKeyLocked()
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("create local decryption cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("create local decryption gcm: %w", err)
+	}
+	if len(payload) < gcm.NonceSize() {
+		return "", errors.New("local encrypted payload is too short")
+	}
+	nonce := payload[:gcm.NonceSize()]
+	ciphertext := payload[gcm.NonceSize():]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", fmt.Errorf("decrypt local data: %w", err)
+	}
+	return string(plaintext), nil
+}
+
+func (l *LocalDB) getOrCreateEncryptionKeyLocked() ([]byte, error) {
+	key, err := l.getEncryptionKeyLocked()
+	if err == nil {
+		return key, nil
+	}
+	if !errors.Is(err, keyring.ErrNotFound) {
+		return nil, err
+	}
+	rawKey := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, rawKey); err != nil {
+		return nil, fmt.Errorf("generate local encryption key: %w", err)
+	}
+	encodedKey := base64.StdEncoding.EncodeToString(rawKey)
+	if err := localDataKeyringSet(localDataEncryptionKeyringService, localDataEncryptionKeyringAccount, encodedKey); err != nil {
+		return nil, fmt.Errorf("save local encryption key: %w", err)
+	}
+	return rawKey, nil
+}
+
+func (l *LocalDB) getEncryptionKeyLocked() ([]byte, error) {
+	encodedKey, err := localDataKeyringGet(localDataEncryptionKeyringService, localDataEncryptionKeyringAccount)
+	if err != nil {
+		if errors.Is(err, keyring.ErrNotFound) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("load local encryption key: %w", err)
+	}
+	decodedKey, err := base64.StdEncoding.DecodeString(encodedKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode local encryption key: %w", err)
+	}
+	if len(decodedKey) != 32 {
+		return nil, fmt.Errorf("local encryption key has invalid length %d", len(decodedKey))
+	}
+	return decodedKey, nil
 }

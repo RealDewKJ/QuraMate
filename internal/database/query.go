@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 type ResultSet struct {
@@ -33,6 +34,9 @@ type ServerProcess struct {
 func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet, error) {
 	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
+	}
+	if err := ensureQueryAllowedInReadOnlyMode(query, d.ReadOnly); err != nil {
+		return nil, err
 	}
 
 	// Always use QueryContext to support multiple result sets (even for INSERT/UPDATE which might return results or just be part of a batch)
@@ -134,6 +138,9 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 	if d.conn == nil {
 		return nil, fmt.Errorf("no database connection pool")
 	}
+	if err := ensureQueryAllowedInReadOnlyMode(query, d.ReadOnly); err != nil {
+		return nil, err
+	}
 
 	// Use d.conn directly
 	rows, err := d.conn.QueryContext(ctx, query)
@@ -231,6 +238,9 @@ type StreamBatch struct {
 func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSize int, onBatch func(batch StreamBatch)) error {
 	if d.persistentConn == nil {
 		return fmt.Errorf("no database connection")
+	}
+	if err := ensureQueryAllowedInReadOnlyMode(query, d.ReadOnly); err != nil {
+		return err
 	}
 
 	rows, err := d.persistentConn.QueryContext(ctx, query)
@@ -340,6 +350,259 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 	}
 
 	return nil
+}
+
+func ensureQueryAllowedInReadOnlyMode(query string, readOnly bool) error {
+	if !readOnly {
+		return nil
+	}
+
+	statements := splitSQLStatements(query)
+	if len(statements) == 0 {
+		return nil
+	}
+
+	for _, statement := range statements {
+		if !isReadOnlyStatement(statement) {
+			return fmt.Errorf("database is in read-only mode")
+		}
+	}
+
+	return nil
+}
+
+func splitSQLStatements(query string) []string {
+	var statements []string
+	var current strings.Builder
+	depth := 0
+	inSingleQuote := false
+	inDoubleQuote := false
+	inBacktick := false
+	inBracketIdentifier := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		next := byte(0)
+		if i+1 < len(query) {
+			next = query[i+1]
+		}
+
+		if inLineComment {
+			if ch == '\n' {
+				inLineComment = false
+				current.WriteByte(ch)
+			}
+			continue
+		}
+
+		if inBlockComment {
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+
+		if inSingleQuote {
+			if ch == '\'' {
+				if next == '\'' {
+					i++
+					continue
+				}
+				inSingleQuote = false
+			}
+			continue
+		}
+
+		if inDoubleQuote {
+			if ch == '"' {
+				if next == '"' {
+					i++
+					continue
+				}
+				inDoubleQuote = false
+			}
+			current.WriteByte(ch)
+			continue
+		}
+
+		if inBacktick {
+			if ch == '`' {
+				inBacktick = false
+			}
+			current.WriteByte(ch)
+			continue
+		}
+
+		if inBracketIdentifier {
+			current.WriteByte(ch)
+			if ch == ']' {
+				inBracketIdentifier = false
+			}
+			continue
+		}
+
+		switch {
+		case ch == '-' && next == '-':
+			inLineComment = true
+			i++
+			continue
+		case ch == '/' && next == '*':
+			inBlockComment = true
+			i++
+			continue
+		case ch == '\'':
+			inSingleQuote = true
+			continue
+		case ch == '"':
+			inDoubleQuote = true
+			current.WriteByte(ch)
+			continue
+		case ch == '`':
+			inBacktick = true
+			current.WriteByte(ch)
+			continue
+		case ch == '[':
+			inBracketIdentifier = true
+			current.WriteByte(ch)
+			continue
+		case ch == '(':
+			depth++
+			current.WriteByte(ch)
+			continue
+		case ch == ')':
+			if depth > 0 {
+				depth--
+			}
+			current.WriteByte(ch)
+			continue
+		case ch == ';' && depth == 0:
+			statement := strings.TrimSpace(current.String())
+			if statement != "" {
+				statements = append(statements, statement)
+			}
+			current.Reset()
+			continue
+		default:
+			current.WriteByte(ch)
+		}
+	}
+
+	statement := strings.TrimSpace(current.String())
+	if statement != "" {
+		statements = append(statements, statement)
+	}
+
+	return statements
+}
+
+func isReadOnlyStatement(statement string) bool {
+	tokens := tokenizeSQL(statement)
+	if len(tokens) == 0 {
+		return true
+	}
+
+	first := tokens[0]
+	switch first {
+	case "select", "show", "describe", "desc", "pragma", "values":
+		return true
+	case "explain":
+		return isExplainReadOnly(tokens[1:])
+	case "with":
+		return isWithReadOnly(tokens[1:])
+	default:
+		return false
+	}
+}
+
+func isExplainReadOnly(tokens []string) bool {
+	filtered := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		switch token {
+		case "analyze", "analyse", "verbose", "costs", "settings", "buffers", "wal", "timing", "summary", "format", ",":
+			continue
+		default:
+			filtered = append(filtered, token)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return false
+	}
+
+	return isReadOnlyStatement(strings.Join(filtered, " "))
+}
+
+func isWithReadOnly(tokens []string) bool {
+	depth := 0
+	for _, token := range tokens {
+		if isMutatingStatementToken(token) {
+			return false
+		}
+
+		switch token {
+		case "(":
+			depth++
+		case ")":
+			if depth > 0 {
+				depth--
+			}
+		default:
+			if depth == 0 && isStatementStarter(token) {
+				return isReadOnlyStatement(token)
+			}
+		}
+	}
+
+	return false
+}
+
+func isMutatingStatementToken(token string) bool {
+	switch token {
+	case "insert", "update", "delete", "merge", "call", "exec", "execute", "create", "alter", "drop", "truncate", "grant", "revoke", "set", "use", "begin", "start", "commit", "rollback":
+		return true
+	default:
+		return false
+	}
+}
+
+func isStatementStarter(token string) bool {
+	switch token {
+	case "select", "insert", "update", "delete", "merge", "values", "show", "describe", "desc", "pragma", "with", "explain", "call", "exec", "execute", "create", "alter", "drop", "truncate", "grant", "revoke", "set", "use", "begin", "start", "commit", "rollback":
+		return true
+	default:
+		return false
+	}
+}
+
+func tokenizeSQL(statement string) []string {
+	tokens := make([]string, 0)
+	var current strings.Builder
+
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		tokens = append(tokens, strings.ToLower(current.String()))
+		current.Reset()
+	}
+
+	for _, r := range statement {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '$':
+			current.WriteRune(r)
+		case r == '(' || r == ')' || r == ',':
+			flush()
+			tokens = append(tokens, string(r))
+		default:
+			flush()
+		}
+	}
+
+	flush()
+	return tokens
 }
 
 func (d *Database) GetServerProcesses(ctx context.Context) ([]ServerProcess, error) {

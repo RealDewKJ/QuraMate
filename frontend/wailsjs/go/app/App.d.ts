@@ -54,6 +54,8 @@ export function GetForeignKeys(arg1:string,arg2:string):Promise<Array<database.F
 
 export function GetFunctions(arg1:string):Promise<Array<string>>;
 
+export function GetLocalDataEncryptionEnabled():Promise<boolean>;
+
 export function GetPrimaryKeys(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function GetQueryHistory(arg1:string):Promise<Array<storage.QueryHistoryEntry>>;
@@ -117,6 +119,8 @@ export function SelectFolder():Promise<string>;
 export function SelectImportFile():Promise<string>;
 
 export function SelectSqliteFile():Promise<string>;
+
+export function SetLocalDataEncryptionEnabled(arg1:boolean):Promise<string>;
 
 export function SetReadOnly(arg1:string,arg2:boolean):Promise<string>;
 

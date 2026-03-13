@@ -356,6 +356,9 @@ const perfLoggingEnabled = computed(() => {
 const queryHistoryEnabled = computed(() => {
     return globalSettings.value?.general?.enableQueryHistory !== false;
 });
+const workspacePersistenceEnabled = computed(() => {
+    return globalSettings.value?.general?.persistWorkspaceState === true;
+});
 const queryHistoryRetentionDays = computed(() => {
     const rawValue = Number(globalSettings.value?.general?.queryHistoryRetentionDays);
     if (!Number.isFinite(rawValue) || rawValue <= 0) {
@@ -890,6 +893,10 @@ const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
 };
 
 const persistTabSession = async () => {
+    if (!workspacePersistenceEnabled.value) {
+        return;
+    }
+
     const payload: PersistedDashboardSession = {
         version: DASHBOARD_TAB_SESSION_VERSION,
         activeTabId: activeTabId.value,
@@ -905,6 +912,10 @@ const persistTabSession = async () => {
 };
 
 const restoreTabSession = async (): Promise<boolean> => {
+    if (!workspacePersistenceEnabled.value) {
+        return false;
+    }
+
     try {
         const raw = await LoadSetting(tabSessionStorageKey.value);
         if (!raw) {
@@ -954,6 +965,7 @@ const restoreTabSession = async (): Promise<boolean> => {
 };
 
 const schedulePersistTabSession = () => {
+    if (!workspacePersistenceEnabled.value) return;
     if (isRestoringTabSession.value) return;
     if (tabSessionSaveTimer) {
         clearTimeout(tabSessionSaveTimer);
@@ -966,6 +978,12 @@ const schedulePersistTabSession = () => {
 };
 
 watch([tabs, activeTabId, tabCounter], schedulePersistTabSession, { deep: true });
+watch(workspacePersistenceEnabled, (enabled) => {
+    if (!enabled && tabSessionSaveTimer) {
+        clearTimeout(tabSessionSaveTimer);
+        tabSessionSaveTimer = null;
+    }
+});
 
 const initializeDashboardState = async () => {
     if (!props.connectionId) return;

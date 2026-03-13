@@ -57,6 +57,7 @@ const recoveryCandidates = ref<RecoveryCandidate[]>([]);
 const recoveryPreferredActiveSessionKey = ref<string | null>(null);
 const recoveryErrors = ref<string[]>([]);
 const rememberRecoveryChoice = ref(false);
+const trustSqlServerCertificateByDefault = ref(true);
 
 let appSessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -105,6 +106,7 @@ const defaultConfigValues = (): ConnectionConfig => ({
   password: '',
   database: 'postgres',
   readOnly: false,
+  trustServerCertificate: trustSqlServerCertificateByDefault.value,
   sshEnabled: false,
   sshHost: '',
   sshPort: 22,
@@ -113,6 +115,20 @@ const defaultConfigValues = (): ConnectionConfig => ({
   sshKeyFile: '',
   encoding: '',
 });
+
+const getNormalizedTrustServerCertificate = (
+  config: Partial<ConnectionConfig>,
+): boolean => {
+  if ((config.type || '').toLowerCase() !== 'mssql') {
+    return false;
+  }
+
+  if (typeof config.trustServerCertificate === 'boolean') {
+    return config.trustServerCertificate;
+  }
+
+  return trustSqlServerCertificateByDefault.value;
+};
 
 const normalizeConnectionConfig = (config: Partial<ConnectionConfig>): ConnectionConfig => {
   return {
@@ -125,6 +141,7 @@ const normalizeConnectionConfig = (config: Partial<ConnectionConfig>): Connectio
     password: config.password || '',
     database: config.database || '',
     readOnly: !!config.readOnly,
+    trustServerCertificate: getNormalizedTrustServerCertificate(config),
     sshEnabled: !!config.sshEnabled,
     sshHost: config.sshHost || '',
     sshPort: typeof config.sshPort === 'number' ? config.sshPort : Number(config.sshPort || 22),
@@ -329,6 +346,7 @@ const processStartupFile = async (startupFile: string) => {
         password: '',
         database: startupFile,
         readOnly: false,
+        trustServerCertificate: false,
         sshEnabled: false,
         sshHost: '',
         sshPort: 22,
@@ -500,6 +518,8 @@ onMounted(async () => {
     let appFont = 'system-ui, sans-serif';
     if (savedSettingsJson) {
       const parsed = JSON.parse(savedSettingsJson);
+      trustSqlServerCertificateByDefault.value =
+        parsed?.general?.trustSqlServerCertificateByDefault !== false;
       if (parsed.general && parsed.general.language) {
         locale.value = parsed.general.language;
       }
@@ -508,6 +528,7 @@ onMounted(async () => {
       }
       applyAppearancePreferences(parsed.appearance);
     } else {
+      trustSqlServerCertificateByDefault.value = true;
       applyAppearancePreferences();
     }
     document.documentElement.style.fontFamily = appFont;

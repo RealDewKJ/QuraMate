@@ -98,6 +98,10 @@ export function GetFunctions(arg1) {
   return window['go']['app']['App']['GetFunctions'](arg1);
 }
 
+export function GetLocalDataEncryptionEnabled() {
+  return window['go']['app']['App']['GetLocalDataEncryptionEnabled']();
+}
+
 export function GetPrimaryKeys(arg1, arg2) {
   return window['go']['app']['App']['GetPrimaryKeys'](arg1, arg2);
 }
@@ -224,6 +228,10 @@ export function SelectImportFile() {
 
 export function SelectSqliteFile() {
   return window['go']['app']['App']['SelectSqliteFile']();
+}
+
+export function SetLocalDataEncryptionEnabled(arg1) {
+  return window['go']['app']['App']['SetLocalDataEncryptionEnabled'](arg1);
 }
 
 export function SetReadOnly(arg1, arg2) {
