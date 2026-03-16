@@ -1,5 +1,6 @@
 import {
   AI_PROVIDER_DEFAULT_CONFIGS,
+  AI_PROVIDER_DEFINITION_MAP,
   type AIProviderConfigMap,
   type AIProviderId,
 } from "./config";
@@ -53,7 +54,16 @@ const toOpenAIStyleMessages = (messages: AIMessage[]) =>
   messages.map((message) => ({ role: message.role, content: message.content }));
 
 const callJson = async (provider: AIProviderId, url: string, init: RequestInit): Promise<unknown> => {
-  const response = await fetch(url, init);
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    throw new AIProviderError(
+      error instanceof Error ? error.message : "AI provider request failed",
+      provider,
+    );
+  }
+
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new AIProviderError("AI provider request failed", provider, response.status, json);
@@ -248,10 +258,11 @@ export const completeWithProvider = async (input: AICompletionInput): Promise<AI
     throw new AIProviderError("messages is required", input.provider);
   }
 
-  if (input.provider === "anthropic") {
+  const definition = AI_PROVIDER_DEFINITION_MAP[input.provider];
+  if (definition?.protocol === "anthropic") {
     return completeAnthropic(input);
   }
-  if (input.provider === "google") {
+  if (definition?.protocol === "google") {
     return completeGoogle(input);
   }
   return completeOpenAICompatible(input);

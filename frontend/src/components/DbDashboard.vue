@@ -204,9 +204,23 @@
 
 
         <DbImportOptionsModal :is-open="showImportOptions" :target-table="importOptions.tableName"
-            :file-path="importOptions.filePath" :is-mssql="props.dbType === 'mssql'"
+            :file-path="importOptions.filePath" :format="importOptions.format" :is-mssql="props.dbType === 'mssql'"
             :enable-identity-insert="importOptions.enableIdentityInsert" @close="showImportOptions = false"
             @confirm="confirmImport" @update:enable-identity-insert="importOptions.enableIdentityInsert = $event" />
+        <DbExportTableModal
+            :is-open="exportTableModal.isOpen"
+            :table-name="exportTableModal.tableName"
+            :format="exportTableModal.format"
+            :include-schema="exportTableModal.includeSchema"
+            :include-data="exportTableModal.includeData"
+            :drop-if-exists="exportTableModal.dropIfExists"
+            :is-loading="exportTableModal.isLoading"
+            @close="closeExportTableModal"
+            @confirm="confirmExportTable"
+            @update:format="exportTableModal.format = $event"
+            @update:include-schema="exportTableModal.includeSchema = $event"
+            @update:include-data="exportTableModal.includeData = $event"
+            @update:drop-if-exists="exportTableModal.dropIfExists = $event" />
         <DbSchemaCompareWizardModal
             :is-open="schemaCompareWizard.isOpen"
             :db-type="props.dbType"
@@ -267,7 +281,7 @@
         <DbAICopilotOverlay :is-open="aiCopilot.isOpen" :mode="aiCopilot.mode" :mode-options="aiCopilotModeOptions"
             :prompt="aiCopilot.prompt" :backend-language="aiCopilot.backendLanguage" :is-loading="aiCopilot.isLoading"
             :result="aiCopilot.result" :error="aiCopilot.error" :latency-ms="aiCopilot.latencyMs"
-            :has-suggested-sql="!!aiCopilot.suggestedSQL" @close="aiCopilot.isOpen = false" @run="runAiCopilot"
+            :suggested-sql="aiCopilot.suggestedSQL" @close="aiCopilot.isOpen = false" @run="runAiCopilot"
             @apply-sql="applyAiSqlToEditor" @update:mode="setAiCopilotMode" @update:prompt="aiCopilot.prompt = $event"
             @update:backend-language="aiCopilot.backendLanguage = $event" />
     </div>
@@ -275,7 +289,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, ref, reactive, watch, onMounted, computed, shallowRef, nextTick, markRaw, onUnmounted } from 'vue';
-import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTable, GetTables, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/app/App';
+import { ExecuteQuery, DisconnectDB, GetPrimaryKeys, GetForeignKeys, GetRoutineDefinition, ExportTableAdvanced, GetTables, ImportTable, SelectExportFile, SelectImportFile, CancelQuery, ExecuteTransientQuery, GetTableDefinition, LoadSetting, SaveSetting, GetQueryHistory, WriteTextFile } from '../../wailsjs/go/app/App';
 import type { database } from '../../wailsjs/go/models';
 import { format } from 'sql-formatter';
 
@@ -294,6 +308,7 @@ import DbTableActionModal from './dashboard/DbTableActionModal.vue';
 import DbDatabaseInfoModal from './dashboard/DbDatabaseInfoModal.vue';
 import DbDropDatabaseModal from './dashboard/DbDropDatabaseModal.vue';
 import DbExportDatabaseModal from './dashboard/DbExportDatabaseModal.vue';
+import DbExportTableModal from './dashboard/DbExportTableModal.vue';
 import DbSafeModeModal from './dashboard/DbSafeModeModal.vue';
 import DbImportOptionsModal from './dashboard/DbImportOptionsModal.vue';
 import DbInsertRowModal from './dashboard/DbInsertRowModal.vue';
@@ -1619,30 +1634,84 @@ const importOptions = ref({
     enableIdentityInsert: false
 });
 
+const exportTableModal = ref({
+    isOpen: false,
+    tableName: '',
+    format: 'sql' as 'json' | 'csv' | 'sql' | 'excel',
+    includeSchema: true,
+    includeData: true,
+    dropIfExists: false,
+    isLoading: false
+});
+
+const getExportFileExtension = (format: 'json' | 'csv' | 'sql' | 'excel'): string => {
+    return format === 'excel' ? 'xlsx' : format;
+};
+
+const closeExportTableModal = () => {
+    if (exportTableModal.value.isLoading) {
+        return;
+    }
+    exportTableModal.value.isOpen = false;
+};
+
 const handleExport = async () => {
     if (!contextMenu.targetTable) return;
-    const tableName = contextMenu.targetTable;
-
-    const result = await SelectExportFile(`${tableName}_export.json`);
-
-    if (result) {
-        let format = "json";
-        if (result.endsWith(".csv")) format = "csv";
-        else if (result.endsWith(".sql")) format = "sql";
-        else if (result.endsWith(".xlsx")) format = "excel";
-
-        try {
-            const resp = await ExportTable(props.connectionId, tableName, format, result);
-            if (resp !== "Success") {
-                toastRef.value?.error(resp);
-            } else {
-                toastRef.value?.success("Export successful!");
-            }
-        } catch (e) {
-            toastRef.value?.error("Error exporting: " + e);
-        }
-    }
+    exportTableModal.value = {
+        isOpen: true,
+        tableName: contextMenu.targetTable,
+        format: 'sql',
+        includeSchema: true,
+        includeData: true,
+        dropIfExists: false,
+        isLoading: false
+    };
     closeContextMenu();
+};
+
+const confirmExportTable = async () => {
+    if (!exportTableModal.value.tableName) {
+        return;
+    }
+    if (!exportTableModal.value.includeData && !exportTableModal.value.includeSchema) {
+        toastRef.value?.error('Select table data, schema script, or both.');
+        return;
+    }
+
+    exportTableModal.value.isLoading = true;
+
+    try {
+        const extension = getExportFileExtension(exportTableModal.value.format);
+        const targetPath = await SelectExportFile(`${exportTableModal.value.tableName}_export.${extension}`);
+        if (!targetPath) {
+            return;
+        }
+
+        const result = await ExportTableAdvanced({
+            connectionId: props.connectionId,
+            tableName: exportTableModal.value.tableName,
+            format: exportTableModal.value.format,
+            filePath: targetPath,
+            includeSchema: exportTableModal.value.includeSchema,
+            includeData: exportTableModal.value.includeData,
+            dropIfExists: exportTableModal.value.dropIfExists && exportTableModal.value.includeSchema && exportTableModal.value.format === 'sql'
+        });
+
+        if (!result.success) {
+            toastRef.value?.error(result.error || 'Export failed.');
+            return;
+        }
+
+        const schemaNotice = exportTableModal.value.includeSchema && exportTableModal.value.format !== 'sql'
+            ? ' Schema script saved as a sibling .schema.sql file.'
+            : '';
+        toastRef.value?.success(`Export successful.${schemaNotice}`);
+        exportTableModal.value.isOpen = false;
+    } catch (e) {
+        toastRef.value?.error('Error exporting: ' + e);
+    } finally {
+        exportTableModal.value.isLoading = false;
+    }
 };
 
 const handleImport = async () => {
