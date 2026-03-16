@@ -16,7 +16,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var AppVersion = "1.2.0"
+var AppVersion = "1.2.1"
 
 const GitHubRepo = "RealDewKJ/QuraMate"
 
@@ -42,6 +42,48 @@ type githubAsset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
 	ContentType        string `json:"content_type"`
+}
+
+func resolveWindowsReleaseDownloadURL(assets []githubAsset) string {
+	var installerURL string
+
+	for _, asset := range assets {
+		name := strings.ToLower(asset.Name)
+		if name == "quramate-amd64-installer.exe" {
+			return asset.BrowserDownloadURL
+		}
+		if strings.Contains(name, "setup") && strings.HasSuffix(name, ".exe") {
+			return asset.BrowserDownloadURL
+		}
+		if installerURL == "" && (strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, ".msi")) {
+			installerURL = asset.BrowserDownloadURL
+		}
+	}
+
+	return installerURL
+}
+
+func deriveBootstrapperInstallerURL(downloadURL string) string {
+	lowerURL := strings.ToLower(downloadURL)
+	if strings.Contains(lowerURL, "quramate-amd64-installer.exe") {
+		lastSlash := strings.LastIndex(downloadURL, "/")
+		if lastSlash == -1 {
+			return ""
+		}
+
+		return downloadURL[:lastSlash+1] + "QuraMate-amd64-package.exe"
+	}
+
+	if !strings.Contains(lowerURL, "setup") {
+		return ""
+	}
+
+	lastSlash := strings.LastIndex(downloadURL, "/")
+	if lastSlash == -1 {
+		return ""
+	}
+
+	return downloadURL[:lastSlash+1] + "QuraMate-amd64-package.exe"
 }
 
 type Service struct{}
@@ -96,10 +138,10 @@ func (s *Service) CheckForUpdates() UpdateInfo {
 		for _, asset := range release.Assets {
 			name := strings.ToLower(asset.Name)
 			if goRuntime.GOOS == "windows" {
-				if strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, ".msi") || strings.Contains(name, "setup") {
-					info.DownloadURL = asset.BrowserDownloadURL
-					break
+				if resolvedURL := resolveWindowsReleaseDownloadURL(release.Assets); resolvedURL != "" {
+					info.DownloadURL = resolvedURL
 				}
+				break
 			} else if goRuntime.GOOS == "darwin" {
 				if strings.HasSuffix(name, "macos-universal.zip") || strings.HasSuffix(name, "darwin.zip") || strings.HasSuffix(name, ".dmg") {
 					info.DownloadURL = asset.BrowserDownloadURL
@@ -182,6 +224,50 @@ func parseVersionPart(s string) int {
 	return n
 }
 
+func createWindowsUpdateHelper(installerPath string, parentPID int, executablePath string) (string, error) {
+	escapedInstallerPath := strings.ReplaceAll(installerPath, "'", "''")
+	escapedExecutablePath := strings.ReplaceAll(executablePath, "'", "''")
+
+	script := fmt.Sprintf(`$ErrorActionPreference = 'SilentlyContinue'
+$parentPid = %d
+$installer = '%s'
+$exePath = '%s'
+
+while (Get-Process -Id $parentPid -ErrorAction SilentlyContinue) {
+    Start-Sleep -Milliseconds 300
+}
+
+Start-Sleep -Milliseconds 700
+
+$installerArgs = '/S'
+
+$installProcess = Start-Process -FilePath $installer -ArgumentList $installerArgs -Verb RunAs -Wait -PassThru
+
+Start-Sleep -Seconds 1
+
+if ($exePath -ne '' -and (Test-Path $exePath)) {
+    $runningApp = Get-Process -Name 'QuraMate' -ErrorAction SilentlyContinue
+    if (-not $runningApp) {
+        Start-Process -FilePath $exePath
+    }
+}
+
+exit $installProcess.ExitCode
+`, parentPID, escapedInstallerPath, escapedExecutablePath)
+
+	helperFile, err := os.CreateTemp("", "QuraMate-Update-Helper-*.ps1")
+	if err != nil {
+		return "", fmt.Errorf("failed to create update helper: %w", err)
+	}
+	defer helperFile.Close()
+
+	if _, err := helperFile.WriteString(script); err != nil {
+		return "", fmt.Errorf("failed to write update helper: %w", err)
+	}
+
+	return helperFile.Name(), nil
+}
+
 func (s *Service) PerformUpdate(downloadURL string) error {
 	if !strings.HasPrefix(downloadURL, "https://github.com/RealDewKJ/QuraMate/releases/download/") {
 		return fmt.Errorf("invalid download URL source: must be an official update URL")
@@ -246,15 +332,59 @@ func (s *Service) PerformUpdate(downloadURL string) error {
 
 	installerPath := tmpFile.Name()
 	lowerPath := strings.ToLower(installerPath)
+	currentExecutablePath, currentExecutableErr := os.Executable()
+	currentPID := os.Getpid()
 
 	var cmd *exec.Cmd
 	switch goRuntime.GOOS {
 	case "windows":
 		if strings.HasSuffix(lowerPath, ".msi") {
-			cmd = exec.Command("msiexec", "/i", installerPath, "/qn", "/norestart")
+			if currentExecutableErr != nil {
+				cmd = exec.Command("msiexec", "/i", installerPath, "/qn", "/norestart")
+			} else {
+				cmd = exec.Command(
+					"powershell",
+					"-NoProfile",
+					"-ExecutionPolicy", "Bypass",
+					"-Command",
+					"Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', $args[0], '/qn', '/norestart') -Verb RunAs -Wait; Start-Sleep -Milliseconds 800; Start-Process -FilePath $args[1]",
+					installerPath,
+					currentExecutablePath,
+				)
+			}
 		} else if strings.HasSuffix(lowerPath, ".exe") {
-			cmd = exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-				"Start-Process -FilePath $args[0] -ArgumentList '/S' -Verb RunAs", installerPath)
+			executablePath := ""
+			if currentExecutableErr == nil {
+				executablePath = currentExecutablePath
+			}
+			installerURL := deriveBootstrapperInstallerURL(downloadURL)
+
+			if installerURL != "" {
+				cmd = exec.Command(
+					"powershell",
+					"-NoProfile",
+					"-ExecutionPolicy", "Bypass",
+					"-WindowStyle", "Hidden",
+					"-Command",
+					"Start-Process -FilePath $args[0] -ArgumentList @($args[1]) -WindowStyle Normal",
+					installerPath,
+					fmt.Sprintf(`--installer-url=%s`, installerURL),
+				)
+			} else {
+				helperPath, helperErr := createWindowsUpdateHelper(installerPath, currentPID, executablePath)
+				if helperErr != nil {
+					return helperErr
+				}
+
+				cmd = exec.Command(
+					"powershell",
+					"-NoProfile",
+					"-ExecutionPolicy", "Bypass",
+					"-WindowStyle", "Hidden",
+					"-File",
+					helperPath,
+				)
+			}
 		} else {
 			cmd = exec.Command("cmd.exe", "/c", "start", "", installerPath)
 		}

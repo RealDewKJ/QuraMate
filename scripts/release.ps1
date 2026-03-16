@@ -7,7 +7,7 @@
     Then commits, creates a git tag, and pushes everything.
 
 .EXAMPLE
-    .\scripts\release.ps1 1.2.0
+    .\scripts\release.ps1 1.2.1
     .\scripts\release.ps1 2.0.0-beta.1
 #>
 
@@ -22,7 +22,7 @@ $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # Validate version format (semver)
 if ($Version -notmatch '^\d+\.\d+\.\d+') {
     Write-Host "  ❌ Invalid version format: $Version" -ForegroundColor Red
-    Write-Host "  Expected: X.Y.Z (e.g., 1.2.0, 2.0.0-beta.1)" -ForegroundColor Yellow
+    Write-Host "  Expected: X.Y.Z (e.g., 1.2.1, 2.0.0-beta.1)" -ForegroundColor Yellow
     exit 1
 }
 

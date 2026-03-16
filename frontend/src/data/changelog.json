@@ -1,5 +1,27 @@
 [
     {
+        "version":  "v1.2.1",
+        "date":  "2026-03-16",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added a custom Windows bootstrapper installer with a branded, minimal setup experience"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Improved Windows auto-update handoff so updates install quietly and relaunch more reliably"
+                        },
+                        {
+                            "type":  "ci",
+                            "text":  "Updated Windows release packaging so GitHub Actions publishes the custom bootstrapper as QuraMate-amd64-installer.exe"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.1"
+                        }
+                    ]
+    },
+    {
         "version":  "v1.2.0",
         "date":  "2026-03-13",
         "changes":  [

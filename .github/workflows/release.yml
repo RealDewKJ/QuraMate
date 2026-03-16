@@ -93,8 +93,12 @@ jobs:
           }
           makensis /VERSION
 
-      - name: Build Windows installer
+      - name: Build Windows package
         run: wails build -platform windows/amd64 -nsis -o QuraMate-amd64.exe -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
+
+      - name: Build Windows bootstrapper
+        working-directory: bootstrapper/windows
+        run: wails build -platform windows/amd64 -nopackage -ldflags "-X main.AppVersion=${{ steps.version.outputs.VERSION }}"
 
       - name: List Windows build outputs
         shell: pwsh
@@ -104,9 +108,14 @@ jobs:
           } else {
             Write-Error "build/bin directory was not created"
           }
+          if (Test-Path bootstrapper/windows/build/bin) {
+            Get-ChildItem -File -Recurse bootstrapper/windows/build/bin | Select-Object FullName, Length
+          } else {
+            Write-Error "bootstrapper/windows/build/bin directory was not created"
+          }
 
-      - name: Resolve Windows installer path
-        id: win_installer
+      - name: Resolve Windows package path
+        id: win_package
         shell: pwsh
         run: |
           $installer = Get-ChildItem -Path build/bin -Recurse -File |
@@ -129,13 +138,28 @@ jobs:
             Write-Error "Detected file is not an installer. FileDescription='$fileDescription'"
           }
 
-          "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          $renamedPath = Join-Path $installer.DirectoryName "QuraMate-amd64-package.exe"
+          Move-Item -Path $installer.FullName -Destination $renamedPath -Force
+          "package_path=$renamedPath" >> $env:GITHUB_OUTPUT
+
+      - name: Resolve Windows bootstrapper path
+        id: win_bootstrapper
+        shell: pwsh
+        run: |
+          $bootstrapper = "bootstrapper/windows/build/bin/QuraMate-amd64-installer.exe"
+          if (-not (Test-Path $bootstrapper)) {
+            Write-Error "Bootstrapper not found at $bootstrapper"
+          }
+
+          "bootstrapper_path=$bootstrapper" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: ${{ steps.win_installer.outputs.installer_path }}
+          path: |
+            ${{ steps.win_bootstrapper.outputs.bootstrapper_path }}
+            ${{ steps.win_package.outputs.package_path }}
           if-no-files-found: error
           retention-days: 30
 

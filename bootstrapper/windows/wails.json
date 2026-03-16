@@ -1,13 +1,12 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "QuraMate",
+  "name": "QuraMate Setup",
   "version": "1.2.1",
-  "outputfilename": "QuraMate",
+  "outputfilename": "QuraMate-amd64-installer",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "debounceMS": 2000,
   "author": {
     "name": "",
     "email": ""

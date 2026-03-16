@@ -3,6 +3,10 @@ node_modules
 **/node_modules
 frontend/dist
 frontend/node_modules
+bootstrapper/windows/build
+bootstrapper/windows/frontend/dist
+bootstrapper/windows/frontend/node_modules
+bootstrapper/windows/frontend/package.json.md5
 .agent/
 .agents/
 agent/
