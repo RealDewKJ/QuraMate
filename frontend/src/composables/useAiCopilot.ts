@@ -36,6 +36,8 @@ interface AiCompletionResponse {
 interface AiCompletionOptions {
     temperature?: number;
     maxTokens?: number;
+    operation?: 'test' | 'copilot' | 'explain';
+    capability?: 'chat' | 'sql-only' | 'vision';
 }
 
 interface UseAiCopilotOptions {
@@ -223,7 +225,12 @@ ${resultSample}`;
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
                 ],
-                { temperature: 0.2, maxTokens: 1400 }
+                {
+                    temperature: 0.2,
+                    maxTokens: 1400,
+                    operation: 'copilot',
+                    capability: sqlOnlyMode ? 'sql-only' : 'chat',
+                }
             );
 
             if (sqlOnlyMode) {

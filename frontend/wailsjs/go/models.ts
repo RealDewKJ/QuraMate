@@ -116,6 +116,30 @@ export namespace app {
 	        this.error = source["error"];
 	    }
 	}
+	export class TableExportOptions {
+	    connectionId: string;
+	    tableName: string;
+	    format: string;
+	    filePath: string;
+	    includeSchema: boolean;
+	    includeData: boolean;
+	    dropIfExists: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TableExportOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connectionId = source["connectionId"];
+	        this.tableName = source["tableName"];
+	        this.format = source["format"];
+	        this.filePath = source["filePath"];
+	        this.includeSchema = source["includeSchema"];
+	        this.includeData = source["includeData"];
+	        this.dropIfExists = source["dropIfExists"];
+	    }
+	}
 
 }
 

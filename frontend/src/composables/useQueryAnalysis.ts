@@ -9,6 +9,8 @@ import type { AIMessage } from '../lib/ai/client';
 interface AiCompletionOptions {
     temperature?: number;
     maxTokens?: number;
+    operation?: 'test' | 'copilot' | 'explain';
+    capability?: 'chat' | 'sql-only' | 'vision';
 }
 
 interface UseQueryAnalysisOptions {
@@ -141,7 +143,12 @@ export function useQueryAnalysis(options: UseQueryAnalysisOptions) {
                         content: `Analyze this ${dbType} SQL query:\n\n${queryToAnalyze}${contextPlan}`
                     }
                 ],
-                { temperature: 0.2, maxTokens: 700 }
+                {
+                    temperature: 0.2,
+                    maxTokens: 700,
+                    operation: 'explain',
+                    capability: 'chat',
+                }
             );
             tab.aiExplanation = result.text || 'AI returned an empty response.';
         } catch (err: any) {

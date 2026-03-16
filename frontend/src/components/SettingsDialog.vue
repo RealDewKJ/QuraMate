@@ -224,7 +224,6 @@
                                         <span class="text-sm text-muted-foreground">{{ t("common.settings.general.queryHistoryDescription") }}</span>
                                     </div>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         {{ t("common.settings.general.queryHistoryRetentionLabel") }}
@@ -321,7 +320,6 @@
                                         <span class="text-sm text-muted-foreground">{{ t("common.settings.general.workspacePersistenceDescription") }}</span>
                                     </div>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         {{ t("common.settings.general.encryptLocalDataLabel") }}
@@ -582,7 +580,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label
                                         class="text-sm font-medium leading-none"
@@ -783,7 +780,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -852,27 +848,73 @@
                                 {{ t("common.settings.ai.description") }}
                             </p>
 
-                            <div
-                                class="p-4 mb-4 text-sm text-amber-800 rounded-lg bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 flex items-start gap-3 border border-amber-200 dark:border-amber-900/50"
-                                role="alert"
-                            >
-                                <svg
-                                    class="flex-shrink-0 inline w-4 h-4 mt-0.5"
-                                    aria-hidden="true"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                >
-                                    <path
-                                        d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z"
-                                    />
-                                </svg>
-                                <span class="sr-only">{{ t("common.settings.ai.info") }}</span>
-                                <div>
-                                    <span class="font-medium"
-                                        >{{ t("common.settings.ai.comingSoonTitle") }}</span
+                            <div class="mb-4 rounded-xl border border-border/70 bg-muted/20 p-4">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-sm font-semibold text-foreground">{{ t("common.settings.ai.runtimeStatusLabel") }}</span>
+                                    <span
+                                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :class="
+                                            activeProviderStatus === 'configured'
+                                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                                : activeProviderStatus === 'error'
+                                                    ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+                                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                        "
                                     >
-                                    {{ t("common.settings.ai.comingSoonDescription") }}
+                                        {{
+                                            activeProviderStatus === "configured"
+                                                ? t("common.settings.ai.statusConfigured")
+                                                : activeProviderStatus === "error"
+                                                    ? t("common.settings.ai.statusError")
+                                                    : t("common.settings.ai.statusNotConfigured")
+                                        }}
+                                    </span>
+                                    <span
+                                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :class="
+                                            currentProviderDefinition?.status === 'stable'
+                                                ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                        "
+                                    >
+                                        {{
+                                            currentProviderDefinition?.status === "stable"
+                                                ? t("common.settings.ai.stabilityStable")
+                                                : t("common.settings.ai.stabilityExperimental")
+                                        }}
+                                    </span>
+                                    <span
+                                        v-if="hasPendingAiChanges"
+                                        class="inline-flex items-center rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-300"
+                                    >
+                                        {{ t("common.settings.ai.unsavedChanges") }}
+                                    </span>
+                                </div>
+                                <div class="mt-3 grid gap-3 text-xs text-muted-foreground md:grid-cols-3">
+                                    <div class="rounded-lg border border-border/60 bg-background/70 p-3">
+                                        <div class="text-[10px] uppercase tracking-wide">{{ t("common.settings.ai.lastTestedLabel") }}</div>
+                                        <div class="mt-1 text-sm text-foreground">
+                                            {{ currentPersistedProviderState.lastTestedAt || t("common.settings.ai.lastTestedNever") }}
+                                        </div>
+                                    </div>
+                                    <div class="rounded-lg border border-border/60 bg-background/70 p-3">
+                                        <div class="text-[10px] uppercase tracking-wide">{{ t("common.settings.ai.effectiveEndpointLabel") }}</div>
+                                        <div class="mt-1 break-all text-sm text-foreground">
+                                            {{ currentPersistedProviderState.effectiveEndpointOrigin || t("common.settings.ai.effectiveEndpointUnavailable") }}
+                                        </div>
+                                    </div>
+                                    <div class="rounded-lg border border-border/60 bg-background/70 p-3">
+                                        <div class="text-[10px] uppercase tracking-wide">{{ t("common.settings.ai.lastResultLabel") }}</div>
+                                        <div class="mt-1 text-sm text-foreground">
+                                            {{
+                                                currentPersistedProviderState.lastTestResult === "success"
+                                                    ? t("common.settings.ai.lastResultSuccess")
+                                                    : currentPersistedProviderState.lastTestResult === "failure"
+                                                        ? currentPersistedProviderState.lastTestMessage || t("common.settings.ai.lastResultFailed")
+                                                        : t("common.settings.ai.lastResultNotTested")
+                                            }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -928,7 +970,15 @@
                                                 @focus="highlightedSettingsDropdownIndex = index"
                                                 @keydown="handleSettingsDropdownOptionKeydown($event, 'ai-provider', aiProviderOptions, (value) => { settings.ai.provider = value; })"
                                             >
-                                                <span>{{ option.label }}</span>
+                                                <span class="flex items-center gap-2">
+                                                    <span>{{ option.label }}</span>
+                                                    <span
+                                                        v-if="AI_PROVIDER_DEFINITION_MAP[option.value]?.status === 'experimental'"
+                                                        class="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                                                    >
+                                                        {{ t("common.settings.ai.stabilityExperimental") }}
+                                                    </span>
+                                                </span>
                                                 <svg
                                                     v-if="settings.ai.provider === option.value"
                                                     xmlns="http://www.w3.org/2000/svg"
@@ -948,12 +998,11 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        API Key
+                                        {{ t("common.settings.ai.apiKeyLabel") }}
                                     </label>
                                     <div class="relative max-w-md">
                                         <input
@@ -961,9 +1010,9 @@
                                                 showAiKey ? 'text' : 'password'
                                             "
                                             v-model="currentProviderApiKey"
-                                            placeholder="sk-..."
-                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10"
-                                        />
+                                        placeholder="sk-..."
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10"
+                                    />
                                         <button
                                             @click="showAiKey = !showAiKey"
                                             class="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
@@ -1018,6 +1067,7 @@
                                         </button>
                                     </div>
                                     <p
+                                        v-if="false"
                                         class="text-[10px] text-muted-foreground"
                                     >
                                         API key จะถูกเก็บแยกตาม provider ใน OS
@@ -1025,13 +1075,15 @@
                                         และจะไม่ถูกบันทึกลงไฟล์ settings
                                         database.
                                     </p>
+                                    <p class="text-[10px] text-muted-foreground">
+                                        {{ t("common.settings.ai.apiKeyHelp") }}
+                                    </p>
                                 </div>
-
                                 <div class="grid gap-2">
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Base URL
+                                        {{ t("common.settings.ai.baseUrlLabel") }}
                                     </label>
                                     <input
                                         v-model="currentProviderBaseURL"
@@ -1039,10 +1091,14 @@
                                         class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     />
                                     <p
+                                        v-if="false"
                                         class="text-[10px] text-muted-foreground"
                                     >
                                         ใช้ endpoint เฉพาะ provider นี้เท่านั้น
                                         (แก้ได้แยกกันทุก provider)
+                                    </p>
+                                    <p class="text-[10px] text-muted-foreground">
+                                        {{ t("common.settings.ai.baseUrlHelp") }}
                                     </p>
                                 </div>
 
@@ -1050,7 +1106,7 @@
                                     <label
                                         class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                     >
-                                        Model
+                                        {{ t("common.settings.ai.modelLabel") }}
                                     </label>
                                     <div class="relative max-w-xl">
                                         <button
@@ -1126,16 +1182,20 @@
                                         class="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     />
                                     <p
+                                        v-if="false"
                                         class="text-[10px] text-muted-foreground"
                                     >
                                         รายการ model จะเปลี่ยนตาม provider
                                         ที่เลือก และรองรับ custom model
                                     </p>
                                 </div>
+                                <p class="text-[10px] text-muted-foreground">
+                                    {{ t("common.settings.ai.modelHelp") }}
+                                </p>
 
                                 <div class="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
                                     <div class="text-xs text-muted-foreground">
-                                        External AI providers can receive query text and optional database context. Leave these switches off unless you intentionally want to share that information.
+                                        {{ t("common.settings.ai.sharingDisclosure") }}
                                     </div>
                                     <label class="flex items-start gap-3">
                                         <input
@@ -1144,8 +1204,8 @@
                                             class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                                         />
                                         <span class="space-y-1">
-                                            <span class="block text-sm font-medium">Allow custom AI endpoint hosts</span>
-                                            <span class="block text-[11px] text-muted-foreground">Required before sending API keys or prompts to a non-default provider URL.</span>
+                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.allowCustomEndpointLabel") }}</span>
+                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.allowCustomEndpointHelp") }}</span>
                                         </span>
                                     </label>
                                     <label class="flex items-start gap-3">
@@ -1155,8 +1215,8 @@
                                             class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                                         />
                                         <span class="space-y-1">
-                                            <span class="block text-sm font-medium">Share schema context</span>
-                                            <span class="block text-[11px] text-muted-foreground">Includes table names and sampled column lists in AI prompts.</span>
+                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareSchemaContextLabel") }}</span>
+                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareSchemaContextHelp") }}</span>
                                         </span>
                                     </label>
                                     <label class="flex items-start gap-3">
@@ -1166,8 +1226,8 @@
                                             class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                                         />
                                         <span class="space-y-1">
-                                            <span class="block text-sm font-medium">Share recent query history</span>
-                                            <span class="block text-[11px] text-muted-foreground">Adds recent queries for better context, but may include sensitive business logic.</span>
+                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareQueryHistoryLabel") }}</span>
+                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareQueryHistoryHelp") }}</span>
                                         </span>
                                     </label>
                                     <label class="flex items-start gap-3">
@@ -1177,8 +1237,8 @@
                                             class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                                         />
                                         <span class="space-y-1">
-                                            <span class="block text-sm font-medium">Share result samples</span>
-                                            <span class="block text-[11px] text-muted-foreground">Sends a small sample of query results for explanation and summarization tasks.</span>
+                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareResultSampleLabel") }}</span>
+                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareResultSampleHelp") }}</span>
                                         </span>
                                     </label>
                                     <label class="flex items-start gap-3">
@@ -1188,66 +1248,16 @@
                                             class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                                         />
                                         <span class="space-y-1">
-                                            <span class="block text-sm font-medium">Share execution plans</span>
-                                            <span class="block text-[11px] text-muted-foreground">Includes optimizer output and performance metadata in AI prompts.</span>
+                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareExecutionPlanLabel") }}</span>
+                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareExecutionPlanHelp") }}</span>
                                         </span>
                                     </label>
                                 </div>
 
                                 <div class="pt-2 flex flex-col gap-2">
-                                    <button
-                                        @click="testProviderConnection"
-                                        :disabled="!canTestProvider"
-                                        class="inline-flex w-fit items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-                                    >
-                                        <svg
-                                            v-if="isTestingProvider"
-                                            class="animate-spin mr-2 h-4 w-4"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <circle
-                                                class="opacity-25"
-                                                cx="12"
-                                                cy="12"
-                                                r="10"
-                                                stroke="currentColor"
-                                                stroke-width="4"
-                                            ></circle>
-                                            <path
-                                                class="opacity-75"
-                                                fill="currentColor"
-                                                d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
-                                            ></path>
-                                        </svg>
-                                        <svg
-                                            v-else
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            class="lucide lucide-plug mr-2"
-                                        >
-                                            <path d="M12 22v-5" />
-                                            <path d="M9 8V2" />
-                                            <path d="M15 8V2" />
-                                            <path
-                                                d="M18 8a6 6 0 0 1-12 0h12Z"
-                                            />
-                                        </svg>
-                                        {{
-                                            isTestingProvider
-                                                ? "Testing..."
-                                                : "Test Provider Connection"
-                                        }}
-                                    </button>
-
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ t("common.settings.ai.saveAndTestHelp") }}
+                                    </p>
                                     <div
                                         v-if="providerTestResult"
                                         class="rounded-md border p-3 text-xs"
@@ -1260,8 +1270,8 @@
                                         <p class="font-semibold">
                                             {{
                                                 providerTestResult.ok
-                                                    ? "Connection Successful"
-                                                    : "Connection Failed"
+                                                    ? t("common.settings.ai.connectionSuccessful")
+                                                    : t("common.settings.ai.connectionFailed")
                                             }}
                                             <span class="ml-2 opacity-80"
                                                 >({{
@@ -1609,10 +1619,27 @@
                         {{ t("common.cancel") }}
                     </button>
                     <button
+                        v-if="activeTab === 'ai'"
+                        @click="saveAndTest"
+                        :disabled="!canSaveAndTest"
+                        class="inline-flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                        {{
+                            isTestingProvider
+                                ? "Saving and testing..."
+                                : "Save and Test"
+                        }}
+                    </button>
+                    <button
                         @click="save"
+                        :disabled="isSavingSettings || isTestingProvider"
                         class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                     >
-                        {{ t("common.save") }}
+                        {{
+                            isSavingSettings && !isTestingProvider
+                                ? "Saving..."
+                                : t("common.save")
+                        }}
                     </button>
                 </div>
             </div>
@@ -1650,9 +1677,18 @@ import { colorMode } from "../composables/useTheme";
 import changelogData from "../data/changelog.json";
 import {
     AI_PROVIDER_DEFINITIONS,
+    AI_PROVIDER_DEFINITION_MAP,
     AI_PROVIDER_DEFAULT_CONFIGS,
 } from "../lib/ai/config";
-import { completeWithProvider } from "../lib/ai/client";
+import {
+    createDefaultAiSettingsSnapshot,
+    createDefaultProviderStateMap,
+    getEffectiveEndpointOrigin,
+    normalizeAiSettings as normalizePersistedAiSettings,
+    parsePersistedAiSettings,
+    testSavedProviderConnection,
+    toProviderErrorTestResult,
+} from "../composables/useAiProvider";
 import {
     DEFAULT_GRID_SCREENSHOT_SHORTCUT,
 } from "../composables/useResultGridScreenshot";
@@ -1702,10 +1738,12 @@ const tabs = computed(() => [
 const activeTab = ref("general");
 const showAiKey = ref(false);
 const isTestingProvider = ref(false);
+const isSavingSettings = ref(false);
 const providerTestResult = ref(null);
+const persistedAiSettings = ref(createDefaultAiSettingsSnapshot());
 const appVersion = ref("");
 const aiProviders = AI_PROVIDER_DEFINITIONS;
-const aiProviderValues = aiProviders.map((provider) => provider.value);
+const aiProviderValues = aiProviders.map((provider) => provider.id);
 const CUSTOM_MODEL_OPTION_VALUE = "__custom_model__";
 const defaultAiApiKeys = Object.freeze(
     aiProviderValues.reduce((acc, providerId) => {
@@ -1722,7 +1760,9 @@ const providerModelOptions = Object.freeze(
 const defaultAiProviderConfigs = Object.freeze(
     JSON.parse(JSON.stringify(AI_PROVIDER_DEFAULT_CONFIGS)),
 );
+const defaultAiProviderState = Object.freeze(createDefaultProviderStateMap());
 const providerApiKeys = reactive({ ...defaultAiApiKeys });
+const persistedProviderApiKeys = reactive({ ...defaultAiApiKeys });
 const customProviderModels = reactive(
     aiProviderValues.reduce((acc, providerId) => {
         acc[providerId] = "";
@@ -1962,6 +2002,7 @@ const settings = reactive({
     ai: {
         provider: "openai",
         providerConfigs: JSON.parse(JSON.stringify(defaultAiProviderConfigs)),
+        providerState: JSON.parse(JSON.stringify(defaultAiProviderState)),
         allowCustomBaseURL: false,
         shareSchemaContext: false,
         shareQueryHistory: false,
@@ -1977,6 +2018,8 @@ const applyAppearancePreferences = (appearance) => {
     root.classList.toggle("pref-pointer-cursors", usePointerCursors);
     root.classList.toggle("pref-disable-pointer-cursors", !usePointerCursors);
 };
+
+const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 
 const extractLegacyAiApiKeys = (parsedSettings) => {
     const legacyApiKeys = { ...defaultAiApiKeys };
@@ -2069,67 +2112,57 @@ const extractLegacyAiProviderConfigs = (parsedSettings) => {
     return legacyConfigs;
 };
 
-const normalizeAiSettings = () => {
-    if (!settings.ai || typeof settings.ai !== "object") {
-        settings.ai = {
-            provider: "openai",
-            providerConfigs: JSON.parse(
-                JSON.stringify(defaultAiProviderConfigs),
-            ),
-        };
-    }
-
-    const isValidProvider = aiProviderValues.includes(settings.ai.provider);
-    settings.ai.provider = isValidProvider ? settings.ai.provider : "openai";
-
-    const currentProviderConfigs =
-        settings.ai.providerConfigs &&
-        typeof settings.ai.providerConfigs === "object"
-            ? settings.ai.providerConfigs
-            : {};
-    const mergedProviderConfigs = JSON.parse(
-        JSON.stringify(defaultAiProviderConfigs),
-    );
-    aiProviderValues.forEach((providerId) => {
-        const existingConfig = currentProviderConfigs[providerId];
-        if (!existingConfig || typeof existingConfig !== "object") {
-            return;
-        }
-        if (
-            typeof existingConfig.baseURL === "string" &&
-            existingConfig.baseURL.trim() !== ""
-        ) {
-            mergedProviderConfigs[providerId].baseURL =
-                existingConfig.baseURL.trim();
-        }
-        if (
-            typeof existingConfig.model === "string" &&
-            existingConfig.model.trim() !== ""
-        ) {
-            mergedProviderConfigs[providerId].model =
-                existingConfig.model.trim();
-        }
-    });
-    settings.ai.providerConfigs = mergedProviderConfigs;
-    settings.ai.allowCustomBaseURL = settings.ai.allowCustomBaseURL === true;
-    settings.ai.shareSchemaContext = settings.ai.shareSchemaContext === true;
-    settings.ai.shareQueryHistory = settings.ai.shareQueryHistory === true;
-    settings.ai.shareResultSample = settings.ai.shareResultSample === true;
-    settings.ai.shareExecutionPlan = settings.ai.shareExecutionPlan === true;
-
-    if ("baseURL" in settings.ai) {
-        delete settings.ai.baseURL;
-    }
-    if ("model" in settings.ai) {
-        delete settings.ai.model;
-    }
-    if ("apiKeys" in settings.ai) {
-        delete settings.ai.apiKeys;
-    }
-    if ("apiKey" in settings.ai) {
-        delete settings.ai.apiKey;
-    }
+const syncDraftAiSettings = (snapshot) => {
+    settings.ai = cloneJson(snapshot);
 };
+
+const syncPersistedAiSettings = (snapshot) => {
+    persistedAiSettings.value = cloneJson(snapshot);
+};
+
+const currentProviderDefinition = computed(
+    () => AI_PROVIDER_DEFINITION_MAP[settings.ai.provider],
+);
+
+const currentPersistedProviderState = computed(() => {
+    return (
+        persistedAiSettings.value.providerState?.[settings.ai.provider] ||
+        createDefaultProviderStateMap()[settings.ai.provider]
+    );
+});
+
+const hasPendingAiChanges = computed(() => {
+    const providerId = settings.ai.provider;
+    const draftAi = normalizePersistedAiSettings(settings.ai);
+    const persistedAi = normalizePersistedAiSettings(persistedAiSettings.value);
+    const draftKey = (providerApiKeys[providerId] || "").trim();
+    const persistedKey = (persistedProviderApiKeys[providerId] || "").trim();
+    return (
+        JSON.stringify(draftAi) !== JSON.stringify(persistedAi) ||
+        draftKey !== persistedKey
+    );
+});
+
+const activeProviderStatus = computed(() => {
+    const providerId = settings.ai.provider;
+    const providerConfig = persistedAiSettings.value.providerConfigs?.[providerId];
+    const providerState = currentPersistedProviderState.value;
+    const definition = currentProviderDefinition.value;
+    const hasApiKey =
+        definition?.requiresApiKey === false
+            ? true
+            : !!persistedProviderApiKeys[providerId]?.trim();
+    const hasBaseURL = !!providerConfig?.baseURL?.trim();
+    const hasModel = !!providerConfig?.model?.trim();
+
+    if (!hasBaseURL || !hasModel || !hasApiKey) {
+        return "not_configured";
+    }
+    if (providerState?.lastTestResult === "failure") {
+        return "error";
+    }
+    return "configured";
+});
 
 const currentProviderApiKey = computed({
     get() {
@@ -2215,7 +2248,7 @@ const providerModelSelectOptions = computed(() => [
     })),
     {
         value: CUSTOM_MODEL_OPTION_VALUE,
-        label: "Custom model...",
+        label: t("common.settings.ai.customModelOption"),
     },
 ]);
 
@@ -2413,83 +2446,32 @@ const currentProviderCustomModel = computed({
     },
 });
 
-const canTestProvider = computed(() => {
-    const providerId = settings.ai.provider;
-    const providerConfig = settings.ai.providerConfigs?.[providerId];
-    const hasBaseURL = !!providerConfig?.baseURL?.trim();
-    const hasModel = !!providerConfig?.model?.trim();
-    const hasApiKey =
-        providerId === "local" ? true : !!providerApiKeys[providerId]?.trim();
-    return hasBaseURL && hasModel && hasApiKey && !isTestingProvider.value;
+const canSaveAndTest = computed(() => {
+    return !isSavingSettings.value && !isTestingProvider.value;
 });
-
-const testProviderConnection = async () => {
-    if (!canTestProvider.value) {
-        toastRef.value?.error(
-            "Please fill API key, Base URL, and Model before testing",
-        );
-        return;
-    }
-
-    const providerId = settings.ai.provider;
-    const providerConfig = settings.ai.providerConfigs?.[providerId];
-    const startedAt = performance.now();
-    isTestingProvider.value = true;
-    providerTestResult.value = null;
-
-    try {
-        const result = await completeWithProvider({
-            provider: providerId,
-            apiKey: (providerApiKeys[providerId] || "").trim(),
-            baseURL: providerConfig.baseURL,
-            model: providerConfig.model,
-            messages: [
-                {
-                    role: "user",
-                    content: "Reply with exactly: CONNECTION_OK",
-                },
-            ],
-            temperature: 0,
-            maxTokens: 12,
-        });
-
-        const latencyMs = Math.round(performance.now() - startedAt);
-        providerTestResult.value = {
-            ok: true,
-            latencyMs,
-            message: result.text || "Connected successfully",
-        };
-        toastRef.value?.success(`Provider reachable (${latencyMs}ms)`);
-    } catch (e) {
-        const latencyMs = Math.round(performance.now() - startedAt);
-        const details = e?.details
-            ? JSON.stringify(e.details).slice(0, 500)
-            : "";
-        const message = e?.message || String(e);
-        providerTestResult.value = {
-            ok: false,
-            latencyMs,
-            message,
-            details,
-        };
-        toastRef.value?.error(`Provider test failed: ${message}`);
-    } finally {
-        isTestingProvider.value = false;
-    }
-};
 
 watch(
     () => settings.ai.provider,
     () => {
-        providerTestResult.value = null;
+        const providerState =
+            persistedAiSettings.value.providerState?.[settings.ai.provider];
+        providerTestResult.value = providerState?.lastTestResult
+            ? {
+                  ok: providerState.lastTestResult === "success",
+                  latencyMs: 0,
+                  message: providerState.lastTestMessage || "",
+                  details: "",
+              }
+            : null;
     },
 );
 
 const loadProviderApiKeys = async () => {
     await Promise.all(
         aiProviders.map(async (provider) => {
-            const key = await LoadAIProviderKey(provider.value);
-            providerApiKeys[provider.value] = key || "";
+            const key = await LoadAIProviderKey(provider.id);
+            providerApiKeys[provider.id] = key || "";
+            persistedProviderApiKeys[provider.id] = key || "";
         }),
     );
 };
@@ -2497,20 +2479,21 @@ const loadProviderApiKeys = async () => {
 const saveProviderApiKeys = async () => {
     await Promise.all(
         aiProviders.map(async (provider) => {
-            if (!touchedProviderApiKeys[provider.value]) {
+            if (!touchedProviderApiKeys[provider.id]) {
                 return;
             }
 
-            const value = (providerApiKeys[provider.value] || "").trim();
+            const value = (providerApiKeys[provider.id] || "").trim();
             const result = value
-                ? await SaveAIProviderKey(provider.value, value)
-                : await DeleteAIProviderKey(provider.value);
+                ? await SaveAIProviderKey(provider.id, value)
+                : await DeleteAIProviderKey(provider.id);
             if (result !== "Success") {
                 throw new Error(
                     `Failed to save key for ${provider.label}: ${result}`,
                 );
             }
-            touchedProviderApiKeys[provider.value] = false;
+            persistedProviderApiKeys[provider.id] = value;
+            touchedProviderApiKeys[provider.id] = false;
         }),
     );
 };
@@ -2519,7 +2502,7 @@ const migrateLegacyAiKeysToKeychain = async (legacyApiKeys) => {
     let hasMigrated = false;
     await Promise.all(
         aiProviders.map(async (provider) => {
-            const providerId = provider.value;
+            const providerId = provider.id;
             const legacyValue = (legacyApiKeys[providerId] || "").trim();
             if (!legacyValue) {
                 return;
@@ -2537,18 +2520,41 @@ const migrateLegacyAiKeysToKeychain = async (legacyApiKeys) => {
                 );
             }
             providerApiKeys[providerId] = legacyValue;
+            persistedProviderApiKeys[providerId] = legacyValue;
             hasMigrated = true;
         }),
     );
     return hasMigrated;
 };
 
+const updateDraftProviderState = (providerId, result, statusOverride) => {
+    if (!settings.ai.providerState?.[providerId]) {
+        settings.ai.providerState[providerId] = {
+            ...createDefaultProviderStateMap()[providerId],
+        };
+    }
+    settings.ai.providerState[providerId].status =
+        statusOverride ||
+        (result.ok ? "configured" : "error");
+    settings.ai.providerState[providerId].lastTestResult = result.ok
+        ? "success"
+        : "failure";
+    settings.ai.providerState[providerId].lastTestMessage = result.message || "";
+    settings.ai.providerState[providerId].lastTestedAt = result.testedAt || null;
+    settings.ai.providerState[providerId].effectiveEndpointOrigin =
+        result.endpointOrigin ||
+        getEffectiveEndpointOrigin(
+            settings.ai.providerConfigs?.[providerId]?.baseURL || "",
+        );
+};
+
 const loadSettings = async () => {
     let parsed = null;
+    let savedSettingsJson = "";
     try {
         loadedLocalDataEncryptionEnabled.value =
             await GetLocalDataEncryptionEnabled();
-        const savedSettingsJson = await LoadSetting("user_settings");
+        savedSettingsJson = await LoadSetting("user_settings");
         if (savedSettingsJson) {
             parsed = JSON.parse(savedSettingsJson);
             Object.assign(settings, parsed);
@@ -2560,13 +2566,38 @@ const loadSettings = async () => {
 
     const legacyApiKeys = extractLegacyAiApiKeys(parsed);
     const legacyProviderConfigs = extractLegacyAiProviderConfigs(parsed);
-    normalizeAiSettings();
-    settings.ai.providerConfigs = legacyProviderConfigs;
     await loadProviderApiKeys();
+
+    const normalizedAiSettings = normalizePersistedAiSettings({
+        ...parsePersistedAiSettings(savedSettingsJson),
+        ...(parsed?.ai || {}),
+        providerConfigs: legacyProviderConfigs,
+    });
+    syncPersistedAiSettings(normalizedAiSettings);
+    syncDraftAiSettings(normalizedAiSettings);
+    providerTestResult.value =
+        normalizedAiSettings.providerState?.[normalizedAiSettings.provider]
+            ?.lastTestResult
+            ? {
+                  ok:
+                      normalizedAiSettings.providerState[
+                          normalizedAiSettings.provider
+                      ].lastTestResult === "success",
+                  latencyMs: 0,
+                  message:
+                      normalizedAiSettings.providerState[
+                          normalizedAiSettings.provider
+                      ].lastTestMessage || "",
+                  details: "",
+              }
+            : null;
 
     try {
         const migrated = await migrateLegacyAiKeysToKeychain(legacyApiKeys);
         if (migrated) {
+            const aiSnapshot = normalizePersistedAiSettings(settings.ai);
+            syncPersistedAiSettings(aiSnapshot);
+            syncDraftAiSettings(aiSnapshot);
             await SaveSetting("user_settings", JSON.stringify(settings));
         }
     } catch (e) {
@@ -2658,7 +2689,7 @@ const close = () => {
     emit("close");
 };
 
-const save = async () => {
+const persistSettings = async () => {
     // Apply theme immediately on save
     colorMode.value =
         settings.appearance.theme === "system"
@@ -2671,29 +2702,119 @@ const save = async () => {
     }
     applyAppearancePreferences(settings.appearance);
 
-    try {
-        await saveProviderApiKeys();
-        if (
-            settings.general.encryptLocalPersistentData !==
-            loadedLocalDataEncryptionEnabled.value
-        ) {
-            const encryptionResult = await SetLocalDataEncryptionEnabled(
-                settings.general.encryptLocalPersistentData,
-            );
-            if (encryptionResult !== "Success") {
-                throw new Error(encryptionResult);
-            }
-            loadedLocalDataEncryptionEnabled.value =
-                settings.general.encryptLocalPersistentData;
+    await saveProviderApiKeys();
+    if (
+        settings.general.encryptLocalPersistentData !==
+        loadedLocalDataEncryptionEnabled.value
+    ) {
+        const encryptionResult = await SetLocalDataEncryptionEnabled(
+            settings.general.encryptLocalPersistentData,
+        );
+        if (encryptionResult !== "Success") {
+            throw new Error(encryptionResult);
         }
-        await SaveSetting("user_settings", JSON.stringify(settings));
-        setAppLocale(settings.general.language);
+        loadedLocalDataEncryptionEnabled.value =
+            settings.general.encryptLocalPersistentData;
+    }
+
+    const normalizedAiSettings = normalizePersistedAiSettings(settings.ai);
+    normalizedAiSettings.providerState = cloneJson(
+        settings.ai.providerState || normalizedAiSettings.providerState,
+    );
+    aiProviderValues.forEach((providerId) => {
+        const definition = AI_PROVIDER_DEFINITION_MAP[providerId];
+        const providerConfig = normalizedAiSettings.providerConfigs[providerId];
+        const hasApiKey =
+            definition?.requiresApiKey === false
+                ? true
+                : !!(providerApiKeys[providerId] || "").trim();
+        const hasBaseURL = !!providerConfig?.baseURL?.trim();
+        const hasModel = !!providerConfig?.model?.trim();
+        normalizedAiSettings.providerState[providerId].effectiveEndpointOrigin =
+            getEffectiveEndpointOrigin(providerConfig?.baseURL || "");
+        if (!hasApiKey || !hasBaseURL || !hasModel) {
+            normalizedAiSettings.providerState[providerId].status =
+                "not_configured";
+        } else if (
+            normalizedAiSettings.providerState[providerId].lastTestResult !==
+            "failure"
+        ) {
+            normalizedAiSettings.providerState[providerId].status =
+                "configured";
+        }
+    });
+    settings.ai = cloneJson(normalizedAiSettings);
+
+    const saveResult = await SaveSetting("user_settings", JSON.stringify(settings));
+    if (saveResult !== "Success") {
+        throw new Error(saveResult);
+    }
+
+    syncPersistedAiSettings(normalizedAiSettings);
+    setAppLocale(settings.general.language);
+    emit("save", cloneJson(settings));
+    return normalizedAiSettings;
+};
+
+const save = async () => {
+    isSavingSettings.value = true;
+    try {
+        await persistSettings();
         toastRef.value?.success(t("common.settings.saveSuccess"));
-        emit("save", { ...settings });
     } catch (e) {
         toastRef.value?.error(
             t("common.settings.saveFailure", { error: String(e) }),
         );
+    } finally {
+        isSavingSettings.value = false;
+    }
+};
+
+const saveAndTest = async () => {
+    const providerId = settings.ai.provider;
+    isSavingSettings.value = true;
+    isTestingProvider.value = true;
+    providerTestResult.value = null;
+    const startedAt = performance.now();
+
+    try {
+        const normalizedAiSettings = await persistSettings();
+        syncPersistedAiSettings(normalizedAiSettings);
+        const result = await testSavedProviderConnection(providerId);
+        providerTestResult.value = result;
+        updateDraftProviderState(providerId, result, "configured");
+        syncPersistedAiSettings(normalizePersistedAiSettings(settings.ai));
+        const saveResult = await SaveSetting("user_settings", JSON.stringify(settings));
+        if (saveResult !== "Success") {
+            throw new Error(saveResult);
+        }
+        toastRef.value?.success(
+            t("common.settings.ai.providerReachable", {
+                latency: result.latencyMs,
+            }),
+        );
+    } catch (e) {
+        const endpointOrigin = getEffectiveEndpointOrigin(
+            settings.ai.providerConfigs?.[providerId]?.baseURL || "",
+        );
+        const result = toProviderErrorTestResult(
+            providerId,
+            e,
+            Math.round(performance.now() - startedAt),
+            endpointOrigin,
+        );
+        providerTestResult.value = result;
+        updateDraftProviderState(providerId, result, "error");
+        const normalizedAiSettings = normalizePersistedAiSettings(settings.ai);
+        syncPersistedAiSettings(normalizedAiSettings);
+        const saveResult = await SaveSetting("user_settings", JSON.stringify(settings));
+        if (saveResult !== "Success") {
+            console.error("Failed to persist provider test result", saveResult);
+        }
+        toastRef.value?.error(`Provider test failed: ${result.message}`);
+    } finally {
+        isSavingSettings.value = false;
+        isTestingProvider.value = false;
     }
 };
 

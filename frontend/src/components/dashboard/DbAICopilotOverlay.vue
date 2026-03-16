@@ -12,7 +12,7 @@ defineProps<{
     result: string;
     error: string;
     latencyMs: number;
-    hasSuggestedSql: boolean;
+    suggestedSql: string;
 }>();
 
 const emit = defineEmits<{
@@ -36,7 +36,7 @@ const emit = defineEmits<{
         :result="result"
         :error="error"
         :latency-ms="latencyMs"
-        :has-suggested-sql="hasSuggestedSql"
+        :suggested-sql="suggestedSql"
         @close="emit('close')"
         @run="emit('run')"
         @apply-sql="emit('apply-sql')"

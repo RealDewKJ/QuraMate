@@ -3,6 +3,7 @@ interface Props {
     isOpen: boolean;
     targetTable: string;
     filePath: string;
+    format?: string;
     isMssql: boolean;
     enableIdentityInsert: boolean;
 }
@@ -39,6 +40,9 @@ const emit = defineEmits<{
                 <div class="flex flex-col gap-1 text-sm">
                     <span class="font-semibold text-muted-foreground">File:</span>
                     <span class="truncate" :title="filePath">{{ filePath }}</span>
+                </div>
+                <div v-if="format === 'sql'" class="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100">
+                    SQL import is restricted to <code class="font-semibold text-amber-900 dark:text-amber-50">CREATE TABLE</code> and <code class="font-semibold text-amber-900 dark:text-amber-50">INSERT INTO</code> statements for the selected table.
                 </div>
 
                 <div v-if="isMssql" class="flex items-center space-x-2 pt-2">

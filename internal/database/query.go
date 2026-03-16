@@ -768,6 +768,10 @@ func (d *Database) quoteIdentifier(name string) string {
 	}
 }
 
+func (d *Database) QuoteIdentifier(name string) string {
+	return d.quoteIdentifier(name)
+}
+
 func (d *Database) UpdateRecord(tableName string, updates map[string]interface{}, conditions map[string]interface{}) error {
 	if d.persistentConn == nil {
 		return fmt.Errorf("no database connection")
