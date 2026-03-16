@@ -153,13 +153,20 @@ jobs:
 
           "bootstrapper_path=$bootstrapper" >> $env:GITHUB_OUTPUT
 
+      - name: Stage Windows release files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release/windows | Out-Null
+          Copy-Item -Path "${{ steps.win_bootstrapper.outputs.bootstrapper_path }}" -Destination "release/windows/QuraMate-amd64-installer.exe" -Force
+          Copy-Item -Path "${{ steps.win_package.outputs.package_path }}" -Destination "release/windows/QuraMate-amd64-package.exe" -Force
+
       - name: Upload unsigned installer directly
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
           path: |
-            ${{ steps.win_bootstrapper.outputs.bootstrapper_path }}
-            ${{ steps.win_package.outputs.package_path }}
+            release/windows/QuraMate-amd64-installer.exe
+            release/windows/QuraMate-amd64-package.exe
           if-no-files-found: error
           retention-days: 30
 
