@@ -608,6 +608,42 @@ func (d *Database) CreateTable(tableName string, columns []ColumnDefinition) err
 	return nil
 }
 
+func (d *Database) GenerateCreateTableStatement(tableName string) (string, error) {
+	columns, err := d.GetTableDefinition(tableName)
+	if err != nil {
+		return "", err
+	}
+	if len(columns) == 0 {
+		return "", fmt.Errorf("table definition not found")
+	}
+
+	switch d.Type {
+	case "postgres", "greenplum", "redshift", "cockroachdb":
+		return d.generatePostgresCreateTableStatement(tableName, columns)
+	case "mysql", "mariadb", "databend":
+		return d.generateMysqlCreateTableStatement(tableName, columns)
+	case "mssql":
+		return d.generateMssqlCreateTableStatement(tableName, columns)
+	case "sqlite", "libsql":
+		return d.generateSqliteCreateTableStatement(tableName, columns)
+	default:
+		return "", fmt.Errorf("unsupported database type")
+	}
+}
+
+func (d *Database) GenerateDropTableIfExistsStatement(tableName string) (string, error) {
+	quotedTableName := d.QuoteIdentifier(tableName)
+
+	switch d.Type {
+	case "postgres", "greenplum", "redshift", "cockroachdb", "mysql", "mariadb", "databend", "sqlite", "libsql":
+		return fmt.Sprintf("DROP TABLE IF EXISTS %s", quotedTableName), nil
+	case "mssql":
+		return fmt.Sprintf("IF OBJECT_ID(N'%s', N'U') IS NOT NULL DROP TABLE %s", strings.ReplaceAll(tableName, "'", "''"), quotedTableName), nil
+	default:
+		return "", fmt.Errorf("unsupported database type")
+	}
+}
+
 func (d *Database) generatePostgresCreateTableStatement(tableName string, columns []ColumnDefinition) (string, error) {
 	var cols []string
 	var pks []string

@@ -20,3 +20,13 @@ type ForeignKey = database.ForeignKey
 type QueryHistoryEntry = storage.QueryHistoryEntry
 type QueryHistorySummary = storage.QueryHistorySummary
 type UpdateInfo = updatepkg.UpdateInfo
+
+type TableExportOptions struct {
+	ConnectionID  string `json:"connectionId"`
+	TableName     string `json:"tableName"`
+	Format        string `json:"format"`
+	FilePath      string `json:"filePath"`
+	IncludeSchema bool   `json:"includeSchema"`
+	IncludeData   bool   `json:"includeData"`
+	DropIfExists  bool   `json:"dropIfExists"`
+}

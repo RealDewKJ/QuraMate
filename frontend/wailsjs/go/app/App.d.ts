@@ -44,6 +44,8 @@ export function ExportDatabase(arg1:string,arg2:string,arg3:string):Promise<stri
 
 export function ExportTable(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
+export function ExportTableAdvanced(arg1:app.TableExportOptions):Promise<app.ActionResult>;
+
 export function GetAppLogs():Promise<Array<app.LogEntry>>;
 
 export function GetCurrentVersion():Promise<string>;
