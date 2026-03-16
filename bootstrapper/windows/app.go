@@ -16,6 +16,8 @@ import (
 
 var AppVersion = "1.2.1"
 
+const githubRepo = "RealDewKJ/QuraMate"
+
 type LaunchContext struct {
 	Mode           string `json:"mode"`
 	Version        string `json:"version"`
@@ -156,26 +158,18 @@ func detectVersion() string {
 }
 
 func detectInstallerPath() string {
-	exeDir := filepath.Dir(currentExecutablePath())
+	currentExePath := currentExecutablePath()
+	exeDir := filepath.Dir(currentExePath)
 	workingDir, _ := os.Getwd()
 	candidates := []string{
 		filepath.Join(exeDir, "QuraMate-amd64-package.exe"),
-		filepath.Join(exeDir, "QuraMate-amd64-installer.exe"),
-		filepath.Join(exeDir, "QuraMate-installer.exe"),
 		filepath.Join(exeDir, "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(exeDir, "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(exeDir, "..", "..", "..", "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(exeDir, "..", "..", "..", "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(exeDir, "..", "..", "..", "..", "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(exeDir, "..", "..", "..", "..", "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(exeDir, "..", "..", "..", "..", "..", "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(exeDir, "..", "..", "..", "..", "..", "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(workingDir, "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(workingDir, "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(workingDir, "..", "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(workingDir, "..", "build", "bin", "QuraMate-amd64-installer.exe"),
 		filepath.Join(repoRootFromWorkingDir(), "build", "bin", "QuraMate-amd64-package.exe"),
-		filepath.Join(repoRootFromWorkingDir(), "build", "bin", "QuraMate-amd64-installer.exe"),
 	}
 
 	for _, candidate := range candidates {
@@ -183,6 +177,9 @@ func detectInstallerPath() string {
 			continue
 		}
 		resolvedCandidate := filepath.Clean(candidate)
+		if currentExePath != "" && strings.EqualFold(resolvedCandidate, currentExePath) {
+			continue
+		}
 		if _, err := os.Stat(resolvedCandidate); err == nil {
 			return resolvedCandidate
 		}
@@ -211,12 +208,17 @@ func detectInstallerURL() string {
 		return envURL
 	}
 
-	return ""
+	version := strings.TrimSpace(detectVersion())
+	if version == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("https://github.com/%s/releases/download/v%s/QuraMate-amd64-package.exe", githubRepo, version)
 }
 
 func downloadInstallerAsset(installerURL string) (string, error) {
 	if strings.TrimSpace(installerURL) == "" {
-		return "", fmt.Errorf("installer path could not be resolved")
+		return "", fmt.Errorf("installer package could not be resolved")
 	}
 
 	client := &http.Client{Timeout: 10 * time.Minute}
