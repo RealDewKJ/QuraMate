@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" />
   </a>
   <a href="https://github.com/RealDewKJ/QuraMate/releases">
-    <img src="[[https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green](https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total)](https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green&cacheSeconds=300)" alt="Downloads" />
+    <img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green&cacheSeconds=300" alt="Downloads" />
   </a>
   <a href="https://github.com/RealDewKJ/QuraMate/stargazers">
     <img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" />
