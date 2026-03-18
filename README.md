@@ -9,11 +9,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/RealDewKJ/QuraMate/releases/latest"><img src="https://img.shields.io/github/v/release/RealDewKJ/QuraMate?style=flat-square&color=blue" alt="Release" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/releases"><img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green" alt="Downloads" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/stargazers"><img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" /></a>
-  <a href="https://www.npmjs.com/package/quramate"><img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm" /></a>
+  <a href="https://github.com/RealDewKJ/QuraMate/releases/latest">
+    <img src="https://img.shields.io/github/v/release/RealDewKJ/QuraMate?style=flat-square&color=blue" alt="Release" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/releases">
+    <img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green" alt="Downloads" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/stargazers">
+    <img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" />
+  </a>
+  <a href="https://www.npmjs.com/package/quramate">
+    <img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm version" />
+  </a>
+  <a href="https://www.npmjs.com/package/quramate">
+    <img src="https://img.shields.io/npm/dm/quramate?style=flat-square&color=green" alt="npm downloads" />
+  </a>
 </p>
 
 <p align="center">
