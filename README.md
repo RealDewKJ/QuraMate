@@ -25,7 +25,7 @@
     <img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm version" />
   </a>
   <a href="https://www.npmjs.com/package/quramate">
-    <img src="https://img.shields.io/npm/dm/quramate?style=flat-square&color=green" alt="npm downloads" />
+    <img src="https://img.shields.io/npm/d18m/quramate.svg?style=flat-square&label=npm-downloads&color=cb3837" alt="npm downloads" />
   </a>
 </p>
 
