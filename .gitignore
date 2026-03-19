@@ -1,4 +1,9 @@
 build/bin
+build/windows/installer/tmp
+build/appicon.png
+build/windows/icon.ico
+build/windows/info.json
+build/windows/wails.exe.manifest
 node_modules
 **/node_modules
 frontend/dist
@@ -26,3 +31,9 @@ quramate.db
 
 # Temp app executable
 tmp_app.exe
+
+# Cloudflare Workers local state / secrets
+cloudflare/**/.wrangler/
+cloudflare/**/.dev.vars
+cloudflare/**/.env
+cloudflare/**/.env.local

@@ -1,15 +1,15 @@
 [
     {
-        "version":  "v1.2.1",
-        "date":  "2026-03-16",
+        "version":  "v1.2.2",
+        "date":  "2026-03-19",
         "changes":  [
                         {
                             "type":  "feat",
-                            "text":  "Added a custom Windows bootstrapper installer with a branded, minimal setup experience"
+                            "text":  "Introduced SessionShare as the primary cross-machine live sharing flow"
                         },
                         {
                             "type":  "fix",
-                            "text":  "Improved Windows auto-update handoff so updates install quietly and relaunch more reliably"
+                            "text":  "Cleaned up SessionShare/Share dialog UX and live session state so status reflects peer count and expiry"
                         },
                         {
                             "type":  "ci",
@@ -17,7 +17,7 @@
                         },
                         {
                             "type":  "chore",
-                            "text":  "Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.1"
+                            "text":  "Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.2"
                         }
                     ]
     },

@@ -9,11 +9,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/RealDewKJ/QuraMate/releases/latest"><img src="https://img.shields.io/github/v/release/RealDewKJ/QuraMate?style=flat-square&color=blue" alt="Release" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/releases"><img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green" alt="Downloads" /></a>
-  <a href="https://github.com/RealDewKJ/QuraMate/stargazers"><img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" /></a>
-  <a href="https://www.npmjs.com/package/quramate"><img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm" /></a>
+  <a href="https://github.com/RealDewKJ/QuraMate/releases/latest">
+    <img src="https://img.shields.io/github/v/release/RealDewKJ/QuraMate?style=flat-square&color=blue" alt="Release" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/RealDewKJ/QuraMate?style=flat-square" alt="License" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/releases">
+    <img src="https://img.shields.io/github/downloads/RealDewKJ/QuraMate/total?style=flat-square&color=green&cacheSeconds=300" alt="Downloads" />
+  </a>
+  <a href="https://github.com/RealDewKJ/QuraMate/stargazers">
+    <img src="https://img.shields.io/github/stars/RealDewKJ/QuraMate?style=flat-square" alt="Stars" />
+  </a>
+  <a href="https://www.npmjs.com/package/quramate">
+    <img src="https://img.shields.io/npm/v/quramate?style=flat-square&color=cb3837" alt="npm version" />
+  </a>
+  <a href="https://www.npmjs.com/package/quramate">
+    <img src="https://img.shields.io/npm/d18m/quramate.svg?style=flat-square&label=npm-downloads&color=cb3837" alt="npm downloads" />
+  </a>
 </p>
 
 <p align="center">
@@ -32,12 +45,11 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.2.1)
+## Latest Release (v1.2.2)
 
-- Added a custom Windows bootstrapper installer with a cleaner branded setup experience
-- Improved Windows auto-update handoff, silent install flow, and relaunch reliability
-- Updated GitHub Actions packaging so Windows releases publish the custom bootstrapper as `QuraMate-amd64-installer.exe`
-- Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.1
+- Added SessionShare live collaboration scaffolding and safer notebook autosave hints
+- Improved Share dialog wording for SessionShare and synchronized live session state
+- Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.2
 
 ## Features
 
