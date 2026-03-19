@@ -14,7 +14,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var AppVersion = "1.2.1"
+var AppVersion = "1.2.2"
 
 const githubRepo = "RealDewKJ/QuraMate"
 

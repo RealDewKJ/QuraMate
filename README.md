@@ -45,12 +45,11 @@ QuraMate is a lightweight, cross-platform desktop database client built with [Wa
 
 No cloud. No accounts. Your data stays on your machine.
 
-## Latest Release (v1.2.1)
+## Latest Release (v1.2.2)
 
-- Added a custom Windows bootstrapper installer with a cleaner branded setup experience
-- Improved Windows auto-update handoff, silent install flow, and relaunch reliability
-- Updated GitHub Actions packaging so Windows releases publish the custom bootstrapper as `QuraMate-amd64-installer.exe`
-- Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.1
+- Added SessionShare live collaboration scaffolding and safer notebook autosave hints
+- Improved Share dialog wording for SessionShare and synchronized live session state
+- Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.2
 
 ## Features
 
