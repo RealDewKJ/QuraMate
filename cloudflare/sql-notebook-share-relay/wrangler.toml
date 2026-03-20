@@ -1,0 +1,19 @@
+name = "sql-notebook-share-relay"
+main = "src/index.ts"
+compatibility_date = "2026-03-19"
+
+[[d1_databases]]
+binding = "NOTEBOOK_SHARES_DB"
+database_name = "sql-notebook-share-relay"
+database_id = "0349e3fd-07f5-4f99-a2c0-0418ffbf7682"
+
+[vars]
+DEFAULT_EXPIRY_DAYS = "7"
+
+[[durable_objects.bindings]]
+name = "LIVE_NOTEBOOK_SESSIONS"
+class_name = "LiveNotebookSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveNotebookSession"]

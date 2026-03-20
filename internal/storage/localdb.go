@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -45,6 +46,42 @@ const localDataEncryptionMetadataKey = "__local_data_encryption_enabled"
 const localDataEncryptionKeyringService = "QuraMate-LocalData"
 const localDataEncryptionKeyringAccount = "default"
 const localDataEncryptionPrefix = "enc:v1:"
+const localDBDirectoryName = "QuraMate"
+const localDBFileName = "quramate.db"
+const sqlNotebookStorageKeyPrefix = "dashboard_sql_notebooks:"
+
+type sqlNotebookWorkspaceState struct {
+	Version          int                 `json:"version"`
+	ActiveNotebookID string              `json:"activeNotebookId"`
+	Notebooks        []sqlNotebookRecord `json:"notebooks"`
+}
+
+type sqlNotebookRecord struct {
+	ID              string            `json:"id"`
+	Title           string            `json:"title"`
+	Description     string            `json:"description"`
+	Tags            []string          `json:"tags"`
+	ConnectionScope sqlNotebookScope  `json:"connectionScope"`
+	Cells           []sqlNotebookCell `json:"cells"`
+	CreatedAt       string            `json:"createdAt"`
+	UpdatedAt       string            `json:"updatedAt"`
+	LastOpenedAt    string            `json:"lastOpenedAt"`
+}
+
+type sqlNotebookScope struct {
+	DBType         string `json:"dbType"`
+	ConnectionName string `json:"connectionName"`
+}
+
+type sqlNotebookCell struct {
+	ID             string `json:"id"`
+	Type           string `json:"type"`
+	Title          string `json:"title"`
+	Content        string `json:"content"`
+	Collapsed      bool   `json:"collapsed"`
+	ExecutionState string `json:"executionState"`
+	LastRunAt      string `json:"lastRunAt,omitempty"`
+}
 
 var sensitiveQuotedValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*('(?:''|[^'])*'|"(?:\\"|[^"])*")`)
 var sensitiveBareValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*([^\s,;)\]}]+)`)
@@ -54,20 +91,110 @@ var localDataKeyringSet = keyring.Set
 var localDataKeyringDelete = keyring.Delete
 
 func NewLocalDB() (*LocalDB, error) {
-	// Store next to the executable
-	execPath, err := os.Executable()
+	dbPath, err := resolveLocalDBPath()
 	if err != nil {
-		return nil, fmt.Errorf("could not get executable path: %v", err)
+		return nil, err
 	}
-	appDir := filepath.Dir(execPath)
-
-	// Handles `go run` or `wails dev` which runs from a temp directory
-	if strings.Contains(appDir, "Temp") || strings.Contains(appDir, "tmp") {
-		appDir, _ = os.Getwd()
-	}
-
-	dbPath := filepath.Join(appDir, "quramate.db")
 	return newLocalDBWithPath(dbPath)
+}
+
+func resolveLocalDBPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("could not resolve config directory: %w", err)
+	}
+
+	appDir := filepath.Join(configDir, localDBDirectoryName)
+	if err := os.MkdirAll(appDir, 0o700); err != nil {
+		return "", fmt.Errorf("could not create local data directory: %w", err)
+	}
+
+	targetPath := filepath.Join(appDir, localDBFileName)
+	if err := migrateLegacyLocalDB(targetPath); err != nil {
+		return "", err
+	}
+
+	return targetPath, nil
+}
+
+func migrateLegacyLocalDB(targetPath string) error {
+	if _, err := os.Stat(targetPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("could not inspect local database path: %w", err)
+	}
+
+	for _, candidate := range legacyLocalDBPaths(targetPath) {
+		info, err := os.Stat(candidate)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("could not inspect legacy local database %s: %w", candidate, err)
+		}
+		if info.IsDir() {
+			continue
+		}
+
+		if err := copyFile(candidate, targetPath, info.Mode()); err != nil {
+			return fmt.Errorf("could not migrate local database from %s: %w", candidate, err)
+		}
+		log.Printf("Migrated local database from %s to %s", candidate, targetPath)
+		return nil
+	}
+
+	return nil
+}
+
+func legacyLocalDBPaths(targetPath string) []string {
+	paths := make([]string, 0, 2)
+
+	execPath, err := os.Executable()
+	if err == nil {
+		execDir := filepath.Dir(execPath)
+		execDBPath := filepath.Join(execDir, localDBFileName)
+		if !strings.EqualFold(execDBPath, targetPath) {
+			paths = append(paths, execDBPath)
+		}
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		cwdDBPath := filepath.Join(cwd, localDBFileName)
+		if !strings.EqualFold(cwdDBPath, targetPath) && !containsPath(paths, cwdDBPath) {
+			paths = append(paths, cwdDBPath)
+		}
+	}
+
+	return paths
+}
+
+func containsPath(paths []string, candidate string) bool {
+	for _, path := range paths {
+		if strings.EqualFold(path, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func copyFile(sourcePath string, destinationPath string, mode os.FileMode) error {
+	sourceFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destinationFile, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+
+	if _, err := io.Copy(destinationFile, sourceFile); err != nil {
+		return err
+	}
+
+	return destinationFile.Sync()
 }
 
 func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
@@ -98,6 +225,56 @@ func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
 		CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL
+		);
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS sql_notebook_workspaces (
+			storage_key TEXT PRIMARY KEY,
+			version INTEGER NOT NULL DEFAULT 1,
+			active_notebook_id TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS sql_notebooks (
+			id TEXT PRIMARY KEY,
+			storage_key TEXT NOT NULL,
+			position INTEGER NOT NULL DEFAULT 0,
+			title TEXT NOT NULL,
+			description TEXT NOT NULL,
+			tags_json TEXT NOT NULL DEFAULT '[]',
+			db_type TEXT NOT NULL DEFAULT '',
+			connection_name TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			last_opened_at TEXT NOT NULL,
+			FOREIGN KEY (storage_key) REFERENCES sql_notebook_workspaces(storage_key) ON DELETE CASCADE
+		);
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS sql_notebook_cells (
+			id TEXT PRIMARY KEY,
+			notebook_id TEXT NOT NULL,
+			position INTEGER NOT NULL,
+			type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			content TEXT NOT NULL,
+			collapsed BOOLEAN NOT NULL DEFAULT 0,
+			execution_state TEXT NOT NULL DEFAULT 'idle',
+			last_run_at TEXT NOT NULL DEFAULT '',
+			FOREIGN KEY (notebook_id) REFERENCES sql_notebooks(id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
@@ -179,6 +356,10 @@ func (l *LocalDB) SaveSetting(key string, value string) error {
 }
 
 func (l *LocalDB) saveSettingLocked(key string, value string) error {
+	if isSQLNotebookSettingKey(key) {
+		return l.saveSQLNotebookStateLocked(key, value)
+	}
+
 	if key != localDataEncryptionMetadataKey {
 		encryptedValue, err := l.encryptValueIfNeededLocked(value)
 		if err != nil {
@@ -194,8 +375,15 @@ func (l *LocalDB) saveSettingLocked(key string, value string) error {
 }
 
 func (l *LocalDB) LoadSetting(key string) (string, error) {
+	if isSQLNotebookSettingKey(key) {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		return l.loadSQLNotebookStateLocked(key)
+	}
+
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+
 	var value string
 	err := l.conn.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
 	if err == sql.ErrNoRows {
@@ -208,6 +396,270 @@ func (l *LocalDB) LoadSetting(key string) (string, error) {
 		return value, nil
 	}
 	return l.decryptValueIfNeededLocked(value)
+}
+
+func isSQLNotebookSettingKey(key string) bool {
+	return strings.HasPrefix(key, sqlNotebookStorageKeyPrefix)
+}
+
+func (l *LocalDB) saveSQLNotebookStateLocked(storageKey string, value string) error {
+	if strings.TrimSpace(value) == "" {
+		if _, err := l.conn.Exec(`DELETE FROM sql_notebook_cells WHERE notebook_id IN (SELECT id FROM sql_notebooks WHERE storage_key = ?)`, storageKey); err != nil {
+			return err
+		}
+		if _, err := l.conn.Exec(`DELETE FROM sql_notebooks WHERE storage_key = ?`, storageKey); err != nil {
+			return err
+		}
+		if _, err := l.conn.Exec(`DELETE FROM sql_notebook_workspaces WHERE storage_key = ?`, storageKey); err != nil {
+			return err
+		}
+		_, err := l.conn.Exec(`DELETE FROM settings WHERE key = ?`, storageKey)
+		return err
+	}
+
+	var state sqlNotebookWorkspaceState
+	if err := json.Unmarshal([]byte(value), &state); err != nil {
+		return err
+	}
+
+	tx, err := l.conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if _, err = tx.Exec(`
+		INSERT INTO sql_notebook_workspaces (storage_key, version, active_notebook_id, updated_at)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(storage_key) DO UPDATE SET
+			version = excluded.version,
+			active_notebook_id = excluded.active_notebook_id,
+			updated_at = CURRENT_TIMESTAMP
+	`, storageKey, state.Version, state.ActiveNotebookID); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`DELETE FROM sql_notebook_cells WHERE notebook_id IN (SELECT id FROM sql_notebooks WHERE storage_key = ?)`, storageKey); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`DELETE FROM sql_notebooks WHERE storage_key = ?`, storageKey); err != nil {
+		return err
+	}
+
+	for notebookIndex, notebook := range state.Notebooks {
+		title, err := l.encryptValueIfNeededLocked(notebook.Title)
+		if err != nil {
+			return err
+		}
+		description, err := l.encryptValueIfNeededLocked(notebook.Description)
+		if err != nil {
+			return err
+		}
+		tagsJSON, err := json.Marshal(notebook.Tags)
+		if err != nil {
+			return err
+		}
+		encryptedTags, err := l.encryptValueIfNeededLocked(string(tagsJSON))
+		if err != nil {
+			return err
+		}
+
+		if _, err = tx.Exec(`
+			INSERT INTO sql_notebooks (
+				id, storage_key, position, title, description, tags_json, db_type, connection_name, created_at, updated_at, last_opened_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, notebook.ID, storageKey, notebookIndex, title, description, encryptedTags, notebook.ConnectionScope.DBType, notebook.ConnectionScope.ConnectionName, notebook.CreatedAt, notebook.UpdatedAt, notebook.LastOpenedAt); err != nil {
+			return err
+		}
+
+		for index, cell := range notebook.Cells {
+			cellTitle, err := l.encryptValueIfNeededLocked(cell.Title)
+			if err != nil {
+				return err
+			}
+			cellContent, err := l.encryptValueIfNeededLocked(cell.Content)
+			if err != nil {
+				return err
+			}
+
+			if _, err = tx.Exec(`
+				INSERT INTO sql_notebook_cells (
+					id, notebook_id, position, type, title, content, collapsed, execution_state, last_run_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, cell.ID, notebook.ID, index, cell.Type, cellTitle, cellContent, cell.Collapsed, cell.ExecutionState, cell.LastRunAt); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err = tx.Exec(`DELETE FROM settings WHERE key = ?`, storageKey); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (l *LocalDB) loadSQLNotebookStateLocked(storageKey string) (string, error) {
+	state, found, err := l.readSQLNotebookStateLocked(storageKey)
+	if err != nil {
+		return "", err
+	}
+	if found {
+		serialized, err := json.Marshal(state)
+		if err != nil {
+			return "", err
+		}
+		return string(serialized), nil
+	}
+
+	legacyValue, err := l.loadLegacySettingValueLocked(storageKey)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(legacyValue) == "" {
+		return "", nil
+	}
+
+	if err := l.saveSQLNotebookStateLocked(storageKey, legacyValue); err != nil {
+		return "", err
+	}
+
+	return legacyValue, nil
+}
+
+func (l *LocalDB) loadLegacySettingValueLocked(key string) (string, error) {
+	var value string
+	err := l.conn.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return l.decryptValueIfNeededLocked(value)
+}
+
+func (l *LocalDB) readSQLNotebookStateLocked(storageKey string) (sqlNotebookWorkspaceState, bool, error) {
+	state := sqlNotebookWorkspaceState{
+		Version:   1,
+		Notebooks: []sqlNotebookRecord{},
+	}
+
+	var activeNotebookID string
+	err := l.conn.QueryRow(`
+		SELECT version, active_notebook_id
+		FROM sql_notebook_workspaces
+		WHERE storage_key = ?
+	`, storageKey).Scan(&state.Version, &activeNotebookID)
+	if err == sql.ErrNoRows {
+		return state, false, nil
+	}
+	if err != nil {
+		return state, false, err
+	}
+	state.ActiveNotebookID = activeNotebookID
+
+	notebookRows, err := l.conn.Query(`
+		SELECT id, title, description, tags_json, db_type, connection_name, created_at, updated_at, last_opened_at
+		FROM sql_notebooks
+		WHERE storage_key = ?
+		ORDER BY position ASC, created_at ASC, id ASC
+	`, storageKey)
+	if err != nil {
+		return state, false, err
+	}
+	defer notebookRows.Close()
+
+	for notebookRows.Next() {
+		var notebook sqlNotebookRecord
+		var encryptedTitle string
+		var encryptedDescription string
+		var encryptedTags string
+
+		if err := notebookRows.Scan(
+			&notebook.ID,
+			&encryptedTitle,
+			&encryptedDescription,
+			&encryptedTags,
+			&notebook.ConnectionScope.DBType,
+			&notebook.ConnectionScope.ConnectionName,
+			&notebook.CreatedAt,
+			&notebook.UpdatedAt,
+			&notebook.LastOpenedAt,
+		); err != nil {
+			return state, false, err
+		}
+
+		notebook.Title, err = l.decryptValueIfNeededLocked(encryptedTitle)
+		if err != nil {
+			return state, false, err
+		}
+		notebook.Description, err = l.decryptValueIfNeededLocked(encryptedDescription)
+		if err != nil {
+			return state, false, err
+		}
+		decryptedTags, err := l.decryptValueIfNeededLocked(encryptedTags)
+		if err != nil {
+			return state, false, err
+		}
+		if strings.TrimSpace(decryptedTags) == "" {
+			notebook.Tags = []string{}
+		} else if err := json.Unmarshal([]byte(decryptedTags), &notebook.Tags); err != nil {
+			return state, false, err
+		}
+
+		cells, err := l.loadSQLNotebookCellsLocked(notebook.ID)
+		if err != nil {
+			return state, false, err
+		}
+		notebook.Cells = cells
+		state.Notebooks = append(state.Notebooks, notebook)
+	}
+
+	if err := notebookRows.Err(); err != nil {
+		return state, false, err
+	}
+
+	return state, true, nil
+}
+
+func (l *LocalDB) loadSQLNotebookCellsLocked(notebookID string) ([]sqlNotebookCell, error) {
+	rows, err := l.conn.Query(`
+		SELECT id, type, title, content, collapsed, execution_state, last_run_at
+		FROM sql_notebook_cells
+		WHERE notebook_id = ?
+		ORDER BY position ASC, id ASC
+	`, notebookID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	cells := make([]sqlNotebookCell, 0)
+	for rows.Next() {
+		var cell sqlNotebookCell
+		var encryptedTitle string
+		var encryptedContent string
+		if err := rows.Scan(&cell.ID, &cell.Type, &encryptedTitle, &encryptedContent, &cell.Collapsed, &cell.ExecutionState, &cell.LastRunAt); err != nil {
+			return nil, err
+		}
+		cell.Title, err = l.decryptValueIfNeededLocked(encryptedTitle)
+		if err != nil {
+			return nil, err
+		}
+		cell.Content, err = l.decryptValueIfNeededLocked(encryptedContent)
+		if err != nil {
+			return nil, err
+		}
+		cells = append(cells, cell)
+	}
+
+	return cells, rows.Err()
 }
 
 func (l *LocalDB) SaveQuery(query string, dbType string, retentionDays int) error {

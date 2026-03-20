@@ -20,6 +20,8 @@ export function ClearQueryHistory():Promise<app.ActionResult>;
 
 export function ConnectDB(arg1:database.DBConfig):Promise<app.ConnectResult>;
 
+export function CreateNotebookShareCode(arg1:string,arg2:string,arg3:string,arg4:string):Promise<app.NotebookShareRelayResult>;
+
 export function CreateTable(arg1:string,arg2:string,arg3:Array<database.ColumnDefinition>):Promise<string>;
 
 export function DeleteAIProviderKey(arg1:string):Promise<string>;
@@ -103,6 +105,8 @@ export function OpenDownloadURL(arg1:string):Promise<string>;
 export function PerformUpdate(arg1:string):Promise<void>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function ResolveNotebookShareCode(arg1:string,arg2:string):Promise<app.NotebookShareRelayResult>;
 
 export function SaveAIProviderKey(arg1:string,arg2:string):Promise<string>;
 

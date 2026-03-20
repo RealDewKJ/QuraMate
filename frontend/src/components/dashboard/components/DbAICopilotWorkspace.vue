@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import AICopilotModal from '../AICopilotModal.vue';
-import type { AiCopilotMode, AiCopilotModeOption } from '../../types/aiCopilot';
+import AICopilotModal from '../../AICopilotModal.vue';
+import type { AiCopilotMode, AiCopilotModeOption } from '../../../types/aiCopilot';
 
 defineProps<{
-    isOpen: boolean;
     mode: AiCopilotMode;
     modeOptions: AiCopilotModeOption[];
     prompt: string;
@@ -27,7 +26,8 @@ const emit = defineEmits<{
 
 <template>
     <AICopilotModal
-        :is-open="isOpen"
+        :is-open="true"
+        :embedded="true"
         :mode="mode"
         :mode-options="modeOptions"
         :prompt="prompt"

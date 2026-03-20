@@ -31,6 +31,52 @@ type ServerProcess struct {
 	HeadBlock   string `json:"headBlock"`
 }
 
+func buildColumnMetas(colTypes []*sql.ColumnType) []ColumnMetadata {
+	if len(colTypes) == 0 {
+		return nil
+	}
+
+	columnMetas := make([]ColumnMetadata, len(colTypes))
+	for i, ct := range colTypes {
+		length, _ := ct.Length()
+		nullable, _ := ct.Nullable()
+		columnMetas[i] = ColumnMetadata{
+			Name:     ct.Name(),
+			Type:     ct.DatabaseTypeName(),
+			Length:   length,
+			Nullable: nullable,
+		}
+	}
+
+	return columnMetas
+}
+
+func isBinaryColumnType(typeName string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(typeName))
+	if normalized == "" {
+		return false
+	}
+
+	return strings.Contains(normalized, "BLOB") ||
+		strings.Contains(normalized, "BINARY") ||
+		strings.Contains(normalized, "VARBINARY") ||
+		strings.Contains(normalized, "BYTEA")
+}
+
+func (d *Database) normalizeScannedValue(val interface{}, columnType string) interface{} {
+	switch typed := val.(type) {
+	case []byte:
+		if isBinaryColumnType(columnType) {
+			return append([]byte(nil), typed...)
+		}
+		return decodeValue(typed, d.Encoding)
+	case string:
+		return decodeStringValue(typed, d.Encoding)
+	default:
+		return val
+	}
+}
+
 func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet, error) {
 	if d.persistentConn == nil {
 		return nil, fmt.Errorf("no database connection")
@@ -73,6 +119,10 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 
 		var currentSet ResultSet
 		currentSet.Columns = columns
+		columnMetas := buildColumnMetas(func() []*sql.ColumnType {
+			colTypes, _ := rows.ColumnTypes()
+			return colTypes
+		}())
 
 		// If we have columns, let's scan rows
 		if len(columns) > 0 {
@@ -100,13 +150,11 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 				row := make([]interface{}, nCols)
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
-					if b, ok := val.([]byte); ok {
-						row[i] = decodeValue(b, d.Encoding)
-					} else if s, ok := val.(string); ok {
-						row[i] = decodeStringValue(s, d.Encoding)
-					} else {
-						row[i] = val
+					columnType := ""
+					if i < len(columnMetas) {
+						columnType = columnMetas[i].Type
 					}
+					row[i] = d.normalizeScannedValue(val, columnType)
 				}
 				currentSet.Rows = append(currentSet.Rows, row)
 			}
@@ -164,6 +212,10 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 
 		var currentSet ResultSet
 		currentSet.Columns = columns
+		columnMetas := buildColumnMetas(func() []*sql.ColumnType {
+			colTypes, _ := rows.ColumnTypes()
+			return colTypes
+		}())
 
 		if len(columns) > 0 {
 			nCols := len(columns)
@@ -187,13 +239,11 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 				row := make([]interface{}, nCols)
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
-					if b, ok := val.([]byte); ok {
-						row[i] = decodeValue(b, d.Encoding)
-					} else if s, ok := val.(string); ok {
-						row[i] = decodeStringValue(s, d.Encoding)
-					} else {
-						row[i] = val
+					columnType := ""
+					if i < len(columnMetas) {
+						columnType = columnMetas[i].Type
 					}
+					row[i] = d.normalizeScannedValue(val, columnType)
 				}
 				currentSet.Rows = append(currentSet.Rows, row)
 			}
@@ -258,20 +308,7 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 
 		columns, _ := rows.Columns()
 		colTypes, _ := rows.ColumnTypes()
-		var columnMetas []ColumnMetadata
-		if len(colTypes) > 0 {
-			columnMetas = make([]ColumnMetadata, len(colTypes))
-			for i, ct := range colTypes {
-				length, _ := ct.Length()
-				nullable, _ := ct.Nullable()
-				columnMetas[i] = ColumnMetadata{
-					Name:     ct.Name(),
-					Type:     ct.DatabaseTypeName(),
-					Length:   length,
-					Nullable: nullable,
-				}
-			}
-		}
+		columnMetas := buildColumnMetas(colTypes)
 
 		if len(columns) > 0 {
 			nCols := len(columns)
@@ -297,13 +334,11 @@ func (d *Database) ExecuteQueryStream(ctx context.Context, query string, batchSi
 				row := make([]interface{}, nCols)
 				for i := 0; i < nCols; i++ {
 					val := *scanPtrs[i]
-					if b, ok := val.([]byte); ok {
-						row[i] = decodeValue(b, d.Encoding)
-					} else if s, ok := val.(string); ok {
-						row[i] = decodeStringValue(s, d.Encoding)
-					} else {
-						row[i] = val
+					columnType := ""
+					if i < len(columnMetas) {
+						columnType = columnMetas[i].Type
 					}
+					row[i] = d.normalizeScannedValue(val, columnType)
 				}
 				batch = append(batch, row)
 

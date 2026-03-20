@@ -72,6 +72,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { LoadSetting, SaveSetting } from '../../wailsjs/go/app/App';
 
 type SchemaColumn = { name: string; type: string };
 type ForeignKey = { table: string; column: string; refTable: string; refColumn: string };
@@ -382,10 +383,16 @@ const toggleFocusMode = () => {
     focusMode.value = !focusMode.value;
 };
 
-const loadLayout = () => {
-    if (typeof window === 'undefined') return;
+const loadLayout = async () => {
+    let raw = '';
+
     try {
-        const raw = window.localStorage.getItem(layoutStorageKey.value);
+        raw = await LoadSetting(layoutStorageKey.value);
+    } catch (error) {
+        console.error('Failed to load ER layout from app settings', error);
+    }
+
+    try {
         if (!raw) {
             manualPositions.value = {};
             hasSavedLayout.value = false;
@@ -411,23 +418,29 @@ const loadLayout = () => {
     }
 };
 
-const persistLayout = () => {
-    if (typeof window === 'undefined') return;
-
+const persistLayout = async () => {
     const entries = Object.entries(manualPositions.value);
     hasSavedLayout.value = entries.length > 0;
 
     if (entries.length === 0) {
-        window.localStorage.removeItem(layoutStorageKey.value);
+        try {
+            await SaveSetting(layoutStorageKey.value, '');
+        } catch (error) {
+            console.error('Failed to clear ER layout from app settings', error);
+        }
         return;
     }
 
-    window.localStorage.setItem(layoutStorageKey.value, JSON.stringify(manualPositions.value));
+    try {
+        await SaveSetting(layoutStorageKey.value, JSON.stringify(manualPositions.value));
+    } catch (error) {
+        console.error('Failed to persist ER layout to app settings', error);
+    }
 };
 
 const resetLayout = async () => {
     manualPositions.value = {};
-    persistLayout();
+    await persistLayout();
     await fitToView();
 };
 
@@ -550,7 +563,7 @@ watch([() => props.tableName, () => props.tablesData, () => props.relationships]
     error.value = '';
     selectedTableName.value = getInitialSelectedTable();
     focusMode.value = false;
-    loadLayout();
+    await loadLayout();
     await fitToView();
 }, { deep: true });
 
@@ -559,7 +572,7 @@ watch([search, focusMode], async () => {
 });
 
 watch(layoutStorageKey, () => {
-    loadLayout();
+    void loadLayout();
 });
 
 onMounted(async () => {
@@ -568,7 +581,7 @@ onMounted(async () => {
 
     error.value = '';
     selectedTableName.value = getInitialSelectedTable();
-    loadLayout();
+    await loadLayout();
     await fitToView();
 });
 

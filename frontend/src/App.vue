@@ -6,7 +6,7 @@ import DbDashboard from './components/DbDashboard.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 import { colorMode } from './composables/useTheme';
 import { getConnectionLabel, type ConnectionConfig } from './composables/useConnectionForm';
-import { setAppLocale } from './i18n';
+import { hydrateAppLocale, persistAppLocale } from './i18n';
 import { LoadSetting, SaveSetting, GetStartupFile, ReadTextFile, ConnectDB } from '../wailsjs/go/app/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
@@ -521,6 +521,7 @@ const applyAppearancePreferences = (appearance?: {
 
 onMounted(async () => {
   try {
+    await hydrateAppLocale();
     const savedSettingsJson = await LoadSetting('user_settings');
     let appFont = 'system-ui, sans-serif';
     if (savedSettingsJson) {
@@ -528,7 +529,7 @@ onMounted(async () => {
       trustSqlServerCertificateByDefault.value =
         parsed?.general?.trustSqlServerCertificateByDefault !== false;
       if (parsed.general && parsed.general.language) {
-        locale.value = setAppLocale(parsed.general.language);
+        locale.value = await persistAppLocale(parsed.general.language);
       }
       if (parsed.appearance && parsed.appearance.appFont) {
         appFont = parsed.appearance.appFont;

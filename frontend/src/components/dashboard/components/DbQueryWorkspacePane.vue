@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, ref } from "vue";
 import { useEventListener } from "@vueuse/core";
 
-const SqlEditor = defineAsyncComponent(() => import("../SqlEditor.vue"));
+const SqlEditor = defineAsyncComponent(() => import("../../SqlEditor.vue"));
 
 const props = defineProps<{
     activeTab: any;
@@ -18,7 +18,7 @@ const emit = defineEmits<{
     "explain-plan": [];
     "save-plan-baseline": [];
     "compare-plan-baseline": [];
-    "open-snippets": [];
+    "save-to-notebook": [];
     "save-routine": [];
     "run-query": [];
     "stop-query": [];
@@ -79,11 +79,12 @@ const commandPaletteItems = computed(() => {
             action: () => emit("compare-plan-baseline"),
         },
         {
-            id: "snippets",
-            title: "Snippets & Runbooks",
-            description: "Open reusable SQL templates and custom runbooks.",
+            id: "save-to-notebook",
+            title: "Save To SQL Notebook",
+            description:
+                "Store the current query in an existing notebook or create a new one.",
             disabled: false,
-            action: () => emit("open-snippets"),
+            action: () => emit("save-to-notebook"),
         },
     ];
 
@@ -292,51 +293,156 @@ defineExpose({
 
                 <div class="flex flex-wrap items-center justify-end gap-2">
                     <!-- <div ref="toolsMenuRef" class="relative">
-                        <button @click="toolsMenuOpen = !toolsMenuOpen"
+                        <button
+                            @click="toolsMenuOpen = !toolsMenuOpen"
                             class="inline-flex h-9 min-w-[44px] items-center justify-center whitespace-nowrap rounded-full border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:px-3.5"
-                            title="Open tools and advanced actions">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-wrench sm:mr-2">
-                                <path d="M14.7 6.3a4 4 0 0 0 5 5L10 21l-7-7 9.7-9.7a4 4 0 0 0 2 2Z" />
+                            title="Open tools and advanced actions"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-wrench sm:mr-2"
+                            >
+                                <path
+                                    d="M14.7 6.3a4 4 0 0 0 5 5L10 21l-7-7 9.7-9.7a4 4 0 0 0 2 2Z"
+                                />
                                 <path d="M16 4h4v4" />
                             </svg>
                             <span class="hidden sm:inline">Tools</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-chevron-down ml-1.5">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="lucide lucide-chevron-down ml-1.5"
+                            >
                                 <path d="m6 9 6 6 6-6" />
                             </svg>
                         </button>
 
-                        <div v-if="toolsMenuOpen"
-                            class="absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 p-2 shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100">
-                            <button @click="runToolAction(() => emit('explain-with-ai'))"
-                                :disabled="activeTab.isLoading || activeTab.isAiExplaining || !activeTab.query"
-                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
-                                <span class="font-medium text-foreground">{{ activeTab.isAiExplaining ? 'AI Explaining...' : 'Explain with AI' }}</span>
+                        <div
+                            v-if="toolsMenuOpen"
+                            class="absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 p-2 shadow-xl ring-1 ring-black/5 backdrop-blur animate-in fade-in zoom-in-95 duration-100"
+                        >
+                            <button
+                                @click="
+                                    runToolAction(() => emit('explain-with-ai'))
+                                "
+                                :disabled="
+                                    activeTab.isLoading ||
+                                    activeTab.isAiExplaining ||
+                                    !activeTab.query
+                                "
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            >
+                                <span class="font-medium text-foreground">{{
+                                    activeTab.isAiExplaining
+                                        ? "AI Explaining..."
+                                        : "Explain with AI"
+                                }}</span>
                             </button>
-                            <button @click="runToolAction(() => emit('explain-plan'))"
-                                :disabled="activeTab.isLoading || !activeTab.query"
-                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
-                                <span class="font-medium text-foreground">Execution Plan</span>
+                            <button
+                                @click="
+                                    runToolAction(() => emit('explain-plan'))
+                                "
+                                :disabled="
+                                    activeTab.isLoading || !activeTab.query
+                                "
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            >
+                                <span class="font-medium text-foreground"
+                                    >Execution Plan</span
+                                >
                             </button>
-                            <button @click="runToolAction(() => emit('save-plan-baseline'))"
-                                :disabled="activeTab.isLoading || !activeTab.resultSets?.length"
-                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
-                                <span class="font-medium text-foreground">Save Plan Baseline</span>
+                            <button
+                                @click="
+                                    runToolAction(() =>
+                                        emit('save-plan-baseline'),
+                                    )
+                                "
+                                :disabled="
+                                    activeTab.isLoading ||
+                                    !activeTab.resultSets?.length
+                                "
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            >
+                                <span class="font-medium text-foreground"
+                                    >Save Plan Baseline</span
+                                >
                             </button>
-                            <button @click="runToolAction(() => emit('compare-plan-baseline'))"
-                                :disabled="activeTab.isLoading || !activeTab.resultSets?.length"
-                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50">
-                                <span class="font-medium text-foreground">Compare to Baseline</span>
+                            <button
+                                @click="
+                                    runToolAction(() =>
+                                        emit('compare-plan-baseline'),
+                                    )
+                                "
+                                :disabled="
+                                    activeTab.isLoading ||
+                                    !activeTab.resultSets?.length
+                                "
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            >
+                                <span class="font-medium text-foreground"
+                                    >Compare to Baseline</span
+                                >
                             </button>
-                            <button @click="runToolAction(() => emit('open-snippets'))"
-                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent">
-                                <span class="font-medium text-foreground">Snippets & Runbooks</span>
+                            <button
+                                @click="
+                                    runToolAction(() => emit('save-to-notebook'))
+                                "
+                                class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                            >
+                                <span class="font-medium text-foreground"
+                                    >Save To SQL Notebook</span
+                                >
                             </button>
                         </div>
                     </div> -->
+
+                    <button
+                        @click="emit('save-to-notebook')"
+                        :disabled="!activeTab.query"
+                        class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 sm:px-4"
+                        title="Save current query to SQL Notebook"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="lucide lucide-book-plus sm:mr-2"
+                        >
+                            <path d="M12 7v14" />
+                            <path d="M16 8h2" />
+                            <path d="M16 12h2" />
+                            <path d="M19 15v6" />
+                            <path d="M22 18h-6" />
+                            <path
+                                d="M3 18a2 2 0 0 1 2-2h7a4 4 0 0 1 4 4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"
+                            />
+                            <path
+                                d="M21 12V6a2 2 0 0 0-2-2h-9a2 2 0 0 0-2 2v14a4 4 0 0 1 4-4h3"
+                            />
+                        </svg>
+                        <span class="hidden sm:inline">Save To Notebook</span>
+                    </button>
 
                     <button
                         v-if="activeTab.isRoutine"

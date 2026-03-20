@@ -1,13 +1,15 @@
 import { ref, reactive, computed, watch } from "vue";
-import { useLocalStorage, useToggle, watchImmediate } from "@vueuse/core";
+import { useToggle, watchImmediate } from "@vueuse/core";
 import {
   ConnectDB,
+  LoadSetting,
   GetSSHHostKeyInfo,
   ReadTextFile,
   SelectImportFile,
   TestConnection,
   SetReadOnly,
   SelectSqliteFile,
+  SaveSetting,
   SaveCredential,
   DeleteCredential,
   SelectExportFile,
@@ -91,6 +93,8 @@ const DEFAULT_CONFIG: ConnectionConfig = {
 
 const LOCAL_DATABASE_TYPES = new Set(["sqlite", "duckdb", "libsql"]);
 const ERROR_CODE_PATTERN = /^Error \[([A-Z0-9_]+)\]:/;
+const SAVED_CONNECTIONS_SETTING_KEY = "saved_connections";
+const SSH_TRUST_AUDIT_SETTING_KEY = "ssh_trust_audit";
 
 const isLocalDatabaseType = (type: string): boolean =>
   LOCAL_DATABASE_TYPES.has((type || "").toLowerCase());
@@ -263,9 +267,10 @@ export function useConnectionForm(
   const [isLoading] = useToggle(false);
   const [isTesting] = useToggle(false);
   const [isQuickConnecting] = useToggle(false);
-  const savedConnections = useLocalStorage<ConnectionConfig[]>("savedConnections", []);
-  const sshTrustAudit = useLocalStorage<SSHTrustAuditEntry[]>("sshTrustAudit", []);
+  const savedConnections = ref<ConnectionConfig[]>([]);
+  const sshTrustAudit = ref<SSHTrustAuditEntry[]>([]);
   const sshTrustAuditSearch = ref("");
+  const isHydratingStorage = ref(true);
 
   const clearError = () => {
     error.value = "";
@@ -313,6 +318,37 @@ export function useConnectionForm(
   const normalizeFingerprint = (value: string): string => value.trim().toLowerCase();
   const removeSHA256Prefix = (value: string): string => value.replace(/^sha256:/i, "");
   const normalizeForCompare = (value: string): string => removeSHA256Prefix(normalizeFingerprint(value));
+  const loadArraySetting = async <T>(settingKey: string): Promise<T[]> => {
+    try {
+      const raw = await LoadSetting(settingKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (error) {
+      console.error(`Failed to load setting ${settingKey}`, error);
+    }
+    return [];
+  };
+  const persistArraySetting = async (settingKey: string, value: unknown[]) => {
+    try {
+      await SaveSetting(settingKey, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Failed to save setting ${settingKey}`, error);
+    }
+  };
+  const hydrateStorage = async () => {
+    isHydratingStorage.value = true;
+
+    const [storedConnections, storedAudit] = await Promise.all([
+      loadArraySetting<ConnectionConfig>(SAVED_CONNECTIONS_SETTING_KEY),
+      loadArraySetting<SSHTrustAuditEntry>(SSH_TRUST_AUDIT_SETTING_KEY),
+    ]);
+
+    savedConnections.value = storedConnections;
+    sshTrustAudit.value = storedAudit;
+    isHydratingStorage.value = false;
+  };
   const currentSshPattern = computed(() => {
     const host = config.sshHost.trim();
     if (!host) return "";
@@ -392,6 +428,30 @@ export function useConnectionForm(
       }
     },
   );
+
+  watch(
+    savedConnections,
+    (value) => {
+      if (isHydratingStorage.value) {
+        return;
+      }
+      void persistArraySetting(SAVED_CONNECTIONS_SETTING_KEY, value);
+    },
+    { deep: true },
+  );
+
+  watch(
+    sshTrustAudit,
+    (value) => {
+      if (isHydratingStorage.value) {
+        return;
+      }
+      void persistArraySetting(SSH_TRUST_AUDIT_SETTING_KEY, value);
+    },
+    { deep: true },
+  );
+
+  void hydrateStorage();
 
   const validateConnectionConfig = (target: ConnectionConfig): string => {
     const errors = buildFieldErrors(target);

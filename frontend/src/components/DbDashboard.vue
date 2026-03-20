@@ -1,11 +1,14 @@
 <template>
     <div class="flex h-full bg-background text-foreground font-sans">
         <DbSidebar :connection-name="connectionName" :db-type="dbType" :activity-task-count="activityTaskCount"
+            :is-sql-notebooks-active="!!activeTab?.isSqlNotebookView"
+            :is-ai-copilot-active="!!activeTab?.isAiCopilotView"
             :table-search="tableSearch" :view-search="viewSearch" :stored-procedure-search="storedProcedureSearch"
             :function-search="functionSearch" :filtered-tables="filteredTables" :filtered-views="filteredViews"
             :filtered-stored-procedures="filteredStoredProcedures" :filtered-functions="filteredFunctions"
             :open-folders="openFolders" @open-db-context-menu="openDbContextMenu" @open-history="openHistoryPanel"
-            @open-activity-monitor="openActivityMonitorTab" @open-ai-copilot="openAiCopilot"
+            @open-activity-monitor="openActivityMonitorTab" @open-sql-notebooks="openSqlNotebooksTab"
+            @open-ai-copilot="openAiCopilotTab"
             @open-settings="isSettingsOpen = true" @open-database-info="handleDatabaseInfo" @toggle-folder="toggleFolder"
             @open-folder-context-menu="openFolderContextMenu" @select-table="selectTable"
             @open-table-context-menu="openContextMenu" @select-view="selectView"
@@ -26,7 +29,30 @@
                                 class="group relative flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium cursor-pointer rounded-t-lg transition-all select-none min-w-[140px] max-w-[240px] border-l border-r border-t border-transparent hover:bg-background/50"
                                 :class="{ 'bg-background text-foreground border-border shadow-sm mb-[-1px]': activeTabId === tab.id, 'text-muted-foreground hover:text-foreground': activeTabId !== tab.id }">
                                 <div class="flex items-center gap-2 truncate">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                    <svg v-if="tab.isSqlNotebookView" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-book-open-text">
+                                        <path d="M12 7v14" />
+                                        <path d="M16 12h2" />
+                                        <path d="M16 8h2" />
+                                        <path d="M3 18a2 2 0 0 1 2-2h7a4 4 0 0 1 4 4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" />
+                                        <path d="M21 18a2 2 0 0 0-2-2h-7a4 4 0 0 0-4 4V6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                    <svg v-else-if="tab.isAiCopilotView" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-sparkles">
+                                        <path d="M12 3l1.912 5.813L20 10.5l-6.088 1.688L12 18l-1.912-5.813L4 10.5l6.088-1.687z" />
+                                        <path d="M5 3v4" />
+                                        <path d="M19 17v4" />
+                                        <path d="M3 5h4" />
+                                        <path d="M17 19h4" />
+                                    </svg>
+                                    <svg v-else-if="tab.isActivityMonitorView" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="lucide lucide-activity">
+                                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                                    </svg>
+                                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round" class="lucide lucide-terminal-square">
                                         <path d="m7 11 2-2-2-2" />
@@ -67,7 +93,21 @@
                 </button>
             </div>
 
-            <DbActivityMonitor v-if="activeTab?.isActivityMonitorView" :activity-task-count="activityTaskCount"
+            <SqlNotebooksWorkspace
+                v-if="activeTab?.isSqlNotebookView"
+                :key="`${activeTab.id}:${sqlNotebookStorageKey}`"
+                :tab-id="activeTab.id"
+                :connection-id="props.connectionId"
+                :storage-key="sqlNotebookStorageKey"
+                :db-type="props.dbType"
+                :connection-name="props.connectionName"
+                :tables="tables"
+                :get-columns="fetchTableColumns"
+                :editor-settings="editorSettings"
+                :is-read-only="props.isReadOnly ?? false"
+            />
+
+            <DbActivityMonitor v-else-if="activeTab?.isActivityMonitorView" :activity-task-count="activityTaskCount"
                 :monitor-refresh-rate="monitorRefreshRate" :latest-monitor-sample="latestMonitorSample"
                 :connection-chart-points="connectionChartPoints" :read-qps-chart-points="readQpsChartPoints"
                 :write-qps-chart-points="writeQpsChartPoints" :long-running-total="longRunningTotal"
@@ -75,18 +115,37 @@
                 @close="closeActivityMonitorTab" @kill-all="killAllActivityTasks" @focus-task="openActivityTaskInNewTab"
                 @kill-task="killActivityTask" @update:monitor-refresh-rate="monitorRefreshRate = $event" />
 
+            <DbAICopilotWorkspace
+                v-else-if="activeTab?.isAiCopilotView"
+                :mode="aiCopilot.mode"
+                :mode-options="aiCopilotModeOptions"
+                :prompt="aiCopilot.prompt"
+                :backend-language="aiCopilot.backendLanguage"
+                :is-loading="aiCopilot.isLoading"
+                :result="aiCopilot.result"
+                :error="aiCopilot.error"
+                :latency-ms="aiCopilot.latencyMs"
+                :suggested-sql="aiCopilot.suggestedSQL"
+                @close="closeAiCopilotTab"
+                @run="runAiCopilot"
+                @apply-sql="applyAiSqlToEditor"
+                @update:mode="setAiCopilotMode"
+                @update:prompt="aiCopilot.prompt = $event"
+                @update:backend-language="aiCopilot.backendLanguage = $event"
+            />
+
             <!-- Query Area -->
             <div v-else-if="activeTab" class="flex flex-col h-full overflow-hidden query-area-container">
                 <DbQueryWorkspacePane ref="workspaceRef" :active-tab="activeTab" :tables="tables"
-                    :get-columns="fetchTableColumns" :editor-settings="editorSettings" :is-read-only="isReadOnly"
+                    :get-columns="fetchTableColumns" :editor-settings="editorSettings" :is-read-only="props.isReadOnly ?? false"
                     @beautify-query="beautifyQuery" @explain-with-ai="explainWithAI" @explain-plan="openExplainPlanTab"
                     @save-plan-baseline="saveExecutionPlanBaseline" @compare-plan-baseline="compareExecutionPlanBaseline"
-                    @open-snippets="snippetLibrary.isOpen = true" @save-routine="handleSaveRoutine"
+                    @save-to-notebook="openSaveToNotebookModal" @save-routine="handleSaveRoutine"
                     @run-query="runQuery" @stop-query="stopQuery" @start-resizing="startResizing" />
                 <DbQueryResultsPane ref="resultsPaneRef" v-if="activeTab" :activeTab="activeTab"
-                    :isReadOnly="isReadOnly" v-model:selectedRowIndex="selectedRowIndex"
+                    :isReadOnly="props.isReadOnly ?? false" v-model:selectedRowIndex="selectedRowIndex"
                     v-model:selectedColumn="selectedColumn" v-model:selectedRowData="selectedRowData"
-                    :openAiCopilot="openAiCopilot" :getEditorType="getEditorType" :saveCellEdit="saveCellEdit"
+                    :openAiCopilot="openAiCopilotTab" :getEditorType="getEditorType" :saveCellEdit="saveCellEdit"
                     :toggleSort="toggleSort" :startColumnResize="startColumnResize" :handleCellClick="handleCellClick"
                     :handleRowContextMenu="handleRowContextMenu" :isImageValue="isImageValue"
                     :screenshotShortcutLabel="screenshotShortcutLabel"
@@ -142,7 +201,7 @@
                 </button>
             </div>
         </div>
-        <DbDashboardContextMenus :context-menu="contextMenu" :db-type="dbType" :is-read-only="isReadOnly"
+        <DbDashboardContextMenus :context-menu="contextMenu" :db-type="dbType" :is-read-only="props.isReadOnly ?? false"
             :close-context-menu="closeContextMenu" :open-history="openHistoryPanel"
             :open-activity-monitor="openActivityMonitorTab" :disconnect="disconnect"
             :open-folders="openFolders" :handle-folder-toggle="handleFolderToggle"
@@ -157,7 +216,8 @@
             :handle-execute-routine="handleExecuteRoutine" :handle-duplicate-routine="handleDuplicateRoutine"
             :handle-delete-routine="handleDeleteRoutine" :handle-folder-refresh="handleFolderRefresh"
             :handle-copy-row="handleCopyRow"
-            :handle-copy-row-with-header="handleCopyRowWithHeader" :handle-copy-cell-value="handleCopyCellValue"
+            :handle-copy-row-with-header="handleCopyRowWithHeader" :handle-view-cell-details="handleViewCellDetails"
+            :handle-copy-cell-value="handleCopyCellValue"
             :handle-copy-cell-value-with-header="handleCopyCellValueWithHeader"
             :handle-copy-header-name="handleCopyHeaderName" :handle-copy-header-row="handleCopyHeaderRow"
             :handle-add-where-to-condition="handleAddWhereToCondition" :handle-set-null="handleSetNull"
@@ -231,15 +291,6 @@
             @update:source-name="schemaCompareWizard.sourceName = $event"
             @update:target-name="schemaCompareWizard.targetName = $event"
         />
-        <DbSnippetLibraryModal
-            :is-open="snippetLibrary.isOpen"
-            :snippets="allSnippetItems"
-            :db-type="props.dbType"
-            @close="snippetLibrary.isOpen = false"
-            @apply="applySnippetToEditor"
-            @save-custom="saveCustomSnippet"
-            @delete-custom="deleteCustomSnippet"
-        />
         <DbDatabaseInfoModal :is-open="dbInfoModal.isOpen" :is-loading="dbInfoModal.isLoading" :info="dbInfoModal.info"
             @close="dbInfoModal.isOpen = false" />
         <DbDropDatabaseModal :is-open="dropDbConfirmation.isOpen" :db-name="dropDbConfirmation.dbName"
@@ -271,19 +322,27 @@
         />
 
         <DbImagePreviewModal :image-url="imagePreviewUrl" @close="imagePreviewUrl = null" />
+        <DbCellDetailModal :is-open="cellDetailModal.isOpen" :column="cellDetailModal.column"
+            :value="getCellDetailDisplayValue()" :format-label="cellDetailModal.formatLabel"
+            :available-views="cellDetailModal.availableViews" :selected-view="cellDetailModal.selectedView"
+            @close="closeCellDetailModal" @copy="copyCellDetailValue"
+            @update:selected-view="cellDetailModal.selectedView = $event" />
         <DbResultImageDialog :is-open="resultImageDialog.isOpen" :image-url="resultImageDialog.imageUrl"
             :file-name="resultImageDialog.fileName" :table-name="resultImageDialog.tableName"
             :timestamp-label="resultImageDialog.timestampLabel" :rendered-rows="resultImageDialog.renderedRows"
             :total-rows="resultImageDialog.totalRows" @close="closeResultImageDialog" @copy="copyResultImage"
             @save="saveResultImage" @share="shareResultImage" @open-new-tab="openResultImageFull"
             @copy-file-name="copyResultImageFileName" />
+        <SaveQueryToNotebookModal
+            :is-open="saveToNotebookModal.isOpen"
+            :notebooks="saveToNotebookModal.notebooks"
+            :preferred-notebook-id="saveToNotebookModal.preferredNotebookId"
+            :query-title="saveToNotebookModal.queryTitle"
+            :query-text="saveToNotebookModal.queryText"
+            @close="closeSaveToNotebookModal"
+            @confirm="saveCurrentQueryToNotebook"
+        />
 
-        <DbAICopilotOverlay :is-open="aiCopilot.isOpen" :mode="aiCopilot.mode" :mode-options="aiCopilotModeOptions"
-            :prompt="aiCopilot.prompt" :backend-language="aiCopilot.backendLanguage" :is-loading="aiCopilot.isLoading"
-            :result="aiCopilot.result" :error="aiCopilot.error" :latency-ms="aiCopilot.latencyMs"
-            :suggested-sql="aiCopilot.suggestedSQL" @close="aiCopilot.isOpen = false" @run="runAiCopilot"
-            @apply-sql="applyAiSqlToEditor" @update:mode="setAiCopilotMode" @update:prompt="aiCopilot.prompt = $event"
-            @update:backend-language="aiCopilot.backendLanguage = $event" />
     </div>
 </template>
 
@@ -298,29 +357,32 @@ import TableStructureDesigner from './TableStructureDesigner.vue';
 import Toast from './Toast.vue';
 import SettingsDialog from './SettingsDialog.vue';
 import QueryHistory from './QueryHistory.vue';
-import DbSidebar from './dashboard/DbSidebar.vue';
-import DbActivityMonitor from './dashboard/DbActivityMonitor.vue';
-import DbDashboardContextMenus from './dashboard/DbDashboardContextMenus.vue';
-import DbQueryWorkspacePane from './dashboard/DbQueryWorkspacePane.vue';
-import DbQueryResultsPane from './dashboard/DbQueryResultsPane.vue';
-import DbMockDataModals from './dashboard/DbMockDataModals.vue';
-import DbTableActionModal from './dashboard/DbTableActionModal.vue';
-import DbDatabaseInfoModal from './dashboard/DbDatabaseInfoModal.vue';
-import DbDropDatabaseModal from './dashboard/DbDropDatabaseModal.vue';
-import DbExportDatabaseModal from './dashboard/DbExportDatabaseModal.vue';
-import DbExportTableModal from './dashboard/DbExportTableModal.vue';
-import DbSafeModeModal from './dashboard/DbSafeModeModal.vue';
-import DbImportOptionsModal from './dashboard/DbImportOptionsModal.vue';
-import DbInsertRowModal from './dashboard/DbInsertRowModal.vue';
-import DbPastePreviewModal from './dashboard/DbPastePreviewModal.vue';
-import DbUpdateConfirmationModal from './dashboard/DbUpdateConfirmationModal.vue';
-import DbImagePreviewModal from './dashboard/DbImagePreviewModal.vue';
-import DbResultImageDialog from './dashboard/DbResultImageDialog.vue';
-import DbAICopilotOverlay from './dashboard/DbAICopilotOverlay.vue';
-import DbSchemaCompareWizardModal from './dashboard/DbSchemaCompareWizardModal.vue';
-import DbSnippetLibraryModal, { type DashboardSnippetItem } from './dashboard/DbSnippetLibraryModal.vue';
+import DbAICopilotWorkspace from './dashboard/components/DbAICopilotWorkspace.vue';
+import DbQueryResultsPane from './dashboard/components/DbQueryResultsPane.vue';
+import DbQueryWorkspacePane from './dashboard/components/DbQueryWorkspacePane.vue';
+import DbSidebar from './dashboard/components/DbSidebar.vue';
+import DbDashboardContextMenus from './dashboard/menus/DbDashboardContextMenus.vue';
+import DbActivityMonitor from './dashboard/monitor/DbActivityMonitor.vue';
+import DbCellDetailModal from './dashboard/modals/DbCellDetailModal.vue';
+import DbDatabaseInfoModal from './dashboard/modals/DbDatabaseInfoModal.vue';
+import DbDropDatabaseModal from './dashboard/modals/DbDropDatabaseModal.vue';
+import DbExportDatabaseModal from './dashboard/modals/DbExportDatabaseModal.vue';
+import DbExportTableModal from './dashboard/modals/DbExportTableModal.vue';
+import DbImagePreviewModal from './dashboard/modals/DbImagePreviewModal.vue';
+import DbImportOptionsModal from './dashboard/modals/DbImportOptionsModal.vue';
+import DbInsertRowModal from './dashboard/modals/DbInsertRowModal.vue';
+import DbMockDataModals from './dashboard/modals/DbMockDataModals.vue';
+import DbPastePreviewModal from './dashboard/modals/DbPastePreviewModal.vue';
+import DbResultImageDialog from './dashboard/modals/DbResultImageDialog.vue';
+import DbSafeModeModal from './dashboard/modals/DbSafeModeModal.vue';
+import DbSchemaCompareWizardModal from './dashboard/modals/DbSchemaCompareWizardModal.vue';
+import DbTableActionModal from './dashboard/modals/DbTableActionModal.vue';
+import DbUpdateConfirmationModal from './dashboard/modals/DbUpdateConfirmationModal.vue';
+import SaveQueryToNotebookModal from './notebooks/SaveQueryToNotebookModal.vue';
+import SqlNotebooksWorkspace from './notebooks/SqlNotebooksWorkspace.vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from 'radix-vue';
 import { completeWithSavedProvider } from '../composables/useAiProvider';
+import { appendSqlToNotebook, loadSqlNotebookState } from '../composables/sqlNotebookStorage';
 
 // Composables
 import { isDarkTheme } from '../composables/useTheme';
@@ -348,6 +410,7 @@ import { useSchemaVisualizer } from '../composables/useSchemaVisualizer';
 
 // Types
 import { QueryTab } from '../types/dashboard';
+import type { AiCopilotMode } from '../types/aiCopilot';
 import { ResultSet } from '../types/database';
 
 const ERDiagram = defineAsyncComponent(() => import('./ERDiagram.vue'));
@@ -358,15 +421,56 @@ const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
 const isActivityMonitorOpen = ref(false);
 const imagePreviewUrl = ref<string | null>(null);
+type CellDetailViewMode = 'text' | 'hex' | 'base64';
+
+const cellDetailModal = ref<{
+    isOpen: boolean;
+    column: string;
+    rawValue: string;
+    formatLabel: string;
+    availableViews: CellDetailViewMode[];
+    selectedView: CellDetailViewMode;
+}>({
+    isOpen: false,
+    column: '',
+    rawValue: '',
+    formatLabel: 'Text',
+    availableViews: ['text'],
+    selectedView: 'text'
+});
 const schemaCompareWizard = reactive({
     isOpen: false,
     sourceName: '',
     targetName: ''
 });
-const snippetLibrary = reactive({
+const saveToNotebookModal = reactive({
     isOpen: false,
-    customItems: [] as DashboardSnippetItem[],
+    notebooks: [] as import('../types/sqlNotebook').SqlNotebook[],
+    preferredNotebookId: null as string | null,
+    queryTitle: '',
+    queryText: '',
 });
+
+interface SelectSqlNotebookDetail {
+    notebookId: string;
+}
+
+interface SqlNotebookStorageUpdatedDetail {
+    storageKey: string;
+    notebookId: string;
+}
+
+const emitSelectSqlNotebook = (detail: SelectSqlNotebookDetail) => {
+    window.dispatchEvent(new CustomEvent<SelectSqlNotebookDetail>('quramate:select-sql-notebook', {
+        detail,
+    }));
+};
+
+const emitSqlNotebookStorageUpdated = (detail: SqlNotebookStorageUpdatedDetail) => {
+    window.dispatchEvent(new CustomEvent<SqlNotebookStorageUpdatedDetail>('quramate:sql-notebook-storage-updated', {
+        detail,
+    }));
+};
 
 const globalSettings = ref<any>({});
 const safeModeEnabled = computed(() => {
@@ -390,132 +494,6 @@ const queryHistoryRetentionDays = computed(() => {
 });
 const showScreenshotShortcutHint = computed(() => true);
 const screenshotShortcutLabel = computed(() => DEFAULT_GRID_SCREENSHOT_SHORTCUT);
-const builtInSnippetItems = computed<DashboardSnippetItem[]>(() => {
-    const normalized = (props.dbType || '').toLowerCase();
-    const common: DashboardSnippetItem[] = [
-        {
-            id: 'ddl-create-index-review',
-            title: 'Index Review Checklist',
-            description: 'Review missing and duplicate indexes before applying changes.',
-            category: 'Maintenance',
-            sql: `-- Index review checklist
--- 1) Inspect current indexes
--- 2) Validate predicate / sort coverage
--- 3) Estimate write amplification before rollout`,
-            isBuiltIn: true,
-        },
-        {
-            id: 'dml-safe-bulk-update',
-            title: 'Safe Bulk Update',
-            description: 'Transaction-first DML template with preview and rollback.',
-            category: 'DML',
-            sql: `BEGIN;
-
-SELECT COUNT(*) AS would_affect_rows
-FROM {{table_name}}
-WHERE {{predicate}};
-
-UPDATE {{table_name}}
-SET {{set_clause}}
-WHERE {{predicate}};
-
-ROLLBACK;
--- COMMIT;`,
-            isBuiltIn: true,
-        },
-    ];
-
-    if (normalized.includes('mssql') || normalized.includes('sqlserver')) {
-        return common.concat([
-            {
-                id: 'mssql-lock-scan',
-                title: 'Blocking Sessions Snapshot',
-                description: 'Inspect waiting sessions and blockers on SQL Server.',
-                category: 'Maintenance',
-                dbTypes: ['mssql', 'sqlserver'],
-                sql: `SELECT
-    r.session_id,
-    r.blocking_session_id,
-    r.status,
-    r.wait_type,
-    DB_NAME(r.database_id) AS database_name,
-    SUBSTRING(t.text, (r.statement_start_offset / 2) + 1,
-        ((CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(t.text) ELSE r.statement_end_offset END - r.statement_start_offset) / 2) + 1) AS statement_text
-FROM sys.dm_exec_requests r
-CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t
-WHERE r.session_id <> @@SPID
-  AND (DB_NAME(r.database_id) = '{{database_name}}' OR '{{database_name}}' = '')
-ORDER BY r.blocking_session_id DESC, r.session_id;`,
-                isBuiltIn: true,
-            },
-            {
-                id: 'mssql-index-fragmentation',
-                title: 'Index Fragmentation Review',
-                description: 'Inspect fragmentation and page counts before rebuild/reorganize.',
-                category: 'DDL',
-                dbTypes: ['mssql', 'sqlserver'],
-                sql: `SELECT
-    OBJECT_NAME(ips.object_id) AS table_name,
-    i.name AS index_name,
-    ips.avg_fragmentation_in_percent,
-    ips.page_count
-FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED') ips
-JOIN sys.indexes i
-  ON ips.object_id = i.object_id AND ips.index_id = i.index_id
-WHERE ips.page_count > 100
-ORDER BY ips.avg_fragmentation_in_percent DESC;`,
-                isBuiltIn: true,
-            },
-        ]);
-    }
-
-    if (normalized.includes('postgres') || normalized.includes('greenplum') || normalized.includes('redshift') || normalized.includes('cockroach')) {
-        return common.concat([
-            {
-                id: 'pg-lock-scan',
-                title: 'Blocking Sessions Snapshot',
-                description: 'Inspect blockers and blocked sessions on PostgreSQL-family databases.',
-                category: 'Maintenance',
-                dbTypes: ['postgres', 'greenplum', 'redshift', 'cockroach'],
-                sql: `SELECT
-    blocked.pid AS blocked_pid,
-    blocker.pid AS blocker_pid,
-    blocked.query AS blocked_query,
-    blocker.query AS blocker_query
-FROM pg_stat_activity blocked
-JOIN pg_locks blocked_locks ON blocked.pid = blocked_locks.pid
-JOIN pg_locks blocker_locks
-  ON blocked_locks.locktype = blocker_locks.locktype
- AND blocked_locks.database IS NOT DISTINCT FROM blocker_locks.database
- AND blocked_locks.relation IS NOT DISTINCT FROM blocker_locks.relation
- AND blocked_locks.page IS NOT DISTINCT FROM blocker_locks.page
- AND blocked_locks.tuple IS NOT DISTINCT FROM blocker_locks.tuple
- AND blocked_locks.classid IS NOT DISTINCT FROM blocker_locks.classid
- AND blocked_locks.objid IS NOT DISTINCT FROM blocker_locks.objid
- AND blocked_locks.objsubid IS NOT DISTINCT FROM blocker_locks.objsubid
- AND blocked_locks.pid <> blocker_locks.pid
-JOIN pg_stat_activity blocker ON blocker.pid = blocker_locks.pid
-WHERE NOT blocked_locks.granted
-  AND blocker_locks.granted;`,
-                isBuiltIn: true,
-            },
-        ]);
-    }
-
-    return common.concat([
-        {
-            id: 'mysql-processlist-review',
-            title: 'Processlist Review',
-            description: 'Inspect active sessions and long-running commands.',
-            category: 'Maintenance',
-            dbTypes: ['mysql', 'mariadb', 'databend'],
-            sql: `SHOW FULL PROCESSLIST;`,
-            isBuiltIn: true,
-        },
-    ]);
-});
-const allSnippetItems = computed(() => builtInSnippetItems.value.concat(snippetLibrary.customItems));
-
 const resultImageDialog = ref<{
     isOpen: boolean;
     imageUrl: string;
@@ -536,23 +514,117 @@ const resultImageDialog = ref<{
     totalRows: 0
 });
 
-const loadSnippetLibrary = async () => {
-    try {
-        const savedSnippetsJson = await LoadSetting(snippetLibraryStorageKey.value);
-        if (!savedSnippetsJson) {
-            snippetLibrary.customItems = [];
-            return;
+const openImagePreview = (url: any) => {
+    if (url) imagePreviewUrl.value = String(url);
+};
+
+const formatCellDetailValue = (value: unknown): { value: string; formatLabel: string } => {
+    if (value === null) {
+        return { value: 'NULL', formatLabel: 'Null' };
+    }
+
+    if (typeof value === 'object') {
+        try {
+            return {
+                value: JSON.stringify(value, null, 2),
+                formatLabel: 'JSON'
+            };
+        } catch {
+            return { value: String(value), formatLabel: 'Text' };
         }
-        const parsed = JSON.parse(savedSnippetsJson);
-        snippetLibrary.customItems = Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-        console.error('Failed to load snippet library', e);
-        snippetLibrary.customItems = [];
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        const looksLikeJson = (trimmed.startsWith('{') && trimmed.endsWith('}'))
+            || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+        if (looksLikeJson) {
+            try {
+                return {
+                    value: JSON.stringify(JSON.parse(trimmed), null, 2),
+                    formatLabel: 'JSON'
+                };
+            } catch {
+                return { value, formatLabel: 'Text' };
+            }
+        }
+
+        return { value, formatLabel: 'Text' };
+    }
+
+    return { value: String(value), formatLabel: typeof value };
+};
+
+const inferContextMenuResultSetIndex = (): number => {
+    if (contextMenu.targetResultSetIndex !== null) {
+        return contextMenu.targetResultSetIndex;
+    }
+
+    if (typeof contextMenu.targetRowIndex === 'string') {
+        const parts = contextMenu.targetRowIndex.split('-');
+        if (parts.length === 3 && parts[0] === 'sub') {
+            const subIndex = Number.parseInt(parts[1], 10);
+            if (Number.isFinite(subIndex)) {
+                return subIndex + 1;
+            }
+        }
+    }
+
+    return 0;
+};
+
+const getContextMenuColumnType = (): string => {
+    if (!activeTab.value || !contextMenu.targetColumn) {
+        return '';
+    }
+
+    const resultSetIndex = inferContextMenuResultSetIndex();
+    const resultSet = activeTab.value.resultSets?.[resultSetIndex];
+    if (!resultSet?.columns || !resultSet.columnTypes) {
+        return '';
+    }
+
+    const columnIndex = resultSet.columns.indexOf(contextMenu.targetColumn);
+    if (columnIndex < 0) {
+        return '';
+    }
+
+    return String(resultSet.columnTypes[columnIndex]?.type || '').toUpperCase();
+};
+
+const isBinaryColumnType = (type: string): boolean => {
+    return type.includes('BLOB')
+        || type.includes('BINARY')
+        || type.includes('VARBINARY')
+        || type.includes('BYTEA');
+};
+
+const isLikelyBase64 = (value: string): boolean => {
+    const normalized = value.trim();
+    return normalized.length > 0
+        && normalized.length % 4 === 0
+        && !/[^A-Za-z0-9+/=]/.test(normalized);
+};
+
+const base64ToHex = (value: string): string => {
+    try {
+        const bytes = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+        return Array.from(bytes)
+            .map((byte) => byte.toString(16).padStart(2, '0'))
+            .join(' ');
+    } catch {
+        return value;
     }
 };
 
-const openImagePreview = (url: any) => {
-    if (url) imagePreviewUrl.value = String(url);
+const getCellDetailDisplayValue = (): string => {
+    const modal = cellDetailModal.value;
+    if (modal.selectedView === 'hex') {
+        return base64ToHex(modal.rawValue);
+    }
+
+    return modal.rawValue;
 };
 
 const copyTextToClipboard = async (text: string, successMessage: string, errorMessage: string): Promise<boolean> => {
@@ -611,7 +683,14 @@ const isImageValue = (val: any, col: string) => {
 
 const handleRunHistoryQuery = (query: string) => {
     isHistoryOpen.value = false;
-    if (activeTab.value && !activeTab.value.isERView && !activeTab.value.isDesignView) {
+    if (
+        activeTab.value &&
+        !activeTab.value.isERView &&
+        !activeTab.value.isDesignView &&
+        !activeTab.value.isActivityMonitorView &&
+        !activeTab.value.isSqlNotebookView &&
+        !activeTab.value.isAiCopilotView
+    ) {
         activeTab.value.query = query;
         setTimeout(() => {
             runQuery();
@@ -778,9 +857,47 @@ const {
     tabCounter,
     activeTab,
     addTab,
-    closeTab,
+    closeTab: closeTabInternal,
     generateId
 } = useTabs();
+
+type NotebookSaveHandler = () => Promise<boolean>;
+
+interface NotebookWindowRegistry extends Window {
+    __quraMateDirtyNotebookTabs?: Set<string>;
+    __quraMateNotebookSaveHandlers?: Map<string, NotebookSaveHandler>;
+}
+
+const hasDirtySqlNotebookTab = (tabId: string): boolean => {
+    const notebookWindow = window as NotebookWindowRegistry;
+    return notebookWindow.__quraMateDirtyNotebookTabs?.has(tabId) ?? false;
+};
+
+const saveSqlNotebookTab = async (tabId: string): Promise<boolean> => {
+    const notebookWindow = window as NotebookWindowRegistry;
+    const handler = notebookWindow.__quraMateNotebookSaveHandlers?.get(tabId);
+    if (!handler) {
+        return true;
+    }
+    return handler();
+};
+
+const closeTab = async (id: string) => {
+    const tab = tabs.value.find((item) => item.id === id);
+    if (tab?.isSqlNotebookView && hasDirtySqlNotebookTab(id)) {
+        const shouldSave = window.confirm('This SQL Notebook has unsaved changes. Save before closing this tab?');
+        if (!shouldSave) {
+            return;
+        }
+
+        const didSave = await saveSqlNotebookTab(id);
+        if (!didSave || hasDirtySqlNotebookTab(id)) {
+            return;
+        }
+    }
+
+    closeTabInternal(id);
+};
 
 const DASHBOARD_TAB_SESSION_VERSION = 1;
 
@@ -801,6 +918,8 @@ interface PersistedDashboardTab {
     routineType?: 'PROCEDURE' | 'FUNCTION';
     sqlFilePath?: string;
     isActivityMonitorView?: boolean;
+    isSqlNotebookView?: boolean;
+    isAiCopilotView?: boolean;
 }
 
 interface PersistedDashboardSession {
@@ -831,9 +950,14 @@ const planBaselineStorageKey = computed(() => {
     return `dashboard_plan_baselines:${dbTypeSegment}:${connectionSegment}`;
 });
 
-const snippetLibraryStorageKey = computed(() => {
+const sqlNotebookStorageKey = computed(() => {
+    if (props.sessionKey) {
+        return `dashboard_sql_notebooks:${sanitizeSessionSegment(props.sessionKey)}`;
+    }
+
     const dbTypeSegment = sanitizeSessionSegment(props.dbType);
-    return `dashboard_snippets:${dbTypeSegment}`;
+    const connectionSegment = sanitizeSessionSegment(props.connectionName || props.connectionId);
+    return `dashboard_sql_notebooks:${dbTypeSegment}:${connectionSegment}`;
 });
 
 interface SavedPlanBaseline {
@@ -869,6 +993,8 @@ const toPersistedDashboardTab = (tab: QueryTab): PersistedDashboardTab => ({
     routineType: tab.routineType,
     sqlFilePath: tab.sqlFilePath,
     isActivityMonitorView: !!tab.isActivityMonitorView,
+    isSqlNotebookView: !!tab.isSqlNotebookView,
+    isAiCopilotView: !!tab.isAiCopilotView,
 });
 
 const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
@@ -911,6 +1037,8 @@ const fromPersistedDashboardTab = (saved: PersistedDashboardTab): QueryTab => {
         routineType: saved.routineType,
         sqlFilePath: saved.sqlFilePath,
         isActivityMonitorView: !!saved.isActivityMonitorView,
+        isSqlNotebookView: !!saved.isSqlNotebookView,
+        isAiCopilotView: !!saved.isAiCopilotView,
     };
 };
 
@@ -1015,6 +1143,15 @@ const initializeDashboardState = async () => {
     if (!restored) {
         tabs.value = [];
         addTab();
+        return;
+    }
+
+    const preferredQueryTab = tabs.value.find((tab) =>
+        !tab.isActivityMonitorView && !tab.isSqlNotebookView && !tab.isAiCopilotView,
+    );
+
+    if (preferredQueryTab) {
+        activeTabId.value = preferredQueryTab.id;
     }
 };
 const {
@@ -1063,6 +1200,71 @@ const openActivityMonitorTab = () => {
     monitorTab.resultSets = markRaw([]);
     monitorTab.queryExecuted = false;
     monitorTab.isActivityMonitorView = true;
+};
+
+const openSqlNotebooksTab = () => {
+    const existingTab = tabs.value.find((tab) => tab.isSqlNotebookView);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        return;
+    }
+
+    const newTabId = addTab();
+    const notebookTab = tabs.value.find((tab) => tab.id === newTabId);
+    if (!notebookTab) {
+        return;
+    }
+
+    notebookTab.name = 'SQL Notebooks';
+    notebookTab.query = '';
+    notebookTab.error = '';
+    notebookTab.resultSets = markRaw([]);
+    notebookTab.queryExecuted = false;
+    notebookTab.isSqlNotebookView = true;
+};
+
+const openAiCopilotTab = (mode?: AiCopilotMode) => {
+    const existingTab = tabs.value.find((tab) => tab.isAiCopilotView);
+    if (existingTab) {
+        activeTabId.value = existingTab.id;
+        aiCopilot.isOpen = true;
+        if (mode) {
+            setAiCopilotMode(mode);
+        }
+        return;
+    }
+
+    addTab();
+    const copilotTab = activeTab.value;
+    if (!copilotTab) {
+        return;
+    }
+
+    copilotTab.name = 'AI Copilot';
+    copilotTab.query = '';
+    copilotTab.error = '';
+    copilotTab.resultSets = markRaw([]);
+    copilotTab.queryExecuted = false;
+    copilotTab.isAiCopilotView = true;
+    aiCopilot.isOpen = true;
+    if (mode) {
+        setAiCopilotMode(mode);
+    }
+}
+
+const closeAiCopilotTab = () => {
+    aiCopilot.isOpen = false;
+
+    const currentTab = activeTab.value;
+    if (currentTab?.isAiCopilotView) {
+        closeTab(currentTab.id);
+        return;
+    }
+
+    const copilotTab = tabs.value.find((tab) => tab.isAiCopilotView);
+    if (copilotTab) {
+        closeTab(copilotTab.id);
+    }
 };
 
 const openHistoryPanel = () => {
@@ -1441,6 +1643,38 @@ const handleCopyCellValue = async () => {
     }
 };
 
+const handleViewCellDetails = async () => {
+    if (!contextMenu.targetRow || !contextMenu.targetColumn) {
+        return;
+    }
+
+    const value = contextMenu.targetRow[contextMenu.targetColumn];
+    const formatted = formatCellDetailValue(value);
+
+    cellDetailModal.value = {
+        isOpen: true,
+        column: contextMenu.targetColumn,
+        rawValue: formatted.value,
+        formatLabel: formatted.formatLabel,
+        availableViews: ['text'],
+        selectedView: 'text',
+    };
+
+    closeContextMenu();
+};
+
+const closeCellDetailModal = () => {
+    cellDetailModal.value.isOpen = false;
+};
+
+const copyCellDetailValue = async () => {
+    await copyTextToClipboard(
+        getCellDetailDisplayValue(),
+        'Cell detail copied to clipboard',
+        'Failed to copy cell detail'
+    );
+};
+
 const handleCopyRowWithHeader = async () => {
     const isMultiSelected = Array.isArray(selectedRowIndex.value)
         ? (contextMenu.targetRowIndex !== null && selectedRowIndex.value.includes(contextMenu.targetRowIndex))
@@ -1792,7 +2026,14 @@ const toggleSort = (col: string) => {
 
 const selectTable = async (tableName: string) => {
     // Check if table is already open in a tab
-    const existingTab = tabs.value.find(t => t.tableName === tableName);
+    const existingTab = tabs.value.find((t) =>
+        t.tableName === tableName &&
+        !t.isDesignView &&
+        !t.isERView &&
+        !t.isActivityMonitorView &&
+        !t.isSqlNotebookView &&
+        !t.isAiCopilotView,
+    );
 
     if (existingTab) {
         activeTabId.value = existingTab.id;
@@ -1806,6 +2047,9 @@ const selectTable = async (tableName: string) => {
         !currentTab.query &&
         !currentTab.isDesignView &&
         !currentTab.isERView &&
+        !currentTab.isActivityMonitorView &&
+        !currentTab.isSqlNotebookView &&
+        !currentTab.isAiCopilotView &&
         !currentTab.queryExecuted;
 
     if (!isPristine) {
@@ -1840,7 +2084,14 @@ const selectTable = async (tableName: string) => {
 
 const selectRoutine = async (name: string, routineType: 'PROCEDURE' | 'FUNCTION') => {
     // Check if routine is already open in a tab
-    const existingTab = tabs.value.find(t => t.name === name && !t.isDesignView && !t.isERView);
+    const existingTab = tabs.value.find((t) =>
+        t.name === name &&
+        !t.isDesignView &&
+        !t.isERView &&
+        !t.isActivityMonitorView &&
+        !t.isSqlNotebookView &&
+        !t.isAiCopilotView,
+    );
 
     if (existingTab) {
         activeTabId.value = existingTab.id;
@@ -1854,6 +2105,9 @@ const selectRoutine = async (name: string, routineType: 'PROCEDURE' | 'FUNCTION'
         !currentTab.query &&
         !currentTab.isDesignView &&
         !currentTab.isERView &&
+        !currentTab.isActivityMonitorView &&
+        !currentTab.isSqlNotebookView &&
+        !currentTab.isAiCopilotView &&
         !currentTab.queryExecuted;
 
     if (!isPristine) {
@@ -1953,7 +2207,14 @@ const handleViewDesign = () => {
 // ... View Logic ...
 
 const selectView = (viewName: string) => {
-    const existingTab = tabs.value.find(t => t.tableName === viewName && !t.isDesignView && !t.isERView);
+    const existingTab = tabs.value.find((t) =>
+        t.tableName === viewName &&
+        !t.isDesignView &&
+        !t.isERView &&
+        !t.isActivityMonitorView &&
+        !t.isSqlNotebookView &&
+        !t.isAiCopilotView,
+    );
     if (existingTab) {
         activeTabId.value = existingTab.id;
         return;
@@ -1965,6 +2226,9 @@ const selectView = (viewName: string) => {
         !currentTab.query &&
         !currentTab.isDesignView &&
         !currentTab.isERView &&
+        !currentTab.isActivityMonitorView &&
+        !currentTab.isSqlNotebookView &&
+        !currentTab.isAiCopilotView &&
         !currentTab.queryExecuted;
 
     if (!isPristine) {
@@ -2350,6 +2614,9 @@ const openSqlTemplateTab = (tabName: string, sql: string) => {
         !currentTab.query &&
         !currentTab.isDesignView &&
         !currentTab.isERView &&
+        !currentTab.isActivityMonitorView &&
+        !currentTab.isSqlNotebookView &&
+        !currentTab.isAiCopilotView &&
         !currentTab.queryExecuted;
 
     if (!isPristine) {
@@ -2391,6 +2658,65 @@ const openExplainPlanTab = () => {
     }
 
     openSqlTemplateTab('Execution Plan', buildExplainPlanSql(sourceSql));
+};
+
+const openSaveToNotebookModal = async () => {
+    const sql = (workspaceRef.value?.getSelection?.() || activeTab.value?.query || '').trim();
+    if (!sql) {
+        toastRef.value?.error('Write or select SQL first.');
+        return;
+    }
+
+    const dbType = props.dbType || 'unknown';
+    const connectionName = props.connectionName || props.connectionId;
+    const state = await loadSqlNotebookState(sqlNotebookStorageKey.value, dbType, connectionName);
+
+    saveToNotebookModal.notebooks = state.notebooks;
+    saveToNotebookModal.preferredNotebookId = state.activeNotebookId;
+    saveToNotebookModal.queryTitle = activeTab.value?.name || 'Saved Query';
+    saveToNotebookModal.queryText = sql;
+    saveToNotebookModal.isOpen = true;
+};
+
+const closeSaveToNotebookModal = () => {
+    saveToNotebookModal.isOpen = false;
+    saveToNotebookModal.preferredNotebookId = null;
+};
+
+const saveCurrentQueryToNotebook = async (payload: {
+    notebookId?: string;
+    notebookTitle?: string;
+    sqlTitle: string;
+    description?: string;
+}) => {
+    try {
+        const notebook = await appendSqlToNotebook({
+            storageKey: sqlNotebookStorageKey.value,
+            dbType: props.dbType || 'unknown',
+            connectionName: props.connectionName || props.connectionId,
+            notebookId: payload.notebookId,
+            notebookTitle: payload.notebookTitle,
+            sqlTitle: payload.sqlTitle,
+            sql: saveToNotebookModal.queryText,
+            description: payload.description,
+        });
+
+        saveToNotebookModal.isOpen = false;
+        emitSqlNotebookStorageUpdated({
+            storageKey: sqlNotebookStorageKey.value,
+            notebookId: notebook.id,
+        });
+        toastRef.value?.success(`Saved to ${notebook.title}.`);
+        openSqlNotebooksTab();
+        void nextTick(() => {
+            emitSelectSqlNotebook({
+                notebookId: notebook.id,
+            });
+        });
+    } catch (error) {
+        console.error('Failed to save query to SQL notebook', error);
+        toastRef.value?.error('Failed to save query to SQL notebook.');
+    }
 };
 
 const summarizeCurrentPlanResult = (): SavedPlanBaseline | null => {
@@ -2469,51 +2795,6 @@ const compareExecutionPlanBaseline = async () => {
     } catch (e) {
         console.error('Failed to compare plan baseline', e);
         toastRef.value?.error('Failed to compare plan baseline.');
-    }
-};
-
-const applySnippetToEditor = (payload: { snippet: DashboardSnippetItem; resolvedSql: string }) => {
-    snippetLibrary.isOpen = false;
-    if (!activeTab.value || activeTab.value.isERView || activeTab.value.isDesignView) {
-        addTab();
-    }
-    if (!activeTab.value) {
-        return;
-    }
-    activeTab.value.query = payload.resolvedSql;
-    activeTab.value.name = payload.snippet.title;
-    activeTab.value.queryExecuted = false;
-    activeTab.value.resultSets = markRaw([]);
-    activeTab.value.error = '';
-};
-
-const saveCustomSnippet = async (payload: { title: string; description: string; sql: string; category: string }) => {
-    const item: DashboardSnippetItem = {
-        id: `custom-${Date.now()}`,
-        title: payload.title,
-        description: payload.description,
-        sql: payload.sql,
-        category: payload.category,
-        isBuiltIn: false,
-    };
-    snippetLibrary.customItems = [...snippetLibrary.customItems, item];
-    try {
-        await SaveSetting(snippetLibraryStorageKey.value, JSON.stringify(snippetLibrary.customItems));
-        toastRef.value?.success('Runbook saved.');
-    } catch (e) {
-        console.error('Failed to save snippet', e);
-        toastRef.value?.error('Failed to save runbook.');
-    }
-};
-
-const deleteCustomSnippet = async (snippetId: string) => {
-    snippetLibrary.customItems = snippetLibrary.customItems.filter((item) => item.id !== snippetId);
-    try {
-        await SaveSetting(snippetLibraryStorageKey.value, JSON.stringify(snippetLibrary.customItems));
-        toastRef.value?.success('Runbook deleted.');
-    } catch (e) {
-        console.error('Failed to delete snippet', e);
-        toastRef.value?.error('Failed to delete runbook.');
     }
 };
 
@@ -3369,7 +3650,6 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
 const {
     aiCopilot,
     aiCopilotModeOptions,
-    openAiCopilot,
     setAiCopilotMode,
     runAiCopilot,
     applyAiSqlToEditor,
@@ -3554,6 +3834,9 @@ const handleKeydown = (e: KeyboardEvent) => {
     }
 
     if (withModifier && key === 's') {
+        if (activeTab.value?.isSqlNotebookView) {
+            return;
+        }
         e.preventDefault();
         void saveCurrentQueryToFile(e.shiftKey);
         return;
@@ -3609,7 +3892,6 @@ onMounted(async () => {
         if (savedSettingsJson) {
             globalSettings.value = JSON.parse(savedSettingsJson);
         }
-        await loadSnippetLibrary();
     } catch (e) {
         console.error("Failed to load dashboard settings", e);
     }
@@ -3654,6 +3936,9 @@ const handleOpenSqlFile = (e: CustomEvent<OpenSqlFileDetail>) => {
             !targetTab.query &&
             !targetTab.isDesignView &&
             !targetTab.isERView &&
+            !targetTab.isActivityMonitorView &&
+            !targetTab.isSqlNotebookView &&
+            !targetTab.isAiCopilotView &&
             !targetTab.queryExecuted;
 
         if (!isPristine) {
@@ -3671,6 +3956,7 @@ const handleOpenSqlFile = (e: CustomEvent<OpenSqlFileDetail>) => {
         }
     }
 };
+
 // Handlers for record operations (exposed for template)
 const handleSetNull = () => initiateQuickUpdate(null, contextMenu.targetRow, contextMenu.targetColumn);
 const handleSetEmpty = () => initiateQuickUpdate('', contextMenu.targetRow, contextMenu.targetColumn);
@@ -3691,12 +3977,7 @@ const getColDef = (col: string) => {
 watch(() => props.connectionId, (newId) => {
     if (newId) {
         void initializeDashboardState();
-        void loadSnippetLibrary();
     }
-});
-
-watch(() => props.dbType, () => {
-    void loadSnippetLibrary();
 });
 
 watch(activeTabId, () => {

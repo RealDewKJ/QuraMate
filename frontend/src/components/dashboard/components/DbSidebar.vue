@@ -6,6 +6,8 @@ interface Props {
     connectionName?: string;
     dbType: string;
     activityTaskCount: number;
+    isSqlNotebooksActive?: boolean;
+    isAiCopilotActive?: boolean;
     tableSearch: string;
     viewSearch: string;
     storedProcedureSearch: string;
@@ -23,6 +25,7 @@ const emit = defineEmits<{
     'open-db-context-menu': [event: MouseEvent];
     'open-history': [];
     'open-activity-monitor': [];
+    'open-sql-notebooks': [];
     'open-ai-copilot': [];
     'open-database-info': [];
     'open-settings': [];
@@ -47,7 +50,7 @@ const { t } = useI18n({ useScope: 'global' });
     <div class="w-64 border-r border-border bg-card flex flex-col transition-all duration-300">
         <div class="p-4 border-b border-border flex items-center gap-2 cursor-pointer hover:bg-accent/50 transition-colors"
             @contextmenu.prevent="emit('open-db-context-menu', $event)">
-            <img src="../../assets/images/new-icon.png" width="24" height="24" alt="Logo" class="object-contain" />
+                    <img src="../../../assets/images/new-icon.png" width="24" height="24" alt="Logo" class="object-contain" />
             <span class="font-semibold tracking-tight truncate flex-1" :title="connectionName || dbType || 'Database'">
                 {{ connectionName || dbType || 'Database' }}
             </span>
@@ -77,8 +80,31 @@ const { t } = useI18n({ useScope: 'global' });
                         {{ activityTaskCount }}
                     </span>
                 </button>
+                <button
+                    @click="emit('open-sql-notebooks')"
+                    title="SQL Notebooks"
+                    class="h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors"
+                    :class="props.isSqlNotebooksActive
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-book-open-text">
+                        <path d="M12 7v14" />
+                        <path d="M16 12h2" />
+                        <path d="M16 8h2" />
+                        <path
+                            d="M3 18a2 2 0 0 1 2-2h7a4 4 0 0 1 4 4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" />
+                        <path
+                            d="M21 18a2 2 0 0 0-2-2h-7a4 4 0 0 0-4 4V6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                </button>
                 <button @click="emit('open-ai-copilot')" :title="t('common.aiCopilot.title')"
-                    class="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                    class="h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors"
+                    :class="props.isAiCopilotActive
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                         class="lucide lucide-sparkles">

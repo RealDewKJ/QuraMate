@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue';
 
-import type { DashboardContextMenuState } from '../../composables/useDashboardContextMenus';
+import type { DashboardContextMenuState } from '../../../composables/useDashboardContextMenus';
 
-import { Kbd } from '../ui/kbd';
+import { Kbd } from '../../ui/kbd';
 
 interface Props {
     contextMenu: DashboardContextMenuState;
@@ -35,6 +35,7 @@ interface Props {
     handleFolderCollapseAll: () => void;
     handleCopyRow: () => void | Promise<void>;
     handleCopyRowWithHeader: () => void | Promise<void>;
+    handleViewCellDetails: () => void | Promise<void>;
     handleCopyCellValue: () => void | Promise<void>;
     handleCopyCellValueWithHeader: () => void | Promise<void>;
     handleCopyHeaderName: () => void | Promise<void>;
@@ -86,6 +87,7 @@ const {
     handleFolderCollapseAll,
     handleCopyRow,
     handleCopyRowWithHeader,
+    handleViewCellDetails,
     handleCopyCellValue,
     handleCopyCellValueWithHeader,
     handleCopyHeaderName,
@@ -965,6 +967,20 @@ watch(() => contextMenu.showRow, (show) => {
                     Copy Cell Value
                 </div>
                 <Kbd class="text-[10px] pointer-events-none h-4 px-1">Ctrl + C</Kbd>
+            </button>
+            <button @click="handleViewCellDetails"
+                :class="plainMenuItemClass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-expand">
+                    <path d="m15 3 6 6" />
+                    <path d="M21 3h-6" />
+                    <path d="M21 9V3" />
+                    <path d="m9 21-6-6" />
+                    <path d="M3 21h6" />
+                    <path d="M3 15v6" />
+                </svg>
+                View Full Value
             </button>
             <button @click="handleCopyCellValueWithHeader"
                 :class="plainMenuItemClass">

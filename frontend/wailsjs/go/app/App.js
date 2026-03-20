@@ -30,6 +30,10 @@ export function ConnectDB(arg1) {
   return window['go']['app']['App']['ConnectDB'](arg1);
 }
 
+export function CreateNotebookShareCode(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['CreateNotebookShareCode'](arg1, arg2, arg3, arg4);
+}
+
 export function CreateTable(arg1, arg2, arg3) {
   return window['go']['app']['App']['CreateTable'](arg1, arg2, arg3);
 }
@@ -196,6 +200,10 @@ export function PerformUpdate(arg1) {
 
 export function ReadTextFile(arg1) {
   return window['go']['app']['App']['ReadTextFile'](arg1);
+}
+
+export function ResolveNotebookShareCode(arg1, arg2) {
+  return window['go']['app']['App']['ResolveNotebookShareCode'](arg1, arg2);
 }
 
 export function SaveAIProviderKey(arg1, arg2) {

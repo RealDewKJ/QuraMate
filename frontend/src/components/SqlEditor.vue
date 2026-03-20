@@ -1,5 +1,5 @@
 <template>
-    <div ref="editorContainer" class="w-full h-full min-h-[100px] border border-input rounded-md overflow-hidden"></div>
+    <div ref="editorContainer" class="sql-editor-container relative z-30 w-full h-full min-h-[100px] overflow-hidden rounded-md"></div>
 </template>
 
 <script lang="ts" setup>
@@ -82,6 +82,9 @@ onMounted(() => {
             padding: { top: 10, bottom: 10 },
             lineNumbers: 'on',
             renderLineHighlight: 'all',
+            fixedOverflowWidgets: true,
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
         });
 
         // Use useResizeObserver for better performance than automaticLayout
@@ -336,5 +339,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Optional: specific overrides if needed */
+.sql-editor-container :deep(.monaco-editor),
+.sql-editor-container :deep(.overflow-guard),
+.sql-editor-container :deep(.monaco-scrollable-element) {
+    overflow: hidden !important;
+}
+
+.sql-editor-container :deep(.suggest-widget),
+.sql-editor-container :deep(.monaco-editor-hover),
+.sql-editor-container :deep(.parameter-hints-widget) {
+    z-index: 9999 !important;
+}
 </style>

@@ -1,8 +1,11 @@
 <template>
-    <div v-if="isOpen" class="fixed inset-0 z-[90] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
+    <div v-if="isOpen" :class="rootClass">
         <div
-            class="relative z-[91] w-full max-w-5xl max-h-[86vh] bg-background border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            v-if="!embedded"
+            class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            @click="$emit('close')"
+        ></div>
+        <div :class="panelClass">
             <div class="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
                 <div>
                     <h3 class="text-base font-semibold">{{ t("common.aiCopilot.title") }}</h3>
@@ -17,7 +20,7 @@
                     </svg>
                 </button>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 overflow-auto">
+            <div :class="contentClass">
                 <div class="space-y-3">
                     <div class="grid gap-2">
                         <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Task</label>
@@ -58,7 +61,7 @@
                     <p v-if="error" class="text-xs text-red-500 break-all">{{ error }}</p>
                     <p v-if="latencyMs > 0" class="text-xs text-muted-foreground">Latency: {{ latencyMs }} ms</p>
                 </div>
-                <div class="border border-border rounded-md bg-card min-h-[360px] flex flex-col overflow-hidden">
+                    <div class="border border-border rounded-md bg-card min-h-[360px] flex flex-col overflow-hidden">
                     <div class="flex items-center justify-between gap-3 px-3 py-2 border-b border-border">
                         <div class="text-xs font-semibold uppercase text-muted-foreground">AI Output</div>
                         <div class="inline-flex rounded-md border border-border bg-muted/50 p-1">
@@ -246,7 +249,7 @@ interface ParagraphBlock {
 
 type OutputBlock = HeadingBlock | CodeBlock | ListBlock | ParagraphBlock;
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     isOpen: boolean;
     mode: AiCopilotMode;
     modeOptions: AiCopilotModeOption[];
@@ -257,7 +260,10 @@ const props = defineProps<{
     error: string;
     latencyMs: number;
     suggestedSql: string;
-}>();
+    embedded?: boolean;
+}>(), {
+    embedded: false,
+});
 
 const emit = defineEmits<{
     (e: 'close'): void;
@@ -270,6 +276,21 @@ const emit = defineEmits<{
 const { t } = useI18n({ useScope: 'global' });
 const viewMode = ref<'formatted' | 'raw'>('formatted');
 const sqlActionStatus = ref('Use these actions when the response contains runnable SQL.');
+const rootClass = computed(() =>
+    props.embedded
+        ? 'flex h-full flex-col overflow-hidden bg-background'
+        : 'fixed inset-0 z-[90] flex items-center justify-center p-4',
+);
+const panelClass = computed(() =>
+    props.embedded
+        ? 'flex h-full w-full flex-col overflow-hidden bg-background'
+        : 'relative z-[91] flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl',
+);
+const contentClass = computed(() =>
+    props.embedded
+        ? 'grid flex-1 grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-2'
+        : 'grid grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-2',
+);
 
 const selectedMode = computed({
     get: () => props.mode,
@@ -450,7 +471,7 @@ const copySuggestedSql = async () => {
 };
 
 const handleEscapeKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && props.isOpen) {
+    if (event.key === 'Escape' && props.isOpen && !props.embedded) {
         emit('close');
     }
 };

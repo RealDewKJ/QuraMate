@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { computed, toRef, ref } from 'vue';
 import { useVirtualList } from '@vueuse/core';
-import type { QueryTab } from '../../types/dashboard';
-import DatePicker from '../DatePicker.vue';
+import type { QueryTab } from '../../../types/dashboard';
+import DatePicker from '../../DatePicker.vue';
 
 interface Props {
     resultSet: any;
@@ -147,6 +147,42 @@ const isImageValue = (value: any, col: string): boolean => {
     return false;
 };
 
+const getColumnType = (col: string): string => {
+    const columnIndex = props.resultSet?.columns?.indexOf(col) ?? -1;
+    if (columnIndex < 0) {
+        return '';
+    }
+
+    return String(props.resultSet?.columnTypes?.[columnIndex]?.type || '').toUpperCase();
+};
+
+const isBinaryColumn = (col: string): boolean => {
+    const columnType = getColumnType(col);
+    return columnType.includes('BLOB')
+        || columnType.includes('BINARY')
+        || columnType.includes('VARBINARY')
+        || columnType.includes('BYTEA');
+};
+
+const estimateBase64ByteLength = (value: string): number | null => {
+    const normalized = value.trim();
+    if (!normalized || normalized.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(normalized)) {
+        return null;
+    }
+
+    const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+};
+
+const getBinarySummary = (value: unknown, col: string): string => {
+    const byteLength = typeof value === 'string' ? estimateBase64ByteLength(value) : null;
+    if (byteLength !== null) {
+        return `[${getColumnType(col) || 'BLOB'} ${byteLength} bytes]`;
+    }
+
+    return `[${getColumnType(col) || 'BLOB'}]`;
+};
+
 const getEditorType = (col: string): string => {
     // Attempt basic typing inference over column name since we don't have types here
     const lower = col.toLowerCase();
@@ -168,6 +204,123 @@ const isCellEditing = (index: number, col: string) => {
 
 // --- Cell Selection Dragging --- 
 const isDragging = ref(false);
+const jsonPreview = ref<{
+    isOpen: boolean;
+    column: string;
+    formattedValue: string;
+}>({
+    isOpen: false,
+    column: '',
+    formattedValue: ''
+});
+
+const parseJsonValue = (value: unknown): unknown | null => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    if (typeof value === 'object') {
+        return value;
+    }
+
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    const looksLikeJson = (trimmed.startsWith('{') && trimmed.endsWith('}'))
+        || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+    if (!looksLikeJson) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return null;
+    }
+};
+
+const formatJsonValue = (value: unknown): string | null => {
+    const parsed = parseJsonValue(value);
+    if (parsed === null) {
+        return null;
+    }
+
+    try {
+        return JSON.stringify(parsed, null, 2);
+    } catch {
+        return null;
+    }
+};
+
+const isJsonValue = (value: unknown): boolean => {
+    return formatJsonValue(value) !== null;
+};
+
+const getJsonSummary = (value: unknown): string => {
+    const formatted = formatJsonValue(value);
+    if (!formatted) {
+        return '';
+    }
+
+    const singleLine = formatted.replace(/\s+/g, ' ').trim();
+    return singleLine.length > 96 ? `${singleLine.slice(0, 96)}...` : singleLine;
+};
+
+const getDisplayValue = (value: unknown): string => {
+    if (value === null) {
+        return 'NULL';
+    }
+
+    if (value === undefined) {
+        return '';
+    }
+
+    if (typeof value === 'object') {
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return String(value);
+        }
+    }
+
+    return String(value);
+};
+
+const getCellDisplayValue = (value: unknown, col: string): string => {
+    if (isBinaryColumn(col)) {
+        return getBinarySummary(value, col);
+    }
+
+    return getDisplayValue(value);
+};
+
+const openJsonPreview = (col: string, value: unknown) => {
+    const formattedValue = formatJsonValue(value);
+    if (!formattedValue) {
+        return;
+    }
+
+    jsonPreview.value = {
+        isOpen: true,
+        column: col,
+        formattedValue,
+    };
+};
+
+const closeJsonPreview = () => {
+    jsonPreview.value.isOpen = false;
+};
+
+const copyJsonPreview = async () => {
+    if (!jsonPreview.value.formattedValue) {
+        return;
+    }
+
+    await navigator.clipboard.writeText(jsonPreview.value.formattedValue);
+};
 
 const handleCellMouseDown = (rIndex: number | string, col: string, e: MouseEvent) => {
     if (e.button !== 0) return; // Only left click
@@ -287,7 +440,7 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                                 @keydown.esc="activeTab.editingCell = null" />
                         </div>
                         <div v-else class="flex items-center gap-2 overflow-hidden w-full h-full">
-                            <div v-if="isImageValue(item.data[col], col)"
+                            <div v-if="!isBinaryColumn(col) && isImageValue(item.data[col], col)"
                                 class="shrink-0 h-7 w-7 rounded border border-border overflow-hidden bg-muted flex items-center justify-center group/img relative cursor-pointer hover:bg-muted/80 dark:border-zinc-700/70 dark:bg-zinc-900/80 dark:hover:bg-zinc-800/80"
                                 @click.stop="emit('openImagePreview', item.data[col])" title="Click to view full image">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -299,8 +452,20 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                                     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                                 </svg>
                             </div>
-                            <span class="truncate block flex-1" :title="String(item.data[col])">
-                                {{ item.data[col] === null ? 'NULL' : item.data[col] }}
+                            <template v-else-if="!isBinaryColumn(col) && isJsonValue(item.data[col])">
+                                <button
+                                    class="shrink-0 inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 transition-colors hover:bg-amber-500/20 dark:text-amber-300"
+                                    @click.stop="openJsonPreview(col, item.data[col])"
+                                    title="Open JSON preview"
+                                >
+                                    JSON
+                                </button>
+                                <span class="truncate block flex-1" :title="getJsonSummary(item.data[col])">
+                                    {{ getJsonSummary(item.data[col]) }}
+                                </span>
+                            </template>
+                            <span v-else class="truncate block flex-1" :title="getCellDisplayValue(item.data[col], col)">
+                                {{ getCellDisplayValue(item.data[col], col) }}
                             </span>
                         </div>
                     </td>
@@ -338,6 +503,49 @@ const handleCellMouseEnter = (rIndex: number | string, col: string) => {
                 </svg>
                 Row
             </button>
+        </div>
+    </div>
+
+    <div v-if="jsonPreview.isOpen" class="fixed inset-0 z-[85] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60" @click="closeJsonPreview"></div>
+
+        <div class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+            <div class="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-5 py-3">
+                <div class="min-w-0">
+                    <h3 class="truncate text-base font-semibold">JSON Preview</h3>
+                    <p class="truncate text-xs text-muted-foreground">{{ jsonPreview.column }}</p>
+                </div>
+                <button
+                    class="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    @click="closeJsonPreview"
+                    title="Close"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="overflow-auto bg-background/70 p-5">
+                <pre class="overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/20 p-4 text-xs text-foreground">{{ jsonPreview.formattedValue }}</pre>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-border bg-muted/20 px-4 py-3">
+                <button
+                    class="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    @click="void copyJsonPreview()"
+                >
+                    Copy JSON
+                </button>
+                <button
+                    class="inline-flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    @click="closeJsonPreview"
+                >
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 </template>

@@ -1,4 +1,5 @@
 import { createI18n } from "vue-i18n";
+import { LoadSetting, SaveSetting } from "../wailsjs/go/app/App";
 
 export const supportedLocales = ["en", "th", "zh", "ja", "vi"] as const;
 export type SupportedLocale = (typeof supportedLocales)[number];
@@ -10,7 +11,7 @@ type LocaleMessageSchema = Record<string, unknown>;
 type LocaleMessages = Record<SupportedLocale, Record<LocaleNamespace, LocaleMessageSchema>>;
 
 const DEFAULT_LOCALE: SupportedLocale = "en";
-const STORAGE_KEY = "language";
+const LOCALE_SETTING_KEY = "app_locale";
 
 const localeFiles = import.meta.glob("../locales/*/*.json", {
   eager: true,
@@ -75,12 +76,10 @@ export const normalizeLocale = (value?: string | null): SupportedLocale => {
 };
 
 export const getStoredLocale = (): SupportedLocale => {
-  const savedLocale =
-    typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
   const browserLocale =
     typeof navigator !== "undefined" ? navigator.language : DEFAULT_LOCALE;
 
-  return normalizeLocale(savedLocale || browserLocale);
+  return normalizeLocale(browserLocale);
 };
 
 const applyDocumentLocale = (locale: SupportedLocale) => {
@@ -110,12 +109,31 @@ applyDocumentLocale(initialLocale);
 export const setAppLocale = (nextLocale: string): SupportedLocale => {
   const normalizedLocale = normalizeLocale(nextLocale);
   i18n.global.locale.value = normalizedLocale;
+  applyDocumentLocale(normalizedLocale);
+  return normalizedLocale;
+};
 
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, normalizedLocale);
+export const hydrateAppLocale = async (): Promise<SupportedLocale> => {
+  let storedLocale = "";
+
+  try {
+    storedLocale = await LoadSetting(LOCALE_SETTING_KEY);
+  } catch (error) {
+    console.error("Failed to load persisted locale", error);
   }
 
-  applyDocumentLocale(normalizedLocale);
+  return setAppLocale(storedLocale || getStoredLocale());
+};
+
+export const persistAppLocale = async (nextLocale: string): Promise<SupportedLocale> => {
+  const normalizedLocale = setAppLocale(nextLocale);
+
+  try {
+    await SaveSetting(LOCALE_SETTING_KEY, normalizedLocale);
+  } catch (error) {
+    console.error("Failed to persist locale", error);
+  }
+
   return normalizedLocale;
 };
 

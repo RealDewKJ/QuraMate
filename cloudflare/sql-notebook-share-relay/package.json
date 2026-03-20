@@ -1,0 +1,16 @@
+{
+  "name": "sql-notebook-share-relay",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260314.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.33.0"
+  }
+}

@@ -43,6 +43,8 @@ export interface QueryTab {
     routineType?: 'PROCEDURE' | 'FUNCTION';
     sqlFilePath?: string;
     isActivityMonitorView?: boolean;
+    isSqlNotebookView?: boolean;
+    isAiCopilotView?: boolean;
 }
 
 export interface ContextMenuState {

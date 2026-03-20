@@ -1193,65 +1193,94 @@
                                     {{ t("common.settings.ai.modelHelp") }}
                                 </p>
 
-                                <div class="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                                    <div class="text-xs text-muted-foreground">
-                                        {{ t("common.settings.ai.sharingDisclosure") }}
+                                <div class="rounded-lg border border-border/60 bg-muted/20 p-4">
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-center justify-between gap-3 text-left"
+                                        @click="isAiAdvancedSettingsOpen = !isAiAdvancedSettingsOpen"
+                                    >
+                                        <div>
+                                            <div class="text-sm font-medium text-foreground">Advanced Settings</div>
+                                            <div class="mt-1 text-xs text-muted-foreground">
+                                                Open provider sharing controls and endpoint overrides only when needed.
+                                            </div>
+                                        </div>
+                                        <svg
+                                            class="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150"
+                                            :class="isAiAdvancedSettingsOpen ? 'rotate-180' : ''"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                fill-rule="evenodd"
+                                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                                clip-rule="evenodd"
+                                            />
+                                        </svg>
+                                    </button>
+
+                                    <div v-if="isAiAdvancedSettingsOpen" class="mt-4 space-y-3 border-t border-border/60 pt-4">
+                                        <div class="text-xs text-muted-foreground">
+                                            {{ t("common.settings.ai.sharingDisclosure") }}
+                                        </div>
+                                        <label class="flex items-start gap-3">
+                                            <input
+                                                v-model="settings.ai.allowCustomBaseURL"
+                                                type="checkbox"
+                                                class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                            />
+                                            <span class="space-y-1">
+                                                <span class="block text-sm font-medium">{{ t("common.settings.ai.allowCustomEndpointLabel") }}</span>
+                                                <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.allowCustomEndpointHelp") }}</span>
+                                            </span>
+                                        </label>
+                                        <label class="flex items-start gap-3">
+                                            <input
+                                                v-model="settings.ai.shareSchemaContext"
+                                                type="checkbox"
+                                                class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                            />
+                                            <span class="space-y-1">
+                                                <span class="block text-sm font-medium">{{ t("common.settings.ai.shareSchemaContextLabel") }}</span>
+                                                <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareSchemaContextHelp") }}</span>
+                                            </span>
+                                        </label>
+                                        <label class="flex items-start gap-3">
+                                            <input
+                                                v-model="settings.ai.shareQueryHistory"
+                                                type="checkbox"
+                                                class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                            />
+                                            <span class="space-y-1">
+                                                <span class="block text-sm font-medium">{{ t("common.settings.ai.shareQueryHistoryLabel") }}</span>
+                                                <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareQueryHistoryHelp") }}</span>
+                                            </span>
+                                        </label>
+                                        <label class="flex items-start gap-3">
+                                            <input
+                                                v-model="settings.ai.shareResultSample"
+                                                type="checkbox"
+                                                class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                            />
+                                            <span class="space-y-1">
+                                                <span class="block text-sm font-medium">{{ t("common.settings.ai.shareResultSampleLabel") }}</span>
+                                                <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareResultSampleHelp") }}</span>
+                                            </span>
+                                        </label>
+                                        <label class="flex items-start gap-3">
+                                            <input
+                                                v-model="settings.ai.shareExecutionPlan"
+                                                type="checkbox"
+                                                class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                                            />
+                                            <span class="space-y-1">
+                                                <span class="block text-sm font-medium">{{ t("common.settings.ai.shareExecutionPlanLabel") }}</span>
+                                                <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareExecutionPlanHelp") }}</span>
+                                            </span>
+                                        </label>
                                     </div>
-                                    <label class="flex items-start gap-3">
-                                        <input
-                                            v-model="settings.ai.allowCustomBaseURL"
-                                            type="checkbox"
-                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                                        />
-                                        <span class="space-y-1">
-                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.allowCustomEndpointLabel") }}</span>
-                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.allowCustomEndpointHelp") }}</span>
-                                        </span>
-                                    </label>
-                                    <label class="flex items-start gap-3">
-                                        <input
-                                            v-model="settings.ai.shareSchemaContext"
-                                            type="checkbox"
-                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                                        />
-                                        <span class="space-y-1">
-                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareSchemaContextLabel") }}</span>
-                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareSchemaContextHelp") }}</span>
-                                        </span>
-                                    </label>
-                                    <label class="flex items-start gap-3">
-                                        <input
-                                            v-model="settings.ai.shareQueryHistory"
-                                            type="checkbox"
-                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                                        />
-                                        <span class="space-y-1">
-                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareQueryHistoryLabel") }}</span>
-                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareQueryHistoryHelp") }}</span>
-                                        </span>
-                                    </label>
-                                    <label class="flex items-start gap-3">
-                                        <input
-                                            v-model="settings.ai.shareResultSample"
-                                            type="checkbox"
-                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                                        />
-                                        <span class="space-y-1">
-                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareResultSampleLabel") }}</span>
-                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareResultSampleHelp") }}</span>
-                                        </span>
-                                    </label>
-                                    <label class="flex items-start gap-3">
-                                        <input
-                                            v-model="settings.ai.shareExecutionPlan"
-                                            type="checkbox"
-                                            class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                                        />
-                                        <span class="space-y-1">
-                                            <span class="block text-sm font-medium">{{ t("common.settings.ai.shareExecutionPlanLabel") }}</span>
-                                            <span class="block text-[11px] text-muted-foreground">{{ t("common.settings.ai.shareExecutionPlanHelp") }}</span>
-                                        </span>
-                                    </label>
                                 </div>
 
                                 <div class="pt-2 flex flex-col gap-2">
@@ -1692,7 +1721,7 @@ import {
 import {
     DEFAULT_GRID_SCREENSHOT_SHORTCUT,
 } from "../composables/useResultGridScreenshot";
-import { localeOptions, setAppLocale } from "../i18n";
+import { localeOptions, persistAppLocale } from "../i18n";
 
 const props = defineProps({
     isOpen: {
@@ -1737,6 +1766,7 @@ const tabs = computed(() => [
 
 const activeTab = ref("general");
 const showAiKey = ref(false);
+const isAiAdvancedSettingsOpen = ref(false);
 const isTestingProvider = ref(false);
 const isSavingSettings = ref(false);
 const providerTestResult = ref(null);
@@ -2669,9 +2699,11 @@ watch(
     () => props.isOpen,
     (newVal) => {
         if (newVal) {
+            isAiAdvancedSettingsOpen.value = false;
             loadSettings();
             return;
         }
+        isAiAdvancedSettingsOpen.value = false;
         closeSettingsDropdown();
     },
 );
@@ -2751,7 +2783,7 @@ const persistSettings = async () => {
     }
 
     syncPersistedAiSettings(normalizedAiSettings);
-    setAppLocale(settings.general.language);
+    await persistAppLocale(settings.general.language);
     emit("save", cloneJson(settings));
     return normalizedAiSettings;
 };

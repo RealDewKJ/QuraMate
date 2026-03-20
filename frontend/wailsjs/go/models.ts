@@ -62,6 +62,26 @@ export namespace app {
 	        this.message = source["message"];
 	    }
 	}
+	export class NotebookShareRelayResult {
+	    success: boolean;
+	    error: string;
+	    code: string;
+	    expiresAt: string;
+	    payloadJson: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new NotebookShareRelayResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.error = source["error"];
+	        this.code = source["code"];
+	        this.expiresAt = source["expiresAt"];
+	        this.payloadJson = source["payloadJson"];
+	    }
+	}
 	export class QueryResult {
 	    resultSets: database.ResultSet[];
 	    error: string;

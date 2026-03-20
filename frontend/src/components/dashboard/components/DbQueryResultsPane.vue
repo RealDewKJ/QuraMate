@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useEventListener } from '@vueuse/core';
 
-import DatePicker from '../DatePicker.vue';
+import DatePicker from '../../DatePicker.vue';
 import DbQueryResultsTabs from './DbQueryResultsTabs.vue';
 import DbQueryResultGrid from './DbQueryResultGrid.vue';
 
