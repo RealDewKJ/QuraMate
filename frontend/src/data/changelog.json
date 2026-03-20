@@ -1,5 +1,27 @@
 [
-    {
+  {
+    "version": "v1.2.5",
+    "date": "2026-03-20",
+    "changes": [
+      {
+        "type": "fix",
+        "text": "Switched Windows in-app updates to use the silent QuraMate-amd64-package.exe flow so updates install in the background without opening the bootstrapper UI"
+      },
+      {
+        "type": "fix",
+        "text": "Kept the bootstrapper installer dedicated to fresh installs and manual setup downloads"
+      },
+      {
+        "type": "fix",
+        "text": "Wired the app version into the updater runtime so released builds no longer show vdev"
+      },
+      {
+        "type": "chore",
+        "text": "Updated application version across app/frontend/bootstrapper manifests to 1.2.5"
+      }
+    ]
+  },
+  {
         "version":  "v1.2.4",
         "date":  "2026-03-20",
         "changes":  [

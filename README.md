@@ -47,6 +47,12 @@ No cloud. No accounts. Your data stays on your machine.
 
 ## Latest Releases
 
+### v1.2.5
+
+- Switched Windows in-app updates to use the silent `QuraMate-amd64-package.exe` flow so updates install in the background without opening the bootstrapper UI
+- Kept the bootstrapper installer for fresh installs and manual setup downloads
+- Wired the app version into the updater runtime so released builds no longer show `vdev`
+
 ### v1.2.4
 
 - Fixed the Windows in-app updater so the update bootstrapper starts automatically in update mode
