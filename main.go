@@ -4,6 +4,7 @@ import (
 	"embed"
 
 	"QuraMate/internal/app"
+	updatepkg "QuraMate/internal/updater"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -12,7 +13,11 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+var AppVersion = "dev"
+
 func main() {
+	updatepkg.AppVersion = AppVersion
+
 	// Create an instance of the app structure
 	appService := app.NewApp()
 
