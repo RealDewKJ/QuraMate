@@ -16,7 +16,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var AppVersion = "1.2.2"
+var AppVersion = "dev"
 
 const GitHubRepo = "RealDewKJ/QuraMate"
 
@@ -84,6 +84,24 @@ func deriveBootstrapperInstallerURL(downloadURL string) string {
 	}
 
 	return downloadURL[:lastSlash+1] + "QuraMate-amd64-package.exe"
+}
+
+func extractVersionFromDownloadURL(downloadURL string) string {
+	const marker = "/releases/download/v"
+
+	idx := strings.Index(downloadURL, marker)
+	if idx == -1 {
+		return ""
+	}
+
+	start := idx + len(marker)
+	remaining := downloadURL[start:]
+	end := strings.Index(remaining, "/")
+	if end == -1 {
+		return ""
+	}
+
+	return strings.TrimSpace(remaining[:end])
 }
 
 type Service struct{}
@@ -358,18 +376,30 @@ func (s *Service) PerformUpdate(downloadURL string) error {
 				executablePath = currentExecutablePath
 			}
 			installerURL := deriveBootstrapperInstallerURL(downloadURL)
+			targetVersion := extractVersionFromDownloadURL(downloadURL)
 
 			if installerURL != "" {
+				bootstrapperArgs := []string{
+					fmt.Sprintf(`--installer-url=%s`, installerURL),
+					"--mode=update",
+				}
+				if targetVersion != "" {
+					bootstrapperArgs = append(bootstrapperArgs, fmt.Sprintf(`--version=%s`, targetVersion))
+				}
+				if executablePath != "" {
+					bootstrapperArgs = append(bootstrapperArgs, fmt.Sprintf(`--executable-path=%s`, executablePath))
+				}
+
 				cmd = exec.Command(
 					"powershell",
 					"-NoProfile",
 					"-ExecutionPolicy", "Bypass",
 					"-WindowStyle", "Hidden",
 					"-Command",
-					"Start-Process -FilePath $args[0] -ArgumentList @($args[1]) -WindowStyle Normal",
+					"Start-Process -FilePath $args[0] -ArgumentList $args[1..($args.Length-1)] -WindowStyle Normal",
 					installerPath,
-					fmt.Sprintf(`--installer-url=%s`, installerURL),
 				)
+				cmd.Args = append(cmd.Args, bootstrapperArgs...)
 			} else {
 				helperPath, helperErr := createWindowsUpdateHelper(installerPath, currentPID, executablePath)
 				if helperErr != nil {

@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/sys/windows/registry"
 )
 
-var AppVersion = "1.2.2"
+var AppVersion = "dev"
 
 const githubRepo = "RealDewKJ/QuraMate"
+const uninstallRegistryRoot = `Software\Microsoft\Windows\CurrentVersion\Uninstall`
 
 type LaunchContext struct {
 	Mode           string `json:"mode"`
@@ -41,7 +43,7 @@ func (a *App) Startup(ctx context.Context) {
 
 func (a *App) GetLaunchContext() LaunchContext {
 	return LaunchContext{
-		Mode:           "install",
+		Mode:           detectMode(),
 		Version:        detectVersion(),
 		InstallerPath:  detectInstallerPath(),
 		InstallerURL:   detectInstallerURL(),
@@ -151,10 +153,33 @@ exit $installProcess.ExitCode
 }
 
 func detectVersion() string {
+	for _, arg := range os.Args[1:] {
+		if value, ok := strings.CutPrefix(arg, "--version="); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+
 	if envVersion := strings.TrimSpace(os.Getenv("QURAMATE_BOOTSTRAPPER_VERSION")); envVersion != "" {
 		return envVersion
 	}
 	return AppVersion
+}
+
+func detectMode() string {
+	for _, arg := range os.Args[1:] {
+		if value, ok := strings.CutPrefix(arg, "--mode="); ok {
+			mode := strings.ToLower(strings.TrimSpace(value))
+			if mode == "update" {
+				return "update"
+			}
+		}
+
+		if strings.HasPrefix(arg, "--installer-url=") {
+			return "update"
+		}
+	}
+
+	return "install"
 }
 
 func detectInstallerPath() string {
@@ -189,6 +214,19 @@ func detectInstallerPath() string {
 }
 
 func detectExecutablePath() string {
+	for _, arg := range os.Args[1:] {
+		if value, ok := strings.CutPrefix(arg, "--executable-path="); ok {
+			candidate := strings.TrimSpace(value)
+			if candidate != "" {
+				return filepath.Clean(candidate)
+			}
+		}
+	}
+
+	if envPath := strings.TrimSpace(os.Getenv("QURAMATE_BOOTSTRAPPER_EXECUTABLE_PATH")); envPath != "" {
+		return filepath.Clean(envPath)
+	}
+
 	installDir := detectInstallDir()
 	if installDir == "" {
 		return ""
@@ -250,9 +288,44 @@ func downloadInstallerAsset(installerURL string) (string, error) {
 }
 
 func detectInstallDir() string {
-	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
-		return filepath.Join(programFiles, "QuraMate", "QuraMate")
+	if installDir := readInstallLocationFromRegistry(); installDir != "" {
+		return installDir
 	}
+
+	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
+		return filepath.Join(programFiles, "QuraMate")
+	}
+	return ""
+}
+
+func readInstallLocationFromRegistry() string {
+	keyNames := []string{
+		"QuraMateQuraMate",
+		"QuraMate",
+	}
+
+	roots := []registry.Key{registry.LOCAL_MACHINE, registry.CURRENT_USER}
+	for _, root := range roots {
+		for _, keyName := range keyNames {
+			keyPath := uninstallRegistryRoot + `\` + keyName
+			key, err := registry.OpenKey(root, keyPath, registry.QUERY_VALUE)
+			if err != nil {
+				continue
+			}
+
+			installLocation, _, err := key.GetStringValue("InstallLocation")
+			key.Close()
+			if err != nil {
+				continue
+			}
+
+			trimmed := strings.TrimSpace(installLocation)
+			if trimmed != "" {
+				return filepath.Clean(trimmed)
+			}
+		}
+	}
+
 	return ""
 }
 

@@ -9,10 +9,10 @@ interface StatusPayload {
 
 const fallbackContext: BootstrapperLaunchContext = {
   mode: 'install',
-  version: '1.2.0',
+  version: 'dev',
   installerPath: '',
   executablePath: '',
-  installDir: 'C:\\Program Files\\QuraMate\\QuraMate',
+  installDir: 'C:\\Program Files\\QuraMate',
 };
 
 export function useBootstrapper() {
@@ -20,6 +20,7 @@ export function useBootstrapper() {
   const phase = ref<BootstrapperPhase>('loading');
   const message = ref('Getting ready');
   const error = ref('');
+  const hasAutoStarted = ref(false);
 
   const primaryActionLabel = computed(() => {
     if (phase.value === 'installing' || phase.value === 'handoff') {
@@ -42,6 +43,11 @@ export function useBootstrapper() {
       context.value = await app.GetLaunchContext();
       phase.value = 'ready';
       message.value = 'Ready to install';
+
+      if (context.value.mode === 'update' && !hasAutoStarted.value) {
+        hasAutoStarted.value = true;
+        void startInstall();
+      }
     } catch (err) {
       phase.value = 'error';
       error.value = err instanceof Error ? err.message : 'Unable to load bootstrapper context';
