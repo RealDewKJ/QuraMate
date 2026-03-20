@@ -1,5 +1,45 @@
 [
     {
+        "version":  "v1.2.4",
+        "date":  "2026-03-20",
+        "changes":  [
+                        {
+                            "type":  "fix",
+                            "text":  "Fixed the Windows in-app updater so the bootstrapper auto-starts when launched from an update flow"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Resolved installed executable path detection by reading the Windows uninstall registry before reopening QuraMate"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/bootstrapper manifests to 1.2.4"
+                        }
+                    ]
+    },
+    {
+        "version":  "v1.2.3",
+        "date":  "2026-03-20",
+        "changes":  [
+                        {
+                            "type":  "feat",
+                            "text":  "Added SQL Notebooks with notebook cells, variables, templates, snapshots, and share-oriented workflows"
+                        },
+                        {
+                            "type":  "refactor",
+                            "text":  "Reorganized the database dashboard into dedicated components, menus, modals, and monitor modules for easier maintenance"
+                        },
+                        {
+                            "type":  "fix",
+                            "text":  "Restored localization validation by filling missing AI settings locale keys for Thai, Chinese, Japanese, and Vietnamese"
+                        },
+                        {
+                            "type":  "chore",
+                            "text":  "Updated application version across app/frontend/npm/bootstrapper manifests to 1.2.3"
+                        }
+                    ]
+    },
+    {
         "version":  "v1.2.2",
         "date":  "2026-03-19",
         "changes":  [
