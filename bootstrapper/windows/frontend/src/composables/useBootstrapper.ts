@@ -20,7 +20,6 @@ export function useBootstrapper() {
   const phase = ref<BootstrapperPhase>('loading');
   const message = ref('Getting ready');
   const error = ref('');
-  const hasAutoStarted = ref(false);
 
   const primaryActionLabel = computed(() => {
     if (phase.value === 'installing' || phase.value === 'handoff') {
@@ -43,11 +42,6 @@ export function useBootstrapper() {
       context.value = await app.GetLaunchContext();
       phase.value = 'ready';
       message.value = 'Ready to install';
-
-      if (context.value.mode === 'update' && !hasAutoStarted.value) {
-        hasAutoStarted.value = true;
-        void startInstall();
-      }
     } catch (err) {
       phase.value = 'error';
       error.value = err instanceof Error ? err.message : 'Unable to load bootstrapper context';
@@ -79,6 +73,9 @@ export function useBootstrapper() {
         phase.value = 'handoff';
       } else if (payload.stage === 'preparing') {
         phase.value = 'installing';
+      } else if (payload.stage === 'error') {
+        phase.value = 'error';
+        error.value = payload.message || 'Bootstrapper failed to continue the update';
       }
 
       if (payload.message) {

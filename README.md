@@ -47,6 +47,11 @@ No cloud. No accounts. Your data stays on your machine.
 
 ## Latest Releases
 
+### v1.2.5
+
+- Fixed Windows in-app updates for older installed builds such as `v1.2.1` by starting the update handoff in the bootstrapper backend instead of depending on the bootstrapper UI lifecycle
+- Added bootstrapper error propagation so update handoff failures do not silently disappear
+
 ### v1.2.4
 
 - Fixed the Windows in-app updater so the update bootstrapper starts automatically in update mode

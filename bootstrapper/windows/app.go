@@ -39,6 +39,19 @@ func NewApp() *App {
 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+
+	if detectMode() == "update" {
+		go func() {
+			time.Sleep(350 * time.Millisecond)
+
+			if err := a.BeginInstall("", ""); err != nil {
+				runtime.EventsEmit(a.ctx, "bootstrapper:status", map[string]string{
+					"stage":   "error",
+					"message": fmt.Sprintf("Update bootstrapper failed: %v", err),
+				})
+			}
+		}()
+	}
 }
 
 func (a *App) GetLaunchContext() LaunchContext {
