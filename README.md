@@ -47,22 +47,14 @@ No cloud. No accounts. Your data stays on your machine.
 
 ## Latest Releases
 
-### v1.2.6
-
-- Fixed Windows updates from older installed builds by forcing the silent package install to target the currently installed QuraMate folder
-- Improved the Windows bootstrapper helper to wait for old QuraMate processes to exit before installing the update package
-- Added `%TEMP%\\QuraMate-updater.log` logging for Windows update handoff diagnostics if a machine still fails to replace the installed executable
-
-### v1.2.5
-
-- Fixed Windows in-app updates for older installed builds such as `v1.2.1` by starting the update handoff in the bootstrapper backend instead of depending on the bootstrapper UI lifecycle
-- Added bootstrapper error propagation so update handoff failures do not silently disappear
-
 ### v1.2.4
 
 - Fixed the Windows in-app updater so the update bootstrapper starts automatically in update mode
 - Improved Windows install path detection by reading the installed location from the registry before reopening QuraMate
 - Passed target version and executable context into the bootstrapper so older installed builds can hand off to the new updater flow correctly
+- Forced silent Windows update installs to target the currently installed QuraMate folder so older builds such as `v1.2.1` replace the existing executable reliably
+- Waited for older QuraMate processes to exit before starting the package installer during Windows update handoff
+- Added `%TEMP%\\QuraMate-updater.log` logging for Windows update diagnostics if a machine still fails to replace the installed executable
 
 ### v1.2.3
 
