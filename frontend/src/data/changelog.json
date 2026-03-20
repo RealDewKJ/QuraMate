@@ -1,5 +1,27 @@
 [
-    {
+  {
+    "version": "v1.2.6",
+    "date": "2026-03-20",
+    "changes": [
+      {
+        "type": "fix",
+        "text": "Fixed Windows in-app updates from older installed builds by forcing the silent package install to target the currently installed QuraMate folder"
+      },
+      {
+        "type": "fix",
+        "text": "Improved the Windows bootstrapper helper so it waits for older QuraMate processes to exit before starting the package installer"
+      },
+      {
+        "type": "fix",
+        "text": "Added a %TEMP%/QuraMate-updater.log diagnostic trail for Windows update handoff failures"
+      },
+      {
+        "type": "chore",
+        "text": "Updated application version across app/frontend/bootstrapper manifests to 1.2.6"
+      }
+    ]
+  },
+  {
         "version":  "v1.2.5",
         "date":  "2026-03-20",
         "changes":  [

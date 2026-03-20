@@ -90,13 +90,17 @@ func (a *App) BeginInstall(installerPath string, executablePath string) error {
 	if resolvedExecutablePath == "" {
 		resolvedExecutablePath = detectExecutablePath()
 	}
+	resolvedInstallDir := detectInstallDirFromExecutablePath(resolvedExecutablePath)
+	if resolvedInstallDir == "" {
+		resolvedInstallDir = detectInstallDir()
+	}
 
 	runtime.EventsEmit(a.ctx, "bootstrapper:status", map[string]string{
 		"stage":   "preparing",
 		"message": "Preparing QuraMate setup...",
 	})
 
-	helperPath, err := createBootstrapperHelper(resolvedInstallerPath, resolvedExecutablePath, os.Getpid())
+	helperPath, err := createBootstrapperHelper(resolvedInstallerPath, resolvedExecutablePath, resolvedInstallDir, os.Getpid())
 	if err != nil {
 		return err
 	}
@@ -126,31 +130,65 @@ func (a *App) BeginInstall(installerPath string, executablePath string) error {
 	return nil
 }
 
-func createBootstrapperHelper(installerPath string, executablePath string, parentPID int) (string, error) {
+func createBootstrapperHelper(installerPath string, executablePath string, installDir string, parentPID int) (string, error) {
 	escapedInstallerPath := strings.ReplaceAll(installerPath, "'", "''")
 	escapedExecutablePath := strings.ReplaceAll(executablePath, "'", "''")
+	escapedInstallDir := strings.ReplaceAll(installDir, "'", "''")
 
 	script := fmt.Sprintf(`$ErrorActionPreference = 'SilentlyContinue'
 $parentPid = %d
 $installer = '%s'
 $exePath = '%s'
+$installDir = '%s'
+$logPath = Join-Path $env:TEMP 'QuraMate-updater.log'
+
+function Write-UpdateLog {
+    param([string]$Message)
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'
+    Add-Content -Path $logPath -Value "[$timestamp] $Message" -ErrorAction SilentlyContinue
+}
+
+Write-UpdateLog "Bootstrapper helper started"
 
 while (Get-Process -Id $parentPid -ErrorAction SilentlyContinue) {
     Start-Sleep -Milliseconds 300
 }
 
-Start-Sleep -Milliseconds 500
+Write-UpdateLog "Bootstrapper process exited"
 
-$installProcess = Start-Process -FilePath $installer -ArgumentList '/S' -Verb RunAs -Wait -PassThru
+for ($i = 0; $i -lt 40; $i++) {
+    $runningApp = Get-Process -Name 'QuraMate' -ErrorAction SilentlyContinue
+    if (-not $runningApp) {
+        break
+    }
+    Start-Sleep -Milliseconds 300
+}
+
+Write-UpdateLog "Proceeding to package install"
+
+Start-Sleep -Milliseconds 700
+
+$installerArgs = @('/S', '/AUTOLAUNCHAPP=0')
+if ($installDir -ne '') {
+    $installerArgs += "/UPDATEDIR=$installDir"
+    Write-UpdateLog "Installer target dir: $installDir"
+}
+
+$installProcess = Start-Process -FilePath $installer -ArgumentList $installerArgs -Verb RunAs -Wait -PassThru
+
+Write-UpdateLog "Installer exit code: $($installProcess.ExitCode)"
 
 Start-Sleep -Milliseconds 900
 
 if ($exePath -ne '' -and (Test-Path $exePath)) {
+    Write-UpdateLog "Reopening executable: $exePath"
     Start-Process -FilePath $exePath
+} else {
+    Write-UpdateLog "Executable not reopened because it was not found: $exePath"
 }
 
 exit $installProcess.ExitCode
-`, parentPID, escapedInstallerPath, escapedExecutablePath)
+`, parentPID, escapedInstallerPath, escapedExecutablePath, escapedInstallDir)
 
 	helperFile, err := os.CreateTemp("", "QuraMate-Bootstrapper-*.ps1")
 	if err != nil {
@@ -306,9 +344,18 @@ func detectInstallDir() string {
 	}
 
 	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
-		return filepath.Join(programFiles, "QuraMate")
+		return filepath.Join(programFiles, "QuraMate", "QuraMate")
 	}
 	return ""
+}
+
+func detectInstallDirFromExecutablePath(executablePath string) string {
+	trimmedPath := strings.TrimSpace(executablePath)
+	if trimmedPath == "" {
+		return ""
+	}
+
+	return filepath.Dir(filepath.Clean(trimmedPath))
 }
 
 func readInstallLocationFromRegistry() string {

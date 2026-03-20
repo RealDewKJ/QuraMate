@@ -69,6 +69,7 @@ Var FontOption
 Var FontMetric
 Var WelcomeIconHandle
 Var OptionsIconHandle
+Var UpdatedInstallDir
 
 !define BRAND_ACCENT "E8681D"
 !define BRAND_ACCENT_SOFT "FFF4EC"
@@ -127,11 +128,20 @@ Function .onInit
 
     ${GetParameters} $0
     ${GetOptions} $0 "/AUTOLAUNCHAPP=" $SilentAutoLaunch
+    ${GetOptions} $0 "/UPDATEDIR=" $UpdatedInstallDir
+    ${If} $UpdatedInstallDir != ""
+        StrCpy $INSTDIR $UpdatedInstallDir
+    ${EndIf}
 
     IfSilent 0 done
         StrCpy $DesktopShortcut 0
         StrCpy $AutoLaunch 1
         StrCpy $AssociateFiles 0
+        ${If} $SilentAutoLaunch == "0"
+            StrCpy $AutoLaunch 0
+        ${ElseIf} $SilentAutoLaunch == "1"
+            StrCpy $AutoLaunch 1
+        ${EndIf}
     done:
 FunctionEnd
 
