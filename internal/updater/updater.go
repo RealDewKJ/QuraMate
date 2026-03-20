@@ -45,19 +45,30 @@ type githubAsset struct {
 }
 
 func resolveWindowsReleaseDownloadURL(assets []githubAsset) string {
+	var packageURL string
 	var installerURL string
 
 	for _, asset := range assets {
 		name := strings.ToLower(asset.Name)
-		if name == "quramate-amd64-installer.exe" {
+		if name == "quramate-amd64-package.exe" {
 			return asset.BrowserDownloadURL
 		}
-		if strings.Contains(name, "setup") && strings.HasSuffix(name, ".exe") {
-			return asset.BrowserDownloadURL
+		if packageURL == "" && strings.HasSuffix(name, "-package.exe") {
+			packageURL = asset.BrowserDownloadURL
+		}
+		if installerURL == "" && name == "quramate-amd64-installer.exe" {
+			installerURL = asset.BrowserDownloadURL
+		}
+		if installerURL == "" && strings.Contains(name, "setup") && strings.HasSuffix(name, ".exe") {
+			installerURL = asset.BrowserDownloadURL
 		}
 		if installerURL == "" && (strings.HasSuffix(name, "-installer.exe") || strings.HasSuffix(name, ".msi")) {
 			installerURL = asset.BrowserDownloadURL
 		}
+	}
+
+	if packageURL != "" {
+		return packageURL
 	}
 
 	return installerURL
