@@ -1451,6 +1451,7 @@ watch(
                     @share="openShareNotebook"
                     @update-cell-title="updateCell($event.cellId, { title: $event.value })"
                     @update-cell-content="updateCell($event.cellId, { content: $event.value })"
+                    @update-cell-embedded-images="updateCell($event.cellId, { embeddedImages: $event.value })"
                     @update-cell-collapsed="updateCell($event.cellId, { collapsed: $event.value })"
                     @update-cell-execution-state="handleUpdateCellExecutionState"
                     @delete-cell="openDeleteCellWarning"

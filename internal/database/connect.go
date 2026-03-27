@@ -30,6 +30,7 @@ func (d *Database) Connect(config DBConfig) error {
 		d.Disconnect()
 	}
 	d.Encoding = ""
+	config.Type = normalizeDatabaseTypeAlias(config.Type)
 
 	if isLocalDatabaseType(config.Type) {
 		config.SSHEnabled = false
@@ -154,6 +155,15 @@ func buildPostgresDSN(config DBConfig, host string, port int) string {
 	dsnURL.RawQuery = query.Encode()
 
 	return dsnURL.String()
+}
+
+func normalizeDatabaseTypeAlias(dbType string) string {
+	switch strings.ToLower(strings.TrimSpace(dbType)) {
+	case "supabase":
+		return "postgres"
+	default:
+		return strings.ToLower(strings.TrimSpace(dbType))
+	}
 }
 
 func buildMySQLDSN(config DBConfig, host string, port int, charset string) string {

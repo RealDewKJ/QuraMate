@@ -1,6 +1,7 @@
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 
 import { LoadSetting, SaveSetting } from '../../wailsjs/go/app/App';
+import { extractDataUrlImages } from '../lib/markdownImages';
 import {
     createSqlNotebook,
     createSqlNotebookCell,
@@ -8,6 +9,7 @@ import {
     type SqlNotebook,
     type SqlNotebookCell,
     type SqlNotebookCellType,
+    type SqlNotebookEmbeddedImage,
     type SqlNotebookMetadata,
     type SqlNotebookShareBundle,
     type SqlNotebookTemplatePreset,
@@ -112,6 +114,28 @@ const normalizeCell = (cell: Partial<SqlNotebookCell> | null | undefined): SqlNo
         return null;
     }
 
+    const normalizedContent = typeof cell.content === 'string' ? cell.content : '';
+    const embeddedImages = Array.isArray(cell.embeddedImages)
+        ? cell.embeddedImages
+            .map((image): SqlNotebookEmbeddedImage | null => {
+                if (!image || typeof image.id !== 'string' || typeof image.dataUrl !== 'string') {
+                    return null;
+                }
+
+                return {
+                    id: image.id,
+                    alt: typeof image.alt === 'string' && image.alt.trim().length > 0 ? image.alt.trim() : 'image',
+                    fileName: typeof image.fileName === 'string' && image.fileName.trim().length > 0 ? image.fileName : 'image',
+                    mimeType: typeof image.mimeType === 'string' && image.mimeType.trim().length > 0 ? image.mimeType : 'image/png',
+                    dataUrl: image.dataUrl,
+                };
+            })
+            .filter((image): image is SqlNotebookEmbeddedImage => !!image)
+        : [];
+    const migrated = cell.type === 'markdown'
+        ? extractDataUrlImages(normalizedContent)
+        : { content: normalizedContent, images: [] as SqlNotebookEmbeddedImage[] };
+
     const executionState: SqlNotebookExecutionState =
         cell.executionState === 'running'
             || cell.executionState === 'success'
@@ -131,10 +155,11 @@ const normalizeCell = (cell: Partial<SqlNotebookCell> | null | undefined): SqlNo
                 : cell.type === 'runbook'
                     ? 'Runbook Step'
                     : 'Notes',
-        content: typeof cell.content === 'string' ? cell.content : '',
+        content: migrated.content,
         collapsed: !!cell.collapsed,
         executionState,
         lastRunAt: typeof cell.lastRunAt === 'string' ? cell.lastRunAt : undefined,
+        embeddedImages: [...embeddedImages, ...migrated.images],
     };
 };
 
@@ -516,6 +541,9 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
         if (typeof patch.content === 'string') {
             cell.content = patch.content;
         }
+        if (Array.isArray((patch as Partial<SqlNotebookCell> & { embeddedImages?: SqlNotebookEmbeddedImage[] }).embeddedImages)) {
+            cell.embeddedImages = (patch as Partial<SqlNotebookCell> & { embeddedImages?: SqlNotebookEmbeddedImage[] }).embeddedImages;
+        }
         if (typeof patch.collapsed === 'boolean') {
             cell.collapsed = patch.collapsed;
         }
@@ -596,6 +624,7 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
             title: `${sourceCell.title} Copy`,
             executionState: 'idle',
             lastRunAt: undefined,
+            embeddedImages: sourceCell.embeddedImages?.map((image) => ({ ...image })),
         };
 
         notebook.cells.splice(index + 1, 0, duplicatedCell);
@@ -640,6 +669,7 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
             id: createSqlNotebookCell(cell.type).id,
             executionState: 'idle',
             lastRunAt: undefined,
+            embeddedImages: cell.embeddedImages?.map((image) => ({ ...image })),
         }));
 
         notebooks.value = [duplicatedNotebook, ...notebooks.value];
@@ -676,6 +706,7 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
             id: createSqlNotebookCell(cell.type).id,
             executionState: 'idle',
             lastRunAt: undefined,
+            embeddedImages: cell.embeddedImages?.map((image) => ({ ...image })),
         }));
 
         notebooks.value = [notebook, ...notebooks.value];
@@ -707,6 +738,7 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
             ...createSqlNotebookCell(cell.type),
             title: cell.title,
             content: cell.content,
+            embeddedImages: cell.embeddedImages?.map((image) => ({ ...image })),
         }));
 
         notebooks.value = [notebook, ...notebooks.value];
@@ -782,6 +814,23 @@ export function useSqlNotebooks(options: UseSqlNotebooksOptions) {
                 collapsed: !!cell.collapsed,
                 executionState: 'idle',
                 lastRunAt: undefined,
+                embeddedImages: Array.isArray(cell.embeddedImages)
+                    ? cell.embeddedImages
+                        .map((image) => {
+                            if (!image || typeof image.id !== 'string' || typeof image.dataUrl !== 'string') {
+                                return null;
+                            }
+
+                            return {
+                                id: image.id,
+                                alt: typeof image.alt === 'string' && image.alt.trim().length > 0 ? image.alt.trim() : 'image',
+                                fileName: typeof image.fileName === 'string' && image.fileName.trim().length > 0 ? image.fileName : 'image',
+                                mimeType: typeof image.mimeType === 'string' && image.mimeType.trim().length > 0 ? image.mimeType : 'image/png',
+                                dataUrl: image.dataUrl,
+                            } satisfies SqlNotebookEmbeddedImage;
+                        })
+                        .filter((image): image is SqlNotebookEmbeddedImage => !!image)
+                    : undefined,
             });
         }
 

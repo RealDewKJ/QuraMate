@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/golang-sql/sqlexp"
 )
 
 type ResultSet struct {
@@ -83,6 +85,10 @@ func (d *Database) ExecuteQuery(ctx context.Context, query string) ([]ResultSet,
 	}
 	if err := ensureQueryAllowedInReadOnlyMode(query, d.ReadOnly); err != nil {
 		return nil, err
+	}
+
+	if d.Type == "mssql" {
+		return d.executeMSSQLQueryWithMessages(ctx, query, d.persistentConn)
 	}
 
 	// Always use QueryContext to support multiple result sets (even for INSERT/UPDATE which might return results or just be part of a batch)
@@ -190,6 +196,10 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 		return nil, err
 	}
 
+	if d.Type == "mssql" {
+		return d.executeMSSQLQueryWithMessages(ctx, query, d.conn)
+	}
+
 	// Use d.conn directly
 	rows, err := d.conn.QueryContext(ctx, query)
 	if err != nil {
@@ -261,6 +271,115 @@ func (d *Database) ExecuteTransientQuery(ctx context.Context, query string) ([]R
 	}
 
 	return resultSets, nil
+}
+
+func (d *Database) executeMSSQLQueryWithMessages(ctx context.Context, query string, querier interface {
+	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+}) ([]ResultSet, error) {
+	retmsg := &sqlexp.ReturnMessage{}
+	rows, err := querier.QueryContext(ctx, query, retmsg)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	resultSets := make([]ResultSet, 0)
+	active := true
+	currentSetHadRows := false
+
+	for active {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		msg := retmsg.Message(ctx)
+		switch m := msg.(type) {
+		case sqlexp.MsgNext:
+			currentSet, err := d.readCurrentResultSet(ctx, rows)
+			if err != nil {
+				return nil, err
+			}
+			resultSets = append(resultSets, currentSet)
+			currentSetHadRows = true
+		case sqlexp.MsgRowsAffected:
+			if !currentSetHadRows {
+				resultSets = append(resultSets, ResultSet{
+					Message: formatRowsAffectedMessage(m.Count),
+				})
+			}
+		case sqlexp.MsgNextResultSet:
+			active = rows.NextResultSet()
+			currentSetHadRows = false
+		case sqlexp.MsgError:
+			return nil, m.Error
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return resultSets, nil
+}
+
+func (d *Database) readCurrentResultSet(ctx context.Context, rows *sql.Rows) (ResultSet, error) {
+	columns, err := rows.Columns()
+	if err != nil {
+		return ResultSet{}, err
+	}
+
+	currentSet := ResultSet{
+		Columns: columns,
+	}
+	columnMetas := buildColumnMetas(func() []*sql.ColumnType {
+		colTypes, _ := rows.ColumnTypes()
+		return colTypes
+	}())
+
+	if len(columns) == 0 {
+		return currentSet, nil
+	}
+
+	nCols := len(columns)
+	scanTargets := make([]interface{}, nCols)
+	scanPtrs := make([]*interface{}, nCols)
+	for i := 0; i < nCols; i++ {
+		scanPtrs[i] = new(interface{})
+		scanTargets[i] = scanPtrs[i]
+	}
+
+	currentSet.Rows = make([][]interface{}, 0, 256)
+	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return ResultSet{}, err
+		}
+
+		if err := rows.Scan(scanTargets...); err != nil {
+			return ResultSet{}, err
+		}
+
+		row := make([]interface{}, nCols)
+		for i := 0; i < nCols; i++ {
+			val := *scanPtrs[i]
+			columnType := ""
+			if i < len(columnMetas) {
+				columnType = columnMetas[i].Type
+			}
+			row[i] = d.normalizeScannedValue(val, columnType)
+		}
+		currentSet.Rows = append(currentSet.Rows, row)
+	}
+
+	return currentSet, nil
+}
+
+func formatRowsAffectedMessage(count int64) string {
+	rowLabel := "rows"
+	if count == 1 {
+		rowLabel = "row"
+	}
+
+	return fmt.Sprintf("Commands completed successfully. (%d %s affected)", count, rowLabel)
 }
 
 // ColumnMetadata holds type information for a column

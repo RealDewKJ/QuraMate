@@ -235,6 +235,20 @@ const handleCellClickCustom = (itemIndex: number | string, col: string) => {
 };
 
 // --- Copy Selection (Ctrl+C) ---
+const getVisibleRowsForResultSet = (resultSetIndex: number) => {
+    const resultSet = props.activeTab?.resultSets?.[resultSetIndex];
+    if (!resultSet) {
+        return [];
+    }
+
+    return getSecondaryFilteredRows(
+        resultSet,
+        props.activeTab?.filters,
+        props.activeTab?.sortColumn,
+        props.activeTab?.sortDirection
+    );
+};
+
 const copyCurrentSelection = () => {
     if (draggedCellSelection.value.length > 0) {
         // 1. Multi-cell dragged selection
@@ -249,6 +263,7 @@ const copyCurrentSelection = () => {
         const rsIndex = getRowIndexNumber(cells[0].row).rsIndex;
         const resultSet = props.activeTab.resultSets[rsIndex];
         if (!resultSet || !resultSet.rows) return;
+        const visibleRows = getVisibleRowsForResultSet(rsIndex);
 
         let currentStrRow = '';
         let currentRowId = cells[0].row;
@@ -262,7 +277,7 @@ const copyCurrentSelection = () => {
             }
 
             const rObj = getRowIndexNumber(cell.row);
-            const rowData = resultSet.rows[rObj.rIndex];
+            const rowData = visibleRows[rObj.rIndex];
             if (rowData) {
                 const val = rowData[cell.col];
                 const valStr = val === null ? 'NULL' : String(val);
@@ -292,8 +307,9 @@ const copyCurrentSelection = () => {
             const rObj = getRowIndexNumber(selVal);
             const resultSet = props.activeTab.resultSets[rObj.rsIndex];
             if (!resultSet || !resultSet.rows) continue;
+            const visibleRows = getVisibleRowsForResultSet(rObj.rsIndex);
 
-            const rowData = resultSet.rows[rObj.rIndex];
+            const rowData = visibleRows[rObj.rIndex];
             if (!rowData) continue;
 
             if (selectedColumn.value) {
@@ -356,12 +372,17 @@ const containsTarget = (target: EventTarget | null) => {
     return !!(node && rootRef.value?.contains(node));
 };
 
-const getSecondaryFilteredRows = (resultSet: any, filters: any) => {
+const getSecondaryFilteredRows = (
+    resultSet: any,
+    filters: any,
+    sortColumn?: string,
+    sortDirection?: 'asc' | 'desc' | null
+) => {
     if (!resultSet || !resultSet.rows) return [];
     let rows = resultSet.rows;
-    if (!filters) return rows;
-
-    const activeFilters = Object.entries(filters).filter(([_, val]) => val !== '' && val !== null && val !== undefined);
+    const activeFilters = filters
+        ? Object.entries(filters).filter(([_, val]) => val !== '' && val !== null && val !== undefined)
+        : [];
     if (activeFilters.length > 0) {
         rows = rows.filter((row: any) => {
             return activeFilters.every(([col, val]) => {
@@ -370,6 +391,22 @@ const getSecondaryFilteredRows = (resultSet: any, filters: any) => {
             });
         });
     }
+
+    if (sortColumn && sortDirection) {
+        rows = [...rows].sort((a: any, b: any) => {
+            const valA = a[sortColumn];
+            const valB = b[sortColumn];
+
+            if (valA === valB) return 0;
+            if (valA === null) return 1;
+            if (valB === null) return -1;
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
     return rows;
 };
 
@@ -657,10 +694,13 @@ defineExpose({
                     <!-- Result set messages -->
                     <template v-if="!activeTab.error && activeTab.resultSets">
                         <div v-for="(rs, idx) in activeTab.resultSets" :key="idx" class="text-foreground">
+                            <span v-if="rs.message?.trim()">
+                                {{ rs.message }}
+                            </span>
                             <span v-if="rs.columns && rs.columns.length > 0">
                                 ({{ rs.rows ? rs.rows.length : 0 }} rows affected)
                             </span>
-                            <span v-else>
+                            <span v-else-if="!rs.message?.trim()">
                                 Commands completed successfully.
                             </span>
                         </div>

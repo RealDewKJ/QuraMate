@@ -7,7 +7,7 @@ import SqlNotebookCellResults from './SqlNotebookCellResults.vue';
 import SqlCellEditor from './cells/SqlCellEditor.vue';
 
 import { parseRunbookContent } from '../../types/sqlNotebook';
-import type { SqlNotebookCell, SqlNotebookCellRunResult } from '../../types/sqlNotebook';
+import type { SqlNotebookCell, SqlNotebookCellRunResult, SqlNotebookEmbeddedImage } from '../../types/sqlNotebook';
 
 const props = defineProps<{
     cell: SqlNotebookCell;
@@ -24,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     'update-title': [payload: { cellId: string; value: string }];
     'update-content': [payload: { cellId: string; value: string }];
+    'update-embedded-images': [payload: { cellId: string; value: SqlNotebookEmbeddedImage[] }];
     'update-collapsed': [payload: { cellId: string; value: boolean }];
     'update-execution-state': [payload: { cellId: string; value: 'idle' | 'running' | 'success' | 'error' | 'verified' | 'skipped' }];
     'delete': [cellId: string];
@@ -39,6 +40,12 @@ const typeLabelByCellType = {
     sql: 'SQL',
     markdown: 'Notes',
     runbook: 'Runbook',
+} as const;
+
+const typeToneByCellType = {
+    sql: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    markdown: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    runbook: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
 } as const;
 
 const statusToneByExecutionState = {
@@ -128,7 +135,10 @@ const deleteButtonClass = 'inline-flex h-8 w-8 items-center justify-center round
     >
         <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div class="flex items-center gap-3">
-                <span class="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <span
+                    class="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    :class="typeToneByCellType[props.cell.type]"
+                >
                     {{ typeLabelByCellType[props.cell.type] }}
                 </span>
                 <span
@@ -234,13 +244,15 @@ const deleteButtonClass = 'inline-flex h-8 w-8 items-center justify-center round
                 @update:content="emit('update-content', { cellId: props.cell.id, value: $event })"
                 @run="emit('run', props.cell.id)"
             />
-            <MarkdownCellEditor
-                v-else-if="props.cell.type === 'markdown'"
-                :title="props.cell.title"
-                :content="props.cell.content"
-                @update:title="emit('update-title', { cellId: props.cell.id, value: $event })"
-                @update:content="emit('update-content', { cellId: props.cell.id, value: $event })"
-            />
+    <MarkdownCellEditor
+            v-else-if="props.cell.type === 'markdown'"
+            :title="props.cell.title"
+            :content="props.cell.content"
+            :embedded-images="props.cell.embeddedImages"
+            @update:title="emit('update-title', { cellId: props.cell.id, value: $event })"
+            @update:content="emit('update-content', { cellId: props.cell.id, value: $event })"
+            @update:embedded-images="emit('update-embedded-images', { cellId: props.cell.id, value: $event })"
+        />
             <RunbookCellEditor
                 v-else
                 :title="props.cell.title"

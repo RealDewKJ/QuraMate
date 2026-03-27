@@ -4,7 +4,7 @@ import { computed } from 'vue';
 import SqlNotebookCellList from './SqlNotebookCellList.vue';
 import SqlNotebookHeader from './SqlNotebookHeader.vue';
 
-import type { SqlNotebook, SqlNotebookCellRunResult } from '../../types/sqlNotebook';
+import type { SqlNotebook, SqlNotebookCellRunResult, SqlNotebookEmbeddedImage } from '../../types/sqlNotebook';
 
 const props = defineProps<{
     notebook: SqlNotebook | null;
@@ -29,6 +29,7 @@ const emit = defineEmits<{
     share: [];
     'update-cell-title': [payload: { cellId: string; value: string }];
     'update-cell-content': [payload: { cellId: string; value: string }];
+    'update-cell-embedded-images': [payload: { cellId: string; value: SqlNotebookEmbeddedImage[] }];
     'update-cell-collapsed': [payload: { cellId: string; value: boolean }];
     'update-cell-execution-state': [payload: { cellId: string; value: 'idle' | 'running' | 'success' | 'error' | 'verified' | 'skipped' }];
     'delete-cell': [cellId: string];
@@ -85,6 +86,7 @@ const runbookCellCount = computed(() => {
             :is-read-only="props.isReadOnly"
             @update-title="emit('update-cell-title', $event)"
             @update-content="emit('update-cell-content', $event)"
+            @update-embedded-images="emit('update-cell-embedded-images', $event)"
             @update-collapsed="emit('update-cell-collapsed', $event)"
             @update-execution-state="emit('update-cell-execution-state', $event)"
             @delete-cell="emit('delete-cell', $event)"

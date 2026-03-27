@@ -387,6 +387,7 @@ watch(
 
 const isPostgresLike = (type: string) =>
     type === "postgres" ||
+    type === "supabase" ||
     type === "greenplum" ||
     type === "redshift" ||
     type === "cockroachdb";

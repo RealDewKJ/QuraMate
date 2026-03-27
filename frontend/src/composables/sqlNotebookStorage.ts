@@ -1,7 +1,9 @@
 import { LoadSetting, SaveSetting } from '../../wailsjs/go/app/App';
+import { extractDataUrlImages } from '../lib/markdownImages';
 import {
     createSqlNotebook,
     createSqlNotebookCell,
+    type SqlNotebookEmbeddedImage,
     type SqlNotebook,
     type SqlNotebookCell,
     type SqlNotebookMetadata,
@@ -26,6 +28,26 @@ const normalizeCell = (cell: Partial<SqlNotebookCell> | null | undefined): SqlNo
         return null;
     }
 
+    const normalizedContent = typeof cell.content === 'string' ? cell.content : '';
+    const embeddedImages = Array.isArray(cell.embeddedImages)
+        ? cell.embeddedImages
+            .map((image): SqlNotebookEmbeddedImage | null => {
+                if (!image || typeof image.id !== 'string' || typeof image.dataUrl !== 'string') {
+                    return null;
+                }
+
+                return {
+                    id: image.id,
+                    alt: typeof image.alt === 'string' && image.alt.trim().length > 0 ? image.alt.trim() : 'image',
+                    fileName: typeof image.fileName === 'string' && image.fileName.trim().length > 0 ? image.fileName : 'image',
+                    mimeType: typeof image.mimeType === 'string' && image.mimeType.trim().length > 0 ? image.mimeType : 'image/png',
+                    dataUrl: image.dataUrl,
+                };
+            })
+            .filter((image): image is SqlNotebookEmbeddedImage => !!image)
+        : [];
+    const migrated = extractDataUrlImages(normalizedContent);
+
     return {
         id: cell.id,
         type: cell.type,
@@ -34,12 +56,13 @@ const normalizeCell = (cell: Partial<SqlNotebookCell> | null | undefined): SqlNo
             : cell.type === 'sql'
                 ? 'SQL Cell'
                 : 'Notes',
-        content: typeof cell.content === 'string' ? cell.content : '',
+        content: migrated.content,
         collapsed: !!cell.collapsed,
         executionState: cell.executionState === 'running' || cell.executionState === 'success' || cell.executionState === 'error'
             ? cell.executionState
             : 'idle',
         lastRunAt: typeof cell.lastRunAt === 'string' ? cell.lastRunAt : undefined,
+        embeddedImages: [...embeddedImages, ...migrated.images],
     };
 };
 

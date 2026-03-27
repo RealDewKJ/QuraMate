@@ -81,6 +81,15 @@ type sqlNotebookCell struct {
 	Collapsed      bool   `json:"collapsed"`
 	ExecutionState string `json:"executionState"`
 	LastRunAt      string `json:"lastRunAt,omitempty"`
+	EmbeddedImages  []sqlNotebookEmbeddedImage `json:"embeddedImages,omitempty"`
+}
+
+type sqlNotebookEmbeddedImage struct {
+	ID       string `json:"id"`
+	Alt      string `json:"alt"`
+	FileName string `json:"fileName"`
+	MimeType string `json:"mimeType"`
+	DataURL  string `json:"dataUrl"`
 }
 
 var sensitiveQuotedValuePattern = regexp.MustCompile(`(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b\s*(=|:)\s*('(?:''|[^'])*'|"(?:\\"|[^"])*")`)
@@ -271,6 +280,7 @@ func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
 			type TEXT NOT NULL,
 			title TEXT NOT NULL,
 			content TEXT NOT NULL,
+			embedded_images_json TEXT NOT NULL DEFAULT '[]',
 			collapsed BOOLEAN NOT NULL DEFAULT 0,
 			execution_state TEXT NOT NULL DEFAULT 'idle',
 			last_run_at TEXT NOT NULL DEFAULT '',
@@ -278,6 +288,10 @@ func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
 		);
 	`)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := ensureSQLNotebookCellEmbeddedImagesColumn(conn); err != nil {
 		return nil, err
 	}
 
@@ -295,6 +309,35 @@ func newLocalDBWithPath(dbPath string) (*LocalDB, error) {
 	}
 	initialized = true
 	return l, nil
+}
+
+func ensureSQLNotebookCellEmbeddedImagesColumn(conn *sql.DB) error {
+	rows, err := conn.Query(`PRAGMA table_info(sql_notebook_cells)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == "embedded_images_json" {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	_, err = conn.Exec(`ALTER TABLE sql_notebook_cells ADD COLUMN embedded_images_json TEXT NOT NULL DEFAULT '[]'`)
+	return err
 }
 
 func (l *LocalDB) initQueryHistoryIndexes() error {
@@ -486,12 +529,20 @@ func (l *LocalDB) saveSQLNotebookStateLocked(storageKey string, value string) er
 			if err != nil {
 				return err
 			}
+			embeddedImagesJSON, err := json.Marshal(cell.EmbeddedImages)
+			if err != nil {
+				return err
+			}
+			encryptedEmbeddedImages, err := l.encryptValueIfNeededLocked(string(embeddedImagesJSON))
+			if err != nil {
+				return err
+			}
 
 			if _, err = tx.Exec(`
 				INSERT INTO sql_notebook_cells (
-					id, notebook_id, position, type, title, content, collapsed, execution_state, last_run_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, cell.ID, notebook.ID, index, cell.Type, cellTitle, cellContent, cell.Collapsed, cell.ExecutionState, cell.LastRunAt); err != nil {
+					id, notebook_id, position, type, title, content, embedded_images_json, collapsed, execution_state, last_run_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, cell.ID, notebook.ID, index, cell.Type, cellTitle, cellContent, encryptedEmbeddedImages, cell.Collapsed, cell.ExecutionState, cell.LastRunAt); err != nil {
 				return err
 			}
 		}
@@ -630,7 +681,7 @@ func (l *LocalDB) readSQLNotebookStateLocked(storageKey string) (sqlNotebookWork
 
 func (l *LocalDB) loadSQLNotebookCellsLocked(notebookID string) ([]sqlNotebookCell, error) {
 	rows, err := l.conn.Query(`
-		SELECT id, type, title, content, collapsed, execution_state, last_run_at
+		SELECT id, type, title, content, embedded_images_json, collapsed, execution_state, last_run_at
 		FROM sql_notebook_cells
 		WHERE notebook_id = ?
 		ORDER BY position ASC, id ASC
@@ -645,7 +696,8 @@ func (l *LocalDB) loadSQLNotebookCellsLocked(notebookID string) ([]sqlNotebookCe
 		var cell sqlNotebookCell
 		var encryptedTitle string
 		var encryptedContent string
-		if err := rows.Scan(&cell.ID, &cell.Type, &encryptedTitle, &encryptedContent, &cell.Collapsed, &cell.ExecutionState, &cell.LastRunAt); err != nil {
+		var encryptedEmbeddedImages string
+		if err := rows.Scan(&cell.ID, &cell.Type, &encryptedTitle, &encryptedContent, &encryptedEmbeddedImages, &cell.Collapsed, &cell.ExecutionState, &cell.LastRunAt); err != nil {
 			return nil, err
 		}
 		cell.Title, err = l.decryptValueIfNeededLocked(encryptedTitle)
@@ -654,6 +706,15 @@ func (l *LocalDB) loadSQLNotebookCellsLocked(notebookID string) ([]sqlNotebookCe
 		}
 		cell.Content, err = l.decryptValueIfNeededLocked(encryptedContent)
 		if err != nil {
+			return nil, err
+		}
+		decryptedEmbeddedImages, err := l.decryptValueIfNeededLocked(encryptedEmbeddedImages)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(decryptedEmbeddedImages) == "" {
+			cell.EmbeddedImages = []sqlNotebookEmbeddedImage{}
+		} else if err := json.Unmarshal([]byte(decryptedEmbeddedImages), &cell.EmbeddedImages); err != nil {
 			return nil, err
 		}
 		cells = append(cells, cell)

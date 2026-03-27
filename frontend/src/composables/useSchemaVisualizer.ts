@@ -146,7 +146,7 @@ WHERE c.object_id = OBJECT_ID(N'[${escapedSchema}].[${escapedTable}]')
 ORDER BY c.column_id`;
                     }
                     return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl}'`;
-                } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+                } else if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
                     return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tbl}'`;
                 } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
                     return `DESCRIBE ${tbl}`;

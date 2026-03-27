@@ -44,9 +44,9 @@ const emit = defineEmits<{
 const getSecondaryFilteredRows = (resultSet: any, filters: any, sortColumn?: string, sortDirection?: 'asc' | 'desc' | null) => {
     if (!resultSet || !resultSet.rows) return [];
     let rows = resultSet.rows;
-    if (!filters) return rows;
-
-    const activeFilters = Object.entries(filters).filter(([_, val]) => val !== '' && val !== null && val !== undefined);
+    const activeFilters = filters
+        ? Object.entries(filters).filter(([_, val]) => val !== '' && val !== null && val !== undefined)
+        : [];
     if (activeFilters.length > 0) {
         rows = rows.filter((row: any) => {
             return activeFilters.every(([col, val]) => {

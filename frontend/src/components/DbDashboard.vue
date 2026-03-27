@@ -1753,7 +1753,7 @@ const handleAddWhereToCondition = () => {
         const type = (props.dbType || '').toLowerCase();
         let escapedCol = col;
 
-        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
+        if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroachdb') || type.includes('sqlite') || type.includes('duckdb')) {
             escapedCol = `"${col}"`;
         } else if (type.includes('mysql') || type.includes('mariadb') || type.includes('databend')) {
             escapedCol = `\`${col}\``;
@@ -2365,7 +2365,7 @@ const handleExecuteRoutine = () => {
         const dbType = (props.dbType || '').toLowerCase();
 
         let template = '';
-        if (dbType.includes('postgres') || dbType.includes('greenplum')) {
+        if (dbType.includes('postgres') || dbType.includes('supabase') || dbType.includes('greenplum')) {
             if (type === 'FUNCTION') {
                 template = `SELECT ${routine}(/* parameters */);`;
             } else {
@@ -2430,7 +2430,7 @@ const handleNewRoutine = (type: 'PROCEDURE' | 'FUNCTION') => {
         activeTab.value.routineName = placeholderName;
 
         let template = '';
-        if (dbType.includes('postgres') || dbType.includes('greenplum')) {
+        if (dbType.includes('postgres') || dbType.includes('supabase') || dbType.includes('greenplum')) {
             if (type === 'PROCEDURE') {
                 template = `CREATE OR REPLACE PROCEDURE ${placeholderName}(/* parameters */)
 LANGUAGE plpgsql
@@ -2531,7 +2531,7 @@ const handleScriptRoutine = () => {
         if (type.includes('mssql')) {
             activeTab.value.query = `EXEC sp_helptext '${escapedRoutineLiteral}'`;
             setTimeout(() => runQuery(), 50);
-        } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+        } else if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
             activeTab.value.query = `SELECT pg_get_functiondef('${escapedRoutineLiteral}'::regproc)`;
             // This might fail if schema is needed or not in search path, but good attempt
         } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
@@ -2896,7 +2896,7 @@ const buildSchemaCompareMigrationSql = (sourceName: string, targetName: string) 
     const targetLiteral = escapeSqlLiteral(targetName);
     let sql = '';
 
-    if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+    if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
         sql = `-- Schema Compare + Migration Preview (PostgreSQL family)
 -- Set schemas before running:
 -- source_schema: desired schema
@@ -3521,7 +3521,7 @@ ORDER BY c.column_id`;
                 }
                 const schemaFilter = schema ? ` AND TABLE_SCHEMA = '${escapedSchemaLiteral}'` : '';
                 return `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedNameLiteral}'${schemaFilter}`;
-            } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+            } else if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
                 const schemaFilter = schema ? ` AND table_schema = '${escapedSchemaLiteral}'` : '';
                 return `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${escapedNameLiteral}'${schemaFilter}`;
             } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
@@ -3603,7 +3603,7 @@ const fetchTableColumns = async (tableName: string): Promise<string[]> => {
     if (type.includes('mssql') || type.includes('sqlserver')) {
         const schemaFilter = schema ? ` AND TABLE_SCHEMA = '${escapedSchemaLiteral}'` : '';
         query = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedNameLiteral}'${schemaFilter}`;
-    } else if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
+    } else if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) {
         const schemaFilter = schema ? ` AND table_schema = '${escapedSchemaLiteral}'` : '';
         query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${escapedNameLiteral}'${schemaFilter}`;
     } else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) {
@@ -3680,7 +3680,7 @@ const beautifyQuery = () => {
         const type = (props.dbType || '').toLowerCase();
         let language = 'sql';
 
-        if (type.includes('postgres') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) language = 'postgresql';
+        if (type.includes('postgres') || type.includes('supabase') || type.includes('greenplum') || type.includes('redshift') || type.includes('cockroach')) language = 'postgresql';
         else if (type.includes('mysql') || type.includes('maria') || type.includes('databend')) language = 'mysql';
         else if (type.includes('mssql') || type.includes('sqlserver')) language = 'transactsql';
         else if (type.includes('sqlite') || type.includes('libsql')) language = 'sqlite';

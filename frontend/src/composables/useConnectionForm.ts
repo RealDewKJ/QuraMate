@@ -57,6 +57,8 @@ export interface SSHTrustAuditEntry {
   rotationReason?: string;
 }
 
+export type ConnectionInputMode = "fields" | "connectionString";
+
 type ConnectionFieldKey =
   | "host"
   | "port"
@@ -102,6 +104,7 @@ const isLocalDatabaseType = (type: string): boolean =>
 const getDefaultPortByType = (type: string): number | null => {
   switch ((type || "").toLowerCase()) {
     case "postgres":
+    case "supabase":
     case "greenplum":
     case "redshift":
       return 5432;
@@ -116,6 +119,143 @@ const getDefaultPortByType = (type: string): number | null => {
       return 1433;
     default:
       return null;
+  }
+};
+
+const CONNECTION_STRING_SUPPORTED_TYPES = new Set([
+  "postgres",
+  "supabase",
+  "greenplum",
+  "redshift",
+  "cockroachdb",
+  "mysql",
+  "mariadb",
+  "databend",
+  "mssql",
+  "sqlite",
+  "duckdb",
+  "libsql",
+]);
+
+const supportsConnectionStringType = (type: string): boolean =>
+  CONNECTION_STRING_SUPPORTED_TYPES.has((type || "").toLowerCase());
+
+const buildConnectionStringPlaceholder = (type: string): string => {
+  switch ((type || "").toLowerCase()) {
+    case "postgres":
+      return "postgres://postgres:password@localhost:5432/postgres";
+    case "supabase":
+      return "postgres://postgres.<project-ref>:password@db.<project-ref>.supabase.co:5432/postgres";
+    case "greenplum":
+      return "postgres://user:password@greenplum-host:5432/database";
+    case "redshift":
+      return "postgres://user:password@redshift-cluster:5432/dev";
+    case "cockroachdb":
+      return "postgres://root:password@localhost:26257/defaultdb";
+    case "mysql":
+    case "mariadb":
+      return "mysql://root:password@localhost:3306/database";
+    case "databend":
+      return "mysql://root:password@localhost:3307/default";
+    case "mssql":
+      return "sqlserver://sa:password@localhost:1433?database=master";
+    case "sqlite":
+      return "file:///C:/data/app.db or C:/data/app.db";
+    case "duckdb":
+      return "file:///C:/data/app.duckdb or C:/data/app.duckdb";
+    case "libsql":
+      return "file:///C:/data/app.db or C:/data/app.db";
+    default:
+      return "Enter a connection string";
+  }
+};
+
+const cleanDatabasePath = (value: string): string =>
+  value.replace(/^file:(\/\/\/)?/i, "").trim();
+
+const parseUrlBasedConnectionString = (
+  rawValue: string,
+  type: string,
+): Partial<ConnectionConfig> => {
+  const parsed = new URL(rawValue);
+  const database = parsed.pathname.replace(/^\/+/, "");
+
+  return {
+    type,
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : (getDefaultPortByType(type) || 0),
+    user: decodeURIComponent(parsed.username || ""),
+    password: decodeURIComponent(parsed.password || ""),
+    database:
+      parsed.searchParams.get("database") ||
+      decodeURIComponent(database || ""),
+  };
+};
+
+const parseMySQLConnectionString = (
+  rawValue: string,
+  type: string,
+): Partial<ConnectionConfig> => {
+  if (/^[a-z]+:\/\//i.test(rawValue)) {
+    return parseUrlBasedConnectionString(rawValue, type);
+  }
+
+  const dsnMatch = rawValue.match(
+    /^(?<user>[^:@\/?#]+)(?::(?<password>[^@\/?#]*))?@tcp\((?<host>[^:()]+)(?::(?<port>\d+))?\)\/(?<database>[^?]+)(?:\?.*)?$/i,
+  );
+  if (!dsnMatch?.groups) {
+    throw new Error("Invalid MySQL-style connection string.");
+  }
+
+  return {
+    type,
+    host: dsnMatch.groups.host || "",
+    port: dsnMatch.groups.port
+      ? Number(dsnMatch.groups.port)
+      : (getDefaultPortByType(type) || 0),
+    user: dsnMatch.groups.user || "",
+    password: dsnMatch.groups.password || "",
+    database: dsnMatch.groups.database || "",
+  };
+};
+
+const parseConnectionStringForType = (
+  rawValue: string,
+  type: string,
+): Partial<ConnectionConfig> => {
+  const trimmed = rawValue.trim();
+  const normalizedType = (type || "").toLowerCase();
+
+  if (!trimmed) {
+    throw new Error("Connection string is required.");
+  }
+
+  switch (normalizedType) {
+    case "postgres":
+    case "supabase":
+    case "greenplum":
+    case "redshift":
+    case "cockroachdb":
+      return parseUrlBasedConnectionString(trimmed, normalizedType);
+    case "mysql":
+    case "mariadb":
+    case "databend":
+      return parseMySQLConnectionString(trimmed, normalizedType);
+    case "mssql":
+      return parseUrlBasedConnectionString(trimmed, normalizedType);
+    case "sqlite":
+    case "duckdb":
+    case "libsql":
+      return {
+        type: normalizedType,
+        host: "",
+        port: 0,
+        user: "",
+        password: "",
+        database: cleanDatabasePath(trimmed),
+      };
+    default:
+      throw new Error(`Connection string is not supported for ${type}.`);
   }
 };
 
@@ -167,6 +307,10 @@ export function getConnectionLabel(conn: Partial<ConnectionConfig>): string {
     return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Redshift)`;
   if (conn.type === "cockroachdb")
     return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (CockroachDB)`;
+  if (conn.type === "supabase")
+    return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Supabase)`;
+  if (conn.type === "d1")
+    return `${conn.database || conn.host || "Cloudflare D1"} (Cloudflare D1)`;
   if (conn.type === "databend")
     return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (Databend)`;
   return `${conn.user}@${conn.host}:${conn.port}/${conn.database} (${conn.type})`;
@@ -249,9 +393,13 @@ export function useConnectionForm(
   });
 
   const config = reactive<ConnectionConfig>(buildDefaultConfig());
+  const connectionInputMode = ref<ConnectionInputMode>("fields");
+  const connectionString = ref("");
 
   const resetConfig = () => {
     Object.assign(config, buildDefaultConfig());
+    connectionInputMode.value = "fields";
+    connectionString.value = "";
   };
 
   const error = ref("");
@@ -297,6 +445,12 @@ export function useConnectionForm(
 
   const connectionLabel = computed(() => getConnectionLabel(config));
   const fieldErrors = computed<ConnectionFieldErrors>(() => buildFieldErrors(config));
+  const supportsConnectionString = computed(() =>
+    supportsConnectionStringType(config.type),
+  );
+  const connectionStringPlaceholder = computed(() =>
+    buildConnectionStringPlaceholder(config.type),
+  );
   const canTrustCurrentSshHost = computed(() => {
     if (!config.sshEnabled || isLocalDatabaseType(config.type)) return false;
     if (!config.sshHost.trim()) return false;
@@ -426,6 +580,10 @@ export function useConnectionForm(
       } else {
         config.trustServerCertificate = false;
       }
+      if (!supportsConnectionStringType(newType)) {
+        connectionInputMode.value = "fields";
+        connectionString.value = "";
+      }
     },
   );
 
@@ -453,7 +611,24 @@ export function useConnectionForm(
 
   void hydrateStorage();
 
+  const resolveEffectiveConfig = (): ConnectionConfig => {
+    if (connectionInputMode.value !== "connectionString") {
+      return applySqlServerTrustDefault({ ...config });
+    }
+
+    const parsed = parseConnectionStringForType(connectionString.value, config.type);
+    return applySqlServerTrustDefault({
+      ...config,
+      ...parsed,
+      type: parsed.type || config.type,
+    });
+  };
+
   const validateConnectionConfig = (target: ConnectionConfig): string => {
+    if ((target.type || "").toLowerCase() === "d1") {
+      return "Cloudflare D1 remote connections are not supported yet in this build.";
+    }
+
     const errors = buildFieldErrors(target);
     return (
       errors.host ||
@@ -537,7 +712,13 @@ export function useConnectionForm(
     clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
-    const effectiveConfig = applySqlServerTrustDefault({ ...config });
+    let effectiveConfig: ConnectionConfig;
+    try {
+      effectiveConfig = resolveEffectiveConfig();
+    } catch (e: any) {
+      setError(e?.message || e?.toString?.() || "Invalid connection string.");
+      return;
+    }
 
     const validationError = validateConnectionConfig(effectiveConfig);
     if (validationError) {
@@ -610,7 +791,13 @@ export function useConnectionForm(
     clearError();
     testSuccess.value = "";
     sshHostKeyInfo.value = null;
-    const effectiveConfig = applySqlServerTrustDefault({ ...config });
+    let effectiveConfig: ConnectionConfig;
+    try {
+      effectiveConfig = resolveEffectiveConfig();
+    } catch (e: any) {
+      setError(e?.message || e?.toString?.() || "Invalid connection string.");
+      return;
+    }
 
     const validationError = validateConnectionConfig(effectiveConfig);
     if (validationError) {
@@ -667,6 +854,8 @@ export function useConnectionForm(
     );
     config.password = "";
     config.sshPassword = "";
+    connectionInputMode.value = "fields";
+    connectionString.value = "";
 
     isQuickConnecting.value = true;
     connect();
@@ -683,6 +872,8 @@ export function useConnectionForm(
     );
     config.password = "";
     config.sshPassword = "";
+    connectionInputMode.value = "fields";
+    connectionString.value = "";
   };
 
   const migrateSavedConnections = async () => {
@@ -938,6 +1129,10 @@ export function useConnectionForm(
 
   return {
     config,
+    connectionInputMode,
+    connectionString,
+    supportsConnectionString,
+    connectionStringPlaceholder,
     resetConfig,
     error,
     testSuccess,

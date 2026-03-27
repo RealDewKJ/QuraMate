@@ -4,6 +4,14 @@ export type SqlNotebookExecutionState = 'idle' | 'running' | 'success' | 'error'
 
 export type SqlNotebookVariableType = 'text' | 'number' | 'date';
 
+export interface SqlNotebookEmbeddedImage {
+    id: string;
+    alt: string;
+    fileName: string;
+    mimeType: string;
+    dataUrl: string;
+}
+
 export interface SqlNotebookCell {
     id: string;
     type: SqlNotebookCellType;
@@ -12,6 +20,7 @@ export interface SqlNotebookCell {
     collapsed: boolean;
     executionState: SqlNotebookExecutionState;
     lastRunAt?: string;
+    embeddedImages?: SqlNotebookEmbeddedImage[];
 }
 
 export interface SqlNotebookVariable {
@@ -84,6 +93,7 @@ export interface SqlNotebookTemplatePreset {
         type: SqlNotebookCellType;
         title: string;
         content: string;
+        embeddedImages?: SqlNotebookEmbeddedImage[];
     }>;
 }
 
@@ -268,6 +278,7 @@ export const createSqlNotebookCell = (type: SqlNotebookCellType): SqlNotebookCel
                 : 'Document the goal, assumptions, and next steps for this notebook.',
         collapsed: false,
         executionState: type === 'runbook' ? 'idle' : 'idle',
+        embeddedImages: type === 'markdown' ? [] : undefined,
     };
 };
 
